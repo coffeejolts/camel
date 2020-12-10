@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 package org.apache.camel.dataformat.bindy.util;
+
+import org.apache.camel.dataformat.bindy.FormattingOptions;
+import org.apache.camel.dataformat.bindy.annotation.BindyConverter;
+import org.apache.camel.dataformat.bindy.annotation.DataField;
+import org.apache.camel.dataformat.bindy.annotation.KeyValuePairField;
 
 /**
  * To help return the char associated to the unicode string
@@ -39,11 +44,11 @@ public final class ConverterUtils {
 
     public static byte[] getByteReturn(String returnCharacter) {
         if (returnCharacter.equals("WINDOWS")) {
-            return new byte[] {13, 10};
+            return new byte[] { 13, 10 };
         } else if (returnCharacter.equals("UNIX")) {
-            return new byte[] {10};
+            return new byte[] { 10 };
         } else if (returnCharacter.equals("MAC")) {
-            return new byte[] {13};
+            return new byte[] { 13 };
         } else {
             return returnCharacter.getBytes();
         }
@@ -59,5 +64,31 @@ public final class ConverterUtils {
         } else {
             return returnCharacter;
         }
+    }
+
+    public static FormattingOptions convert(DataField dataField, Class<?> clazz, BindyConverter converter, String locale) {
+        return new FormattingOptions()
+                .forClazz(clazz)
+                .withPattern(dataField.pattern())
+                .withLocale(locale)
+                .withTimezone(dataField.timezone())
+                .withPrecision(dataField.precision())
+                .withRounding(dataField.rounding())
+                .withImpliedDecimalSeparator(dataField.impliedDecimalSeparator())
+                .withDecimalSeparator(dataField.decimalSeparator())
+                .withBindyConverter(converter)
+                .withGroupingSeparator(dataField.groupingSeparator());
+    }
+
+    public static FormattingOptions convert(
+            KeyValuePairField dataField, Class<?> clazz, BindyConverter converter, String locale) {
+        return new FormattingOptions()
+                .forClazz(clazz)
+                .withPattern(dataField.pattern())
+                .withLocale(locale)
+                .withTimezone(dataField.timezone())
+                .withPrecision(dataField.precision())
+                .withBindyConverter(converter)
+                .withImpliedDecimalSeparator(dataField.impliedDecimalSeparator());
     }
 }

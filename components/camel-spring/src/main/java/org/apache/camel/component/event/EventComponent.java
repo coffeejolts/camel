@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,7 +20,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -31,20 +32,17 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * The <a href="http://camel.apache.org/event.html">Event Component</a> is for working with Spring ApplicationEvents.
- * 
- * @version 
  */
-public class EventComponent extends UriEndpointComponent implements ApplicationContextAware {
+@Component("spring-event")
+public class EventComponent extends DefaultComponent implements ApplicationContextAware {
     private static final Logger LOG = LoggerFactory.getLogger(EventComponent.class);
     private ApplicationContext applicationContext;
-    private final Set<EventEndpoint> endpoints = new LinkedHashSet<EventEndpoint>();
+    private final Set<EventEndpoint> endpoints = new LinkedHashSet<>();
 
     public EventComponent() {
-        super(EventEndpoint.class);
     }
 
     public EventComponent(ApplicationContext applicationContext) {
-        super(EventEndpoint.class);
         setApplicationContext(applicationContext);
     }
 
@@ -55,6 +53,7 @@ public class EventComponent extends UriEndpointComponent implements ApplicationC
     /**
      * The Spring ApplicationContext
      */
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
@@ -62,12 +61,15 @@ public class EventComponent extends UriEndpointComponent implements ApplicationC
     public ConfigurableApplicationContext getConfigurableApplicationContext() {
         ApplicationContext applicationContext = getApplicationContext();
         if (applicationContext instanceof ConfigurableApplicationContext) {
-            return (ConfigurableApplicationContext)applicationContext;
+            return (ConfigurableApplicationContext) applicationContext;
         } else {
-            throw new IllegalArgumentException("Class: " + applicationContext.getClass().getName() + " is not an instanceof ConfigurableApplicationContext.");
+            throw new IllegalArgumentException(
+                    "Class: " + applicationContext.getClass().getName()
+                                               + " is not an instanceof ConfigurableApplicationContext.");
         }
     }
 
+    @Override
     protected EventEndpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         EventEndpoint answer = new EventEndpoint(uri, this, remaining);
         setProperties(answer, parameters);
@@ -88,7 +90,7 @@ public class EventComponent extends UriEndpointComponent implements ApplicationC
             try {
                 endpoint.onApplicationEvent(event);
             } catch (Exception e) {
-                LOG.warn("Error on application event " + event + ". This exception will be ignored.", e);
+                LOG.warn("Error on application event {}. This exception will be ignored.", event, e);
             }
         }
     }

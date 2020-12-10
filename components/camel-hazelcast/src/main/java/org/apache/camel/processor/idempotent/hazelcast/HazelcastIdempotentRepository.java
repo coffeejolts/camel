@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +17,16 @@
 package org.apache.camel.processor.idempotent.hazelcast;
 
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.IMap;
+import com.hazelcast.map.IMap;
 import org.apache.camel.spi.IdempotentRepository;
-import org.apache.camel.support.ServiceSupport;
+import org.apache.camel.support.service.ServiceSupport;
 
-public class HazelcastIdempotentRepository extends ServiceSupport implements IdempotentRepository<String> {
+public class HazelcastIdempotentRepository extends ServiceSupport implements IdempotentRepository {
 
     private String repositoryName;
     private IMap<String, Boolean> repo;
     private HazelcastInstance hazelcastInstance;
-    
+
     public HazelcastIdempotentRepository(HazelcastInstance hazelcastInstance) {
         this(hazelcastInstance, HazelcastIdempotentRepository.class.getSimpleName());
     }
@@ -86,8 +86,12 @@ public class HazelcastIdempotentRepository extends ServiceSupport implements Ide
         }
     }
 
+    @Override
+    public void clear() {
+        repo.clear();
+    }
+
     public String getRepositoryName() {
         return repositoryName;
     }
-
 }

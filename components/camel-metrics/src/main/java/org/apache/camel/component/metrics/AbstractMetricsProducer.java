@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,15 +19,12 @@ package org.apache.camel.component.metrics;
 import com.codahale.metrics.MetricRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 import org.apache.camel.util.ObjectHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class AbstractMetricsProducer extends DefaultProducer {
 
-    public static final String HEADER_PATTERN = MetricsConstants.HEADER_PERFIX + "*";
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractMetricsProducer.class);
+    public static final String HEADER_PATTERN = MetricsConstants.HEADER_PREFIX + "*";
 
     public AbstractMetricsProducer(MetricsEndpoint endpoint) {
         super(endpoint);
@@ -54,7 +51,8 @@ public abstract class AbstractMetricsProducer extends DefaultProducer {
         }
     }
 
-    protected abstract void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName) throws Exception;
+    protected abstract void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName)
+            throws Exception;
 
     public String getMetricsName(Message in, String defaultValue) {
         return getStringHeader(in, MetricsConstants.HEADER_METRIC_NAME, defaultValue);

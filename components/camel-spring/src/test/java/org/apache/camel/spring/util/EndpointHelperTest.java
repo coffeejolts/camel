@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,13 +18,13 @@ package org.apache.camel.spring.util;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.spring.SpringTestSupport;
-import org.apache.camel.util.EndpointHelper;
+import org.apache.camel.support.EndpointHelper;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class EndpointHelperTest extends SpringTestSupport {
 
     @Override
@@ -32,6 +32,7 @@ public class EndpointHelperTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/util/EndpointHelperTest.xml");
     }
 
+    @Test
     public void testLookupEndpointRegistryId() throws Exception {
         Endpoint foo = context.getEndpoint("ref:foo");
         Endpoint bar = context.getEndpoint("ref:coolbar");

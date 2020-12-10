@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.component.jms.reply;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -32,43 +33,51 @@ import org.apache.camel.ExchangeTimedOutException;
 import org.apache.camel.component.jms.JmsEndpoint;
 import org.apache.camel.component.jms.JmsMessage;
 import org.apache.camel.component.jms.JmsMessageHelper;
-import org.apache.camel.support.ServiceSupport;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.support.ExchangeHelper;
+import org.apache.camel.support.service.ServiceHelper;
+import org.apache.camel.support.service.ServiceSupport;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.camel.util.ServiceHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jms.listener.AbstractMessageListenerContainer;
 
 /**
  * Base class for {@link ReplyManager} implementations.
- *
- * @version 
  */
 public abstract class ReplyManagerSupport extends ServiceSupport implements ReplyManager {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
     protected final CamelContext camelContext;
-    protected ScheduledExecutorService executorService;
+    protected ScheduledExecutorService scheduledExecutorService;
+    protected ExecutorService executorService;
     protected JmsEndpoint endpoint;
     protected Destination replyTo;
     protected AbstractMessageListenerContainer listenerContainer;
     protected final CountDownLatch replyToLatch = new CountDownLatch(1);
     protected final long replyToTimeout = 10000;
     protected CorrelationTimeoutMap correlation;
+    protected String correlationProperty;
 
     public ReplyManagerSupport(CamelContext camelContext) {
         this.camelContext = camelContext;
     }
 
+    @Override
     public void setScheduledExecutorService(ScheduledExecutorService executorService) {
+        this.scheduledExecutorService = executorService;
+    }
+
+    @Override
+    public void setOnTimeoutExecutorService(ExecutorService executorService) {
         this.executorService = executorService;
     }
 
+    @Override
     public void setEndpoint(JmsEndpoint endpoint) {
         this.endpoint = endpoint;
     }
 
+    @Override
     public void setReplyTo(Destination replyTo) {
         log.trace("ReplyTo destination: {}", replyTo);
         this.replyTo = replyTo;
@@ -76,6 +85,12 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
         replyToLatch.countDown();
     }
 
+    @Override
+    public void setCorrelationProperty(final String correlationProperty) {
+        this.correlationProperty = correlationProperty;
+    }
+
+    @Override
     public Destination getReplyTo() {
         if (replyTo != null) {
             return replyTo;
@@ -96,11 +111,14 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
         }
         return replyTo;
     }
-    
-    public String registerReply(ReplyManager replyManager, Exchange exchange, AsyncCallback callback,
-                                String originalCorrelationId, String correlationId, long requestTimeout) {
+
+    @Override
+    public String registerReply(
+            ReplyManager replyManager, Exchange exchange, AsyncCallback callback,
+            String originalCorrelationId, String correlationId, long requestTimeout) {
         // add to correlation map
-        QueueReplyHandler handler = new QueueReplyHandler(replyManager, exchange, callback,
+        QueueReplyHandler handler = new QueueReplyHandler(
+                replyManager, exchange, callback,
                 originalCorrelationId, correlationId, requestTimeout);
         // Just make sure we don't override the old value of the correlationId
         ReplyHandler result = correlation.putIfAbsent(correlationId, handler, requestTimeout);
@@ -110,18 +128,25 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
         }
         return correlationId;
     }
-    
-    
-    protected abstract ReplyHandler createReplyHandler(ReplyManager replyManager, Exchange exchange, AsyncCallback callback,
-                                String originalCorrelationId, String correlationId, long requestTimeout);
 
+    protected abstract ReplyHandler createReplyHandler(
+            ReplyManager replyManager, Exchange exchange, AsyncCallback callback,
+            String originalCorrelationId, String correlationId, long requestTimeout);
+
+    @Override
     public void onMessage(Message message, Session session) throws JMSException {
         String correlationID = null;
+
         try {
-            correlationID = message.getJMSCorrelationID();
+            if (correlationProperty == null) {
+                correlationID = message.getJMSCorrelationID();
+            } else {
+                correlationID = message.getStringProperty(correlationProperty);
+            }
         } catch (JMSException e) {
             // ignore
         }
+
         if (correlationID == null) {
             log.warn("Ignoring message with no correlationID: {}", message);
             return;
@@ -133,6 +158,7 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
         handleReplyMessage(correlationID, message, session);
     }
 
+    @Override
     public void processReply(ReplyHolder holder) {
         if (holder != null && isRunAllowed()) {
             try {
@@ -142,18 +168,21 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
                 if (timeout) {
                     // timeout occurred do a WARN log so its easier to spot in the logs
                     if (log.isWarnEnabled()) {
-                        log.warn("Timeout occurred after {} millis waiting for reply message with correlationID [{}] on destination {}."
-                                + " Setting ExchangeTimedOutException on {} and continue routing.",
-                                new Object[]{holder.getRequestTimeout(), holder.getCorrelationId(), replyTo, ExchangeHelper.logIds(exchange)});
+                        log.warn(
+                                "Timeout occurred after {} millis waiting for reply message with correlationID [{}] on destination {}."
+                                 + " Setting ExchangeTimedOutException on {} and continue routing.",
+                                holder.getRequestTimeout(), holder.getCorrelationId(), replyTo,
+                                ExchangeHelper.logIds(exchange));
                     }
 
                     // no response, so lets set a timed out exception
-                    String msg = "reply message with correlationID: " + holder.getCorrelationId() + " not received on destination: " + replyTo;
+                    String msg = "reply message with correlationID: " + holder.getCorrelationId()
+                                 + " not received on destination: " + replyTo;
                     exchange.setException(new ExchangeTimedOutException(exchange, holder.getRequestTimeout(), msg));
                 } else {
                     Message message = holder.getMessage();
                     Session session = holder.getSession();
-                    JmsMessage response = new JmsMessage(message, session, endpoint.getBinding());
+                    JmsMessage response = new JmsMessage(exchange, message, session, endpoint.getBinding());
                     // the JmsBinding is designed to be "pull-based": it will populate the Camel message on demand
                     // therefore, we link Exchange and OUT message before continuing, so that the JmsBinding has full access 
                     // to everything it may need, and can populate headers, properties, etc. accordingly (solves CAMEL-6218).
@@ -188,10 +217,9 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
     protected abstract AbstractMessageListenerContainer createListenerContainer() throws Exception;
 
     /**
-     * <b>IMPORTANT:</b> This logic is only being used due to high performance in-memory only
-     * testing using InOut over JMS. Its unlikely to happen in a real life situation with communication
-     * to a remote broker, which always will be slower to send back reply, before Camel had a chance
-     * to update it's internal correlation map.
+     * <b>IMPORTANT:</b> This logic is only being used due to high performance in-memory only testing using InOut over
+     * JMS. Its unlikely to happen in a real life situation with communication to a remote broker, which always will be
+     * slower to send back reply, before Camel had a chance to update it's internal correlation map.
      */
     protected ReplyHandler waitForProvisionCorrelationToBeUpdated(String correlationID, Message message) {
         // race condition, when using messageID as correlationID then we store a provisional correlation id
@@ -204,13 +232,13 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
 
         ReplyHandler answer = null;
 
-        // wait up till 5 seconds
+        // wait up until configured values
         boolean done = false;
         int counter = 0;
-        while (!done && counter++ < 50) {
+        while (!done && counter++ < endpoint.getConfiguration().getWaitForProvisionCorrelationToBeUpdatedCounter()) {
             log.trace("Early reply not found handler at attempt {}. Waiting a bit longer.", counter);
             try {
-                Thread.sleep(100);
+                Thread.sleep(endpoint.getConfiguration().getWaitForProvisionCorrelationToBeUpdatedThreadSleepingTime());
             } catch (InterruptedException e) {
                 // ignore
             }
@@ -221,8 +249,9 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
 
             if (answer != null) {
                 if (log.isTraceEnabled()) {
-                    log.trace("Early reply with correlationID [{}] has been matched after {} attempts and can be processed using handler: {}",
-                            new Object[]{correlationID, counter, answer});
+                    log.trace(
+                            "Early reply with correlationID [{}] has been matched after {} attempts and can be processed using handler: {}",
+                            correlationID, counter, answer);
                 }
             }
         }
@@ -233,12 +262,14 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
     @Override
     protected void doStart() throws Exception {
         ObjectHelper.notNull(executorService, "executorService", this);
+        ObjectHelper.notNull(scheduledExecutorService, "scheduledExecutorService", this);
         ObjectHelper.notNull(endpoint, "endpoint", this);
 
         // timeout map to use for purging messages which have timed out, while waiting for an expected reply
         // when doing request/reply over JMS
         log.trace("Using timeout checker interval with {} millis", endpoint.getRequestTimeoutCheckerInterval());
-        correlation = new CorrelationTimeoutMap(executorService, endpoint.getRequestTimeoutCheckerInterval());
+        correlation = new CorrelationTimeoutMap(
+                scheduledExecutorService, endpoint.getRequestTimeoutCheckerInterval(), executorService);
         ServiceHelper.startService(correlation);
 
         // create JMS listener and start it
@@ -266,6 +297,10 @@ public abstract class ReplyManagerSupport extends ServiceSupport implements Repl
         }
 
         // must also stop executor service
+        if (scheduledExecutorService != null) {
+            camelContext.getExecutorServiceManager().shutdownGraceful(scheduledExecutorService);
+            scheduledExecutorService = null;
+        }
         if (executorService != null) {
             camelContext.getExecutorServiceManager().shutdownGraceful(executorService);
             executorService = null;

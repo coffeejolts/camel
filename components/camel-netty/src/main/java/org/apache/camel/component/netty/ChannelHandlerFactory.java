@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,14 @@
  */
 package org.apache.camel.component.netty;
 
-import org.jboss.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandler;
 
 /**
- * Factory for creating new {@link ChannelHandler} used for non shareable
- * encoders and decoders configured on the Camel {@link NettyComponent}.
+ * Factory for creating new {@link ChannelHandler} used for non shareable encoders and decoders configured on the Camel
+ * {@link NettyComponent}.
  * <p/>
- * This is needed as Netty's {@link ChannelHandler} is often not shareable
- * and therefore a new instance must be created when a handler is being
- * added to a pipeline.
+ * This is needed as Netty's {@link ChannelHandler} is often not shareable and therefore a new instance must be created
+ * when a handler is being added to a pipeline.
  */
 public interface ChannelHandlerFactory extends ChannelHandler {
 

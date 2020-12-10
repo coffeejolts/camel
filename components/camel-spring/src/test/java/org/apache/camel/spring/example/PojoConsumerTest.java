@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,15 @@ package org.apache.camel.spring.example;
 
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
 public class PojoConsumerTest extends SpringTestSupport {
     protected MockEndpoint resultEndpoint;
 
+    @Test
     public void testMessagesSentToConsumerArrive() throws Exception {
         String body = "<hello>world!</hello>";
         resultEndpoint.expectedBodiesReceived(body);
@@ -37,12 +37,14 @@ public class PojoConsumerTest extends SpringTestSupport {
     }
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         super.setUp();
 
         resultEndpoint = getMockEndpoint("mock:result");
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/example/pojoConsumer.xml");
     }

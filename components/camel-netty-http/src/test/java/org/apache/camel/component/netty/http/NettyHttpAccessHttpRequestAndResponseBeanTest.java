@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,17 @@ package org.apache.camel.component.netty.http;
 
 import java.nio.charset.Charset;
 
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import org.apache.camel.builder.RouteBuilder;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.junit.Test;
+import org.apache.camel.component.netty.NettyConverter;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NettyHttpAccessHttpRequestAndResponseBeanTest extends BaseNettyTest {
 
@@ -49,8 +51,8 @@ public class NettyHttpAccessHttpRequestAndResponseBeanTest extends BaseNettyTest
             @Override
             public void configure() throws Exception {
                 from("netty-http:http://0.0.0.0:{{port}}/foo")
-                    .to("mock:input")
-                    .transform().method(NettyHttpAccessHttpRequestAndResponseBeanTest.class, "myTransformer");
+                        .to("mock:input")
+                        .transform().method(NettyHttpAccessHttpRequestAndResponseBeanTest.class, "myTransformer");
             }
         };
     }
@@ -58,13 +60,17 @@ public class NettyHttpAccessHttpRequestAndResponseBeanTest extends BaseNettyTest
     /**
      * We can use both a netty http request and response type for transformation
      */
-    public static HttpResponse myTransformer(HttpRequest request) {
-        String in = request.getContent().toString(Charset.forName("UTF-8"));
+    public static HttpResponse myTransformer(FullHttpRequest request) {
+        String in = request.content().toString(Charset.forName("UTF-8"));
         String reply = "Bye " + in;
 
-        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        response.setContent(ChannelBuffers.copiedBuffer(reply.getBytes()));
-        response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, reply.length());
+        request.content().release();
+
+        HttpResponse response = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                NettyConverter.toByteBuffer(reply.getBytes()));
+
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH.toString(), reply.length());
 
         return response;
     }

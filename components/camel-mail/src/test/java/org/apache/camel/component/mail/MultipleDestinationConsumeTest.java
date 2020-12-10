@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,17 +31,20 @@ import javax.mail.internet.MimeMessage;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.support.ObjectHelper;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.util.CastUtils;
-import org.apache.camel.util.ObjectHelper;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class MultipleDestinationConsumeTest extends CamelTestSupport {
+    private Logger log = LoggerFactory.getLogger(getClass());
     private String body = "hello world!";
     private Session mailSession;
 
@@ -56,8 +59,9 @@ public class MultipleDestinationConsumeTest extends CamelTestSupport {
         message.setText(body);
 
         message.setRecipients(Message.RecipientType.TO,
-                              new Address[] {new InternetAddress("james@localhost"),
-                                             new InternetAddress("bar@localhost")});
+                new Address[] {
+                        new InternetAddress("james@localhost"),
+                        new InternetAddress("bar@localhost") });
 
         Transport.send(message);
 
@@ -67,14 +71,14 @@ public class MultipleDestinationConsumeTest extends CamelTestSupport {
         Exchange exchange = resultEndpoint.getReceivedExchanges().get(0);
 
         org.apache.camel.Message in = exchange.getIn();
-        assertNotNull("Should have headers", in.getHeaders());
+        assertNotNull(in.getHeaders(), "Should have headers");
 
         MailMessage msg = (MailMessage) exchange.getIn();
         Message inMessage = msg != null ? msg.getMessage() : null;
-        assertNotNull("In message has no JavaMail message!", inMessage);
+        assertNotNull(inMessage, "In message has no JavaMail message!");
 
         String text = in.getBody(String.class);
-        assertEquals("mail body", body, text);
+        assertEquals(body, text, "mail body");
 
         // need to use iterator as some mail impl returns String[] and others a single String with comma as separator
         // so we let Camel create an iterator so we can use the same code for the test
@@ -94,12 +98,12 @@ public class MultipleDestinationConsumeTest extends CamelTestSupport {
         while (iter.hasMoreElements()) {
             Header header = iter.nextElement();
             String[] value = message.getHeader(header.getName());
-            log.debug("Header: " + header.getName() + " has value: " + ObjectHelper.asString(value));
+            log.debug("Header: " + header.getName() + " has value: " + org.apache.camel.util.ObjectHelper.asString(value));
         }
     }
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         Properties properties = new Properties();
         properties.put("mail.smtp.host", "localhost");
@@ -112,7 +116,7 @@ public class MultipleDestinationConsumeTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                from("pop3://james@localhost?password=foo").to("mock:result");
+                from("pop3://james@localhost?password=foo&initialDelay=100&delay=100").to("mock:result");
             }
         };
     }

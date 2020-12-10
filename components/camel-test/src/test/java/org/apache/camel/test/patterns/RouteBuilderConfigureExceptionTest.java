@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,6 +19,7 @@ package org.apache.camel.test.patterns;
 import org.apache.camel.Predicate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.test.junit4.CamelTestSupport;
+import org.junit.Before;
 import org.junit.Test;
 
 public class RouteBuilderConfigureExceptionTest extends CamelTestSupport {
@@ -26,6 +27,7 @@ public class RouteBuilderConfigureExceptionTest extends CamelTestSupport {
     private Predicate iAmNull;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         try {
             super.setUp();
@@ -44,10 +46,9 @@ public class RouteBuilderConfigureExceptionTest extends CamelTestSupport {
         return new RouteBuilder() {
             public void configure() {
                 from("direct:start")
-                    .choice()
+                        .choice()
                         .when(iAmNull).to("mock:dead");
             }
         };
     }
 }
-

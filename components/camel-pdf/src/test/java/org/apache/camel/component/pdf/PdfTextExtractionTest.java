@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,35 +24,37 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Predicate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardDecryptionMaterial;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 
 public class PdfTextExtractionTest extends CamelTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     protected MockEndpoint resultEndpoint;
 
     @Test
     public void testExtractText() throws Exception {
         final String expectedText = "Test string";
         PDDocument document = new PDDocument();
-        PDPage page = new PDPage(PDPage.PAGE_SIZE_A4);
+        PDPage page = new PDPage(PDRectangle.A4);
         document.addPage(page);
         PDPageContentStream contentStream = new PDPageContentStream(document, page);
         contentStream.setFont(PDType1Font.HELVETICA, 12);
         contentStream.beginText();
-        contentStream.moveTextPositionByAmount(20, 400);
-        contentStream.drawString(expectedText);
+        contentStream.newLineAtOffset(20, 400);
+        contentStream.showText(expectedText);
         contentStream.endText();
         contentStream.close();
 
@@ -82,13 +84,13 @@ public class PdfTextExtractionTest extends CamelTestSupport {
         PDDocument document = new PDDocument();
 
         final String expectedText = "Test string";
-        PDPage page = new PDPage(PDPage.PAGE_SIZE_A4);
+        PDPage page = new PDPage(PDRectangle.A4);
         document.addPage(page);
         PDPageContentStream contentStream = new PDPageContentStream(document, page);
         contentStream.setFont(PDType1Font.HELVETICA, 12);
         contentStream.beginText();
-        contentStream.moveTextPositionByAmount(20, 400);
-        contentStream.drawString(expectedText);
+        contentStream.newLineAtOffset(20, 400);
+        contentStream.showText(expectedText);
         contentStream.endText();
         contentStream.close();
 
@@ -98,7 +100,7 @@ public class PdfTextExtractionTest extends CamelTestSupport {
         document.save(output);
 
         // Encryption happens after saving.
-        PDDocument encryptedDocument = PDDocument.load(new ByteArrayInputStream(output.toByteArray()));
+        PDDocument encryptedDocument = PDDocument.load(new ByteArrayInputStream(output.toByteArray()), userPass);
 
         template.sendBodyAndHeader("direct:start",
                 encryptedDocument,

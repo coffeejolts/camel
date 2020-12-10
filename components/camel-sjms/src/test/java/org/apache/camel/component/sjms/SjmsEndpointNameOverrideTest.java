@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,10 +20,12 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.ExchangePattern;
-import org.apache.camel.ResolveEndpointFailedException;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SjmsEndpointNameOverrideTest extends CamelTestSupport {
 
@@ -39,14 +41,9 @@ public class SjmsEndpointNameOverrideTest extends CamelTestSupport {
         Endpoint endpoint = context.getEndpoint(BEAN_NAME + ":test");
         assertNotNull(endpoint);
         assertTrue(endpoint instanceof SjmsEndpoint);
-        SjmsEndpoint sjms = (SjmsEndpoint)endpoint;
-        assertEquals(sjms.getEndpointUri(), BEAN_NAME + "://queue:test");
-        assertEquals(sjms.createExchange().getPattern(), ExchangePattern.InOnly);
-    }
-
-    @Test(expected = ResolveEndpointFailedException.class)
-    public void testUnsupportedProtocol() throws Exception {
-        context.getEndpoint("sjms:bad-queue:test");
+        SjmsEndpoint sjms = (SjmsEndpoint) endpoint;
+        assertEquals(BEAN_NAME + "://test", sjms.getEndpointUri());
+        assertEquals(ExchangePattern.InOnly, sjms.createExchange().getPattern());
     }
 
     @Test
@@ -54,7 +51,7 @@ public class SjmsEndpointNameOverrideTest extends CamelTestSupport {
         Endpoint sjms = context.getEndpoint(BEAN_NAME + ":queue:test");
         assertNotNull(sjms);
         assertTrue(sjms instanceof SjmsEndpoint);
-        assertEquals(sjms.getEndpointUri(), BEAN_NAME + "://queue:test");
+        assertEquals(BEAN_NAME + "://queue:test", sjms.getEndpointUri());
     }
 
     @Test
@@ -62,13 +59,15 @@ public class SjmsEndpointNameOverrideTest extends CamelTestSupport {
         Endpoint sjms = context.getEndpoint(BEAN_NAME + ":topic:test");
         assertNotNull(sjms);
         assertTrue(sjms instanceof SjmsEndpoint);
-        assertEquals(sjms.getEndpointUri(), BEAN_NAME + "://topic:test");
+        assertEquals(BEAN_NAME + "://topic:test", sjms.getEndpointUri());
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 
-        ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("vm://broker?broker.persistent=false&broker.useJmx=false");
+        ActiveMQConnectionFactory connectionFactory
+                = new ActiveMQConnectionFactory("vm://broker?broker.persistent=false&broker.useJmx=false");
         SjmsComponent component = new SjmsComponent();
         component.setConnectionCount(1);
         component.setConnectionFactory(connectionFactory);

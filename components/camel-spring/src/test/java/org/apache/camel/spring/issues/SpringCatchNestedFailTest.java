@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,18 +19,20 @@ package org.apache.camel.spring.issues;
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.ContextTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
-/**
- * @version 
- */
 public class SpringCatchNestedFailTest extends ContextTestSupport {
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/issues/SpringCatchNestedFailTest.xml");
     }
 
+    @Test
     public void testOk() throws Exception {
         getMockEndpoint("mock:bar").expectedMessageCount(1);
         getMockEndpoint("mock:donkey").expectedMessageCount(0);
@@ -44,6 +46,7 @@ public class SpringCatchNestedFailTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testFail() throws Exception {
         getMockEndpoint("mock:bar").expectedMessageCount(0);
         getMockEndpoint("mock:donkey").expectedMessageCount(1);
@@ -57,6 +60,7 @@ public class SpringCatchNestedFailTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testFailAgain() throws Exception {
         getMockEndpoint("mock:bar").expectedMessageCount(0);
         getMockEndpoint("mock:donkey").expectedMessageCount(1);

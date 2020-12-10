@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,7 @@ import java.util.Map;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.util.StopWatch;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class XQueryBasedRoutingPerformanceTest extends AbstractBasePerformanceTest {
 
@@ -63,18 +63,18 @@ public class XQueryBasedRoutingPerformanceTest extends AbstractBasePerformanceTe
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                Map<String, String> namespaces = new HashMap<String, String>();
+                Map<String, String> namespaces = new HashMap<>();
                 namespaces.put("soapenv", "http://schemas.xmlsoap.org/soap/envelope/");
                 namespaces.put("m", "http://services.samples/xsd");
 
                 from("direct:filter")
-                    .filter().xquery("/soapenv:Envelope/soapenv:Body/m:buyStocks/order[1]/symbol='IBM'", namespaces)
+                        .filter().xquery("/soapenv:Envelope/soapenv:Body/m:buyStocks/order[1]/symbol='IBM'", namespaces)
                         .to("mock:end");
 
                 from("direct:choice")
-                    .choice()
+                        .choice()
                         .when().xquery("/soapenv:Envelope/soapenv:Body/m:buyStocks/order[1]/symbol='IBM'", namespaces)
-                            .to("mock:end");
+                        .to("mock:end");
             }
         };
     }

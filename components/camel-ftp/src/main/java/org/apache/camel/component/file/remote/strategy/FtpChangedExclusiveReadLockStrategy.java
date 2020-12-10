@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,7 +25,7 @@ import org.apache.camel.component.file.GenericFile;
 import org.apache.camel.component.file.GenericFileEndpoint;
 import org.apache.camel.component.file.GenericFileExclusiveReadLockStrategy;
 import org.apache.camel.component.file.GenericFileOperations;
-import org.apache.camel.util.CamelLogger;
+import org.apache.camel.spi.CamelLogger;
 import org.apache.camel.util.StopWatch;
 import org.apache.commons.net.ftp.FTPFile;
 import org.slf4j.Logger;
@@ -41,19 +41,24 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
     private boolean fastExistsCheck;
 
     @Override
-    public void prepareOnStartup(GenericFileOperations<FTPFile> tGenericFileOperations, GenericFileEndpoint<FTPFile> tGenericFileEndpoint) throws Exception {
+    public void prepareOnStartup(
+            GenericFileOperations<FTPFile> tGenericFileOperations, GenericFileEndpoint<FTPFile> tGenericFileEndpoint)
+            throws Exception {
         // noop
     }
 
-    public boolean acquireExclusiveReadLock(GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange) throws Exception {
+    @Override
+    public boolean acquireExclusiveReadLock(
+            GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange)
+            throws Exception {
         boolean exclusive = false;
 
-        LOG.trace("Waiting for exclusive read lock to file: " + file);
+        LOG.trace("Waiting for exclusive read lock to file: {}", file);
 
         long lastModified = Long.MIN_VALUE;
         long length = Long.MIN_VALUE;
         StopWatch watch = new StopWatch();
-        long startTime = (new Date()).getTime();
+        long startTime = new Date().getTime();
 
         while (!exclusive) {
             // timeout check
@@ -62,7 +67,8 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
                 if (delta > timeout) {
                     CamelLogger.log(LOG, readLockLoggingLevel,
                             "Cannot acquire read lock within " + timeout + " millis. Will skip the file: " + file);
-                    // we could not get the lock within the timeout period, so return false
+                    // we could not get the lock within the timeout period, so
+                    // return false
                     return false;
                 }
             }
@@ -72,18 +78,44 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
 
             List<FTPFile> files;
             if (fastExistsCheck) {
-                // use the absolute file path to only pickup the file we want to check, this avoids expensive
+                // use the absolute file path to only pickup the file we want to
+                // check, this avoids expensive
                 // list operations if we have a lot of files in the directory
-                LOG.trace("Using fast exists to update file information for {}", file);
-                files = operations.listFiles(file.getAbsoluteFilePath());
+                String path = file.getAbsoluteFilePath();
+                if (path.equals("/") || path.equals("\\")) {
+                    // special for root (= home) directory
+                    LOG.trace("Using fast exists to update file information in home directory");
+                    files = operations.listFiles();
+                } else {
+                    LOG.trace("Using fast exists to update file information for {}", path);
+                    files = operations.listFiles(path);
+                }
             } else {
-                LOG.trace("Using full directory listing to update file information for {}. Consider enabling fastExistsCheck option.", file);
-                // fast option not enabled, so list the directory and filter the file name
-                files = operations.listFiles(file.getParent());
+                // fast option not enabled, so list the directory and filter the
+                // file name
+                String path = file.getParent();
+                if (path.equals("/") || path.equals("\\")) {
+                    // special for root (= home) directory
+                    LOG.trace(
+                            "Using full directory listing in home directory to update file information. Consider enabling fastExistsCheck option.");
+                    files = operations.listFiles();
+                } else {
+                    LOG.trace(
+                            "Using full directory listing to update file information for {}. Consider enabling fastExistsCheck option.",
+                            path);
+                    files = operations.listFiles(path);
+                }
             }
             LOG.trace("List files {} found {} files", file.getAbsoluteFilePath(), files.size());
             for (FTPFile f : files) {
-                if (f.getName().equals(file.getFileNameOnly())) {
+                boolean match;
+                if (fastExistsCheck) {
+                    // uses the absolute file path as well
+                    match = f.getName().equals(file.getAbsoluteFilePath()) || f.getName().equals(file.getFileNameOnly());
+                } else {
+                    match = f.getName().equals(file.getFileNameOnly());
+                }
+                if (match) {
                     newLength = f.getSize();
                     if (f.getTimestamp() != null) {
                         newLastModified = f.getTimestamp().getTimeInMillis();
@@ -91,12 +123,13 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
                 }
             }
 
-            LOG.trace("Previous last modified: " + lastModified + ", new last modified: " + newLastModified);
-            LOG.trace("Previous length: " + length + ", new length: " + newLength);
+            LOG.trace("Previous last modified: {}, new last modified: {}", lastModified, newLastModified);
+            LOG.trace("Previous length: {}, new length: {}", length, newLength);
             long newOlderThan = startTime + watch.taken() - minAge;
             LOG.trace("New older than threshold: {}", newOlderThan);
 
-            if (newLength >= minLength && ((minAge == 0 && newLastModified == lastModified && newLength == length) || (minAge != 0 && newLastModified < newOlderThan))) {
+            if (newLength >= minLength && ((minAge == 0 && newLastModified == lastModified && newLength == length)
+                    || (minAge != 0 && newLastModified < newOlderThan))) {
                 LOG.trace("Read lock acquired.");
                 exclusive = true;
             } else {
@@ -106,7 +139,8 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
 
                 boolean interrupted = sleep();
                 if (interrupted) {
-                    // we were interrupted while sleeping, we are likely being shutdown so return false
+                    // we were interrupted while sleeping, we are likely being
+                    // shutdown so return false
                     return false;
                 }
             }
@@ -116,7 +150,7 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
     }
 
     private boolean sleep() {
-        LOG.trace("Exclusive read lock not granted. Sleeping for " + checkInterval + " millis.");
+        LOG.trace("Exclusive read lock not granted. Sleeping for {} millis.", checkInterval);
         try {
             Thread.sleep(checkInterval);
             return false;
@@ -127,17 +161,23 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
     }
 
     @Override
-    public void releaseExclusiveReadLockOnAbort(GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange) throws Exception {
+    public void releaseExclusiveReadLockOnAbort(
+            GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange)
+            throws Exception {
         // noop
     }
 
     @Override
-    public void releaseExclusiveReadLockOnRollback(GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange) throws Exception {
+    public void releaseExclusiveReadLockOnRollback(
+            GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange)
+            throws Exception {
         // noop
     }
 
     @Override
-    public void releaseExclusiveReadLockOnCommit(GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange) throws Exception {
+    public void releaseExclusiveReadLockOnCommit(
+            GenericFileOperations<FTPFile> operations, GenericFile<FTPFile> file, Exchange exchange)
+            throws Exception {
         // noop
     }
 
@@ -166,6 +206,11 @@ public class FtpChangedExclusiveReadLockStrategy implements GenericFileExclusive
 
     @Override
     public void setMarkerFiler(boolean markerFiler) {
+        // noop - not supported by ftp
+    }
+
+    @Override
+    public void setDeleteOrphanLockFiles(boolean deleteOrphanLockFiles) {
         // noop - not supported by ftp
     }
 

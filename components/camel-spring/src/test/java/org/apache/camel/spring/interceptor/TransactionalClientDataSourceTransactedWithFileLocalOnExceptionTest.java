@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,28 +19,27 @@ package org.apache.camel.spring.interceptor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringRouteBuilder;
 
-/**
- * @version 
- */
-public class TransactionalClientDataSourceTransactedWithFileLocalOnExceptionTest extends TransactionalClientDataSourceTransactedWithFileOnExceptionTest {
+public class TransactionalClientDataSourceTransactedWithFileLocalOnExceptionTest
+        extends TransactionalClientDataSourceTransactedWithFileOnExceptionTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
 
-                from("file://target/transacted/okay")
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                from("file://target/transacted/okay?initialDelay=0&delay=10")
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
-                from("file://target/transacted/fail?moveFailed=../failed")
-                    .onException(IllegalArgumentException.class)
+                from("file://target/transacted/fail?initialDelay=0&delay=10&moveFailed=../failed")
+                        .onException(IllegalArgumentException.class)
                         .handled(false)
                         .to("mock:error")
-                    .end()
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        .end()
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
             }
         };
     }

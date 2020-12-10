@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,6 @@ package org.apache.camel.dataformat.avro;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.spring.SpringCamelContext;
-
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -26,11 +25,13 @@ public class AvroMarshalAndUnmarshalSpringTest extends AvroMarshalAndUnmarshallT
 
     private AbstractXmlApplicationContext applicationContext;
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
-        applicationContext =  new ClassPathXmlApplicationContext("org/apache/camel/dataformat/avro/springDataFormat.xml");
-        return SpringCamelContext.springCamelContext(applicationContext);
+        applicationContext = new ClassPathXmlApplicationContext("org/apache/camel/dataformat/avro/springDataFormat.xml");
+        return SpringCamelContext.springCamelContext(applicationContext, true);
     }
 
+    @Override
     public boolean isUseRouteBuilder() {
         return false;
     }

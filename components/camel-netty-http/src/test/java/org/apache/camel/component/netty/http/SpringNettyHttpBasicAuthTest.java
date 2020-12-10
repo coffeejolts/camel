@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,27 +18,28 @@ package org.apache.camel.component.netty.http;
 
 import javax.annotation.Resource;
 
-import junit.framework.TestCase;
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.apache.camel.test.spring.junit5.CamelSpringTest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = {"/org/apache/camel/component/netty/http/SpringNettyHttpBasicAuthTest.xml"})
-public class SpringNettyHttpBasicAuthTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
+@CamelSpringTest
+@ContextConfiguration(locations = { "/org/apache/camel/component/netty/http/SpringNettyHttpBasicAuthTest.xml" })
+public class SpringNettyHttpBasicAuthTest {
 
     @Produce
     private ProducerTemplate template;
 
-    @EndpointInject(uri = "mock:input")
+    @EndpointInject("mock:input")
     private MockEndpoint mockEndpoint;
 
     private Integer port;
@@ -52,18 +53,39 @@ public class SpringNettyHttpBasicAuthTest extends TestCase {
         this.port = port;
     }
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpJaas() throws Exception {
         System.setProperty("java.security.auth.login.config", "src/test/resources/myjaas.config");
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownJaas() throws Exception {
         System.clearProperty("java.security.auth.login.config");
     }
 
     @Test
     public void testAdminAuth() throws Exception {
+        mockEndpoint.reset();
+
+        mockEndpoint.expectedBodiesReceived("Hello Public", "Hello Foo", "Hello Admin");
+
+        // public do not need authentication
+        String out = template.requestBody("netty-http:http://localhost:" + port + "/foo/public/welcome", "Hello Public",
+                String.class);
+        assertEquals("Bye /foo/public/welcome", out);
+
+        // username:password is scott:secret
+        String auth = "Basic c2NvdHQ6c2VjcmV0";
+        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo", "Hello Foo", "Authorization", auth,
+                String.class);
+        assertEquals("Bye /foo", out);
+
+        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/admin/users", "Hello Admin",
+                "Authorization", auth, String.class);
+        assertEquals("Bye /foo/admin/users", out);
+
+        mockEndpoint.assertIsSatisfied();
+
         try {
             template.requestBody("netty-http:http://localhost:" + port + "/foo", "Hello Foo", String.class);
             fail("Should send back 401");
@@ -72,44 +94,30 @@ public class SpringNettyHttpBasicAuthTest extends TestCase {
             assertEquals(401, cause.getStatusCode());
         }
 
-        mockEndpoint.reset();
-        mockEndpoint.expectedBodiesReceived("Hello Public", "Hello Foo", "Hello Admin");
-
-        // public do not need authentication
-        String out = template.requestBody("netty-http:http://localhost:" + port + "/foo/public/welcome", "Hello Public", String.class);
-        assertEquals("Bye /foo/public/welcome", out);
-
-        // username:password is scott:secret
-        String auth = "Basic c2NvdHQ6c2VjcmV0";
-        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo", "Hello Foo", "Authorization", auth, String.class);
-        assertEquals("Bye /foo", out);
-
-        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/admin/users", "Hello Admin", "Authorization", auth, String.class);
-        assertEquals("Bye /foo/admin/users", out);
-
-        mockEndpoint.assertIsSatisfied();
     }
 
     @Test
     public void testGuestAuth() throws Exception {
         // username:password is guest:secret
         String auth = "Basic Z3Vlc3Q6c2VjcmV0";
-        String out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/guest/hello", "Hello Guest", "Authorization", auth, String.class);
+        String out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/guest/hello", "Hello Guest",
+                "Authorization", auth, String.class);
         assertEquals("Bye /foo/guest/hello", out);
+
+        // but we can access foo as that is any roles
+        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo", "Hello Foo", "Authorization", auth,
+                String.class);
+        assertEquals("Bye /foo", out);
 
         // accessing admin is restricted for guest user
         try {
-            template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/admin/users", "Hello Admin", "Authorization", auth, String.class);
+            template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo/admin/users", "Hello Admin",
+                    "Authorization", auth, String.class);
             fail("Should send back 401");
         } catch (CamelExecutionException e) {
             NettyHttpOperationFailedException cause = (NettyHttpOperationFailedException) e.getCause();
             assertEquals(401, cause.getStatusCode());
         }
-
-        // but we can access foo as that is any roles
-        out = template.requestBodyAndHeader("netty-http:http://localhost:" + port + "/foo", "Hello Foo", "Authorization", auth, String.class);
-        assertEquals("Bye /foo", out);
     }
-
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,11 +26,12 @@ import org.apache.camel.Message;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class MinaTcpWithInOutTest extends BaseMinaTest {
 
     private String uri;
@@ -40,15 +41,17 @@ public class MinaTcpWithInOutTest extends BaseMinaTest {
     @Test
     public void testMinaRouteWithInOut() throws Exception {
         latch = new CountDownLatch(1);
-        uri = "mina:tcp://localhost:{{port}}?textline=true";
+        uri = String.format("mina:tcp://localhost:%1$s?textline=true", getPort());
 
-        ReverserServer server = new ReverserServer(getPort());
+        MinaReverserServer server = new MinaReverserServer(getPort());
         server.start();
 
         context.addRoutes(new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
                 from("direct:x").to(uri).process(new Processor() {
+
                     public void process(Exchange e) {
                         receivedExchange = e;
                         latch.countDown();
@@ -82,16 +85,18 @@ public class MinaTcpWithInOutTest extends BaseMinaTest {
     @Test
     public void testMinaRouteWithInOutLazy() throws Exception {
         latch = new CountDownLatch(1);
-        uri = "mina:tcp://localhost:{{port}}?textline=true&lazySessionCreation=true";
+        uri = String.format("mina:tcp://localhost:%1$s?textline=true&lazySessionCreation=true", getPort());
 
         // The server is activated after Camel to check if the lazyness is working
-        ReverserServer server = new ReverserServer(getPort());
+        MinaReverserServer server = new MinaReverserServer(getPort());
         server.start();
 
         context.addRoutes(new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
                 from("direct:x").to(uri).process(new Processor() {
+
                     public void process(Exchange e) {
                         receivedExchange = e;
                         latch.countDown();
@@ -126,5 +131,4 @@ public class MinaTcpWithInOutTest extends BaseMinaTest {
     public boolean isUseRouteBuilder() {
         return false;
     }
-
 }

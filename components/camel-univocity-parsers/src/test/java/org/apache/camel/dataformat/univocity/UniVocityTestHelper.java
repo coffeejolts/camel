@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -33,15 +33,15 @@ final class UniVocityTestHelper {
     /**
      * Creates a Map with the given key values
      *
-     * @param keyValues the key values
-     * @return Map with the given key values
+     * @param  keyValues the key values
+     * @return           Map with the given key values
      */
     public static Map<String, String> asMap(String... keyValues) {
         if (keyValues == null || keyValues.length % 2 == 1) {
             throw new IllegalArgumentException("You must specify key values with an even number.");
         }
 
-        Map<String, String> result = new LinkedHashMap<String, String>(keyValues.length / 2);
+        Map<String, String> result = new LinkedHashMap<>(keyValues.length / 2);
         for (int i = 0; i < keyValues.length; i += 2) {
             result.put(keyValues[i], keyValues[i + 1]);
         }
@@ -51,8 +51,8 @@ final class UniVocityTestHelper {
     /**
      * Joins the given lines with the platform new line.
      *
-     * @param lines lines to join
-     * @return joined lines with the platform new line
+     * @param  lines lines to join
+     * @return       joined lines with the platform new line
      */
     public static String join(String... lines) {
         if (lines == null || lines.length == 0) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,14 +17,20 @@
 package org.apache.camel.spring.interceptor;
 
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Easier transaction configuration as we do not have to setup a transaction error handler
  */
-public class SpringTransactionalClientDataWithOnExceptionAndRollbackUsingTransactedTest extends SpringTransactionalClientDataSourceTransactedTest {
+public class SpringTransactionalClientDataWithOnExceptionAndRollbackUsingTransactedTest
+        extends SpringTransactionalClientDataSourceTransactedTest {
 
+    @Override
+    @Test
     public void testTransactionRollback() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:error");
         mock.expectedMessageCount(1);
@@ -35,12 +41,13 @@ public class SpringTransactionalClientDataWithOnExceptionAndRollbackUsingTransac
         assertMockEndpointsSatisfied();
 
         int count = jdbc.queryForObject("select count(*) from books", Integer.class);
-        assertEquals("Number of books", 1, count);
+        assertEquals(1, count, "Number of books");
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext(
-            "/org/apache/camel/spring/interceptor/springTransactionalClientDataWithOnExceptionAndRollbackUsingTransacted.xml");
+                "/org/apache/camel/spring/interceptor/springTransactionalClientDataWithOnExceptionAndRollbackUsingTransacted.xml");
     }
 
 }

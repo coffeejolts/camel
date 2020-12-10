@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,8 @@
 package org.apache.camel.dataformat.bindy;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.text.NumberFormat;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,108 +27,94 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.camel.dataformat.bindy.util.AnnotationModelLoader;
-import org.apache.camel.spi.PackageScanClassResolver;
-import org.apache.camel.spi.PackageScanFilter;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.CamelContext;
+import org.apache.camel.dataformat.bindy.annotation.Link;
+import org.apache.camel.dataformat.bindy.annotation.OneToMany;
+import org.apache.camel.support.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link BindyAbstractFactory} implements what its common to all the formats
- * supported by Camel Bindy
+ * The {@link BindyAbstractFactory} implements what its common to all the formats supported by Camel Bindy
  */
 public abstract class BindyAbstractFactory implements BindyFactory {
     private static final Logger LOG = LoggerFactory.getLogger(BindyAbstractFactory.class);
-    protected final Map<String, List<Field>> annotatedLinkFields = new LinkedHashMap<String, List<Field>>();
+    protected final Map<String, List<Field>> annotatedLinkFields = new LinkedHashMap<>();
+    protected FormatFactory formatFactory;
     protected Set<Class<?>> models;
     protected Set<String> modelClassNames;
     protected String crlf;
-    private AnnotationModelLoader modelsLoader;
-    
-    private String[] packageNames;
+    protected String eol;
+
     private String locale;
     private Class<?> type;
 
-    public BindyAbstractFactory(PackageScanClassResolver resolver, String... packageNames) throws Exception {
-        this.modelsLoader = new AnnotationModelLoader(resolver);
-        this.packageNames = packageNames;
-
-        if (LOG.isDebugEnabled()) {
-            for (String str : this.packageNames) {
-                LOG.debug("Package name: {}", str);
-            }
-        }
-
-        initModel();
-    }
-    
-    public BindyAbstractFactory(PackageScanClassResolver resolver, Class<?> type) throws Exception {
-        this.modelsLoader = new AnnotationModelLoader(resolver);
+    public BindyAbstractFactory(Class<?> type) throws Exception {
         this.type = type;
-        
+
         if (LOG.isDebugEnabled()) {
             LOG.debug("Class name: {}", type.getName());
-        }
-        
-        initModel();
-    }
-
-    public BindyAbstractFactory(PackageScanClassResolver resolver, Class<?> type, PackageScanFilter scanFilter) throws Exception {
-        this.modelsLoader = new AnnotationModelLoader(resolver, scanFilter);
-        this.type = type;
-        
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Class name: {}", type.getName());
-        }
-        
-        initModel();
-    }
-
-    public BindyAbstractFactory(PackageScanClassResolver resolver, String[] packageNames, PackageScanFilter scanFilter) throws Exception {
-        this.modelsLoader = new AnnotationModelLoader(resolver, scanFilter);
-        this.packageNames = packageNames;
-        
-        if (LOG.isDebugEnabled()) {
-            for (String str : this.packageNames) {
-                LOG.debug("Package name: {}", str);
-            }
         }
 
         initModel();
     }
 
     /**
-     * method uses to initialize the model representing the classes who will
-     * bind the data. This process will scan for classes according to the
-     * package name provided, check the annotated classes and fields.
+     * method uses to initialize the model representing the classes who will bind the data. This process will scan for
+     * classes according to the package name provided, check the annotated classes and fields.
      *
      * @throws Exception
      */
+    @Override
     public void initModel() throws Exception {
-        // Find classes defined as Model
-        if (packageNames != null)  {
-            initModelClasses(this.packageNames);
-        } else if (type != null) {
-            // use the package name from the type as it may refer to types in the same package
-            String pckName = type.getPackage().getName();
-            initModelClasses(pckName);
+        models = new HashSet<>();
+        modelClassNames = new HashSet<>();
 
-        } else {
-            throw new IllegalArgumentException("Either packagenames or type should be configured");
-        }
-        
-        modelClassNames = new HashSet<String>();
-        for (Class<?> clazz : models) {
-            modelClassNames.add(clazz.getName());
-        }
+        loadModels(type);
     }
 
     /**
-     * Find all the classes defined as model
+     * Recursively load model.
+     * 
+     * @param root
      */
-    private void initModelClasses(String... packageNames) throws Exception {
-        models = modelsLoader.loadModels(packageNames);
+    @SuppressWarnings("rawtypes")
+    private void loadModels(Class<?> root) {
+        models.add(root);
+        modelClassNames.add(root.getName());
+
+        for (Field field : root.getDeclaredFields()) {
+            Link linkField = field.getAnnotation(Link.class);
+
+            if (linkField != null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Class linked: {}, Field: {}", field.getType(), field);
+                }
+
+                models.add(field.getType());
+                modelClassNames.add(field.getType().getName());
+
+                loadModels(field.getType());
+            }
+
+            OneToMany oneToManyField = field.getAnnotation(OneToMany.class);
+
+            if (oneToManyField != null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Class (OneToMany) linked: {}, Field: {}", field.getType(), field);
+                }
+
+                Type listType = field.getGenericType();
+                Type type = ((ParameterizedType) listType).getActualTypeArguments()[0];
+                Class clazz = (Class<?>) type;
+
+                models.add(clazz);
+                modelClassNames.add(clazz.getName());
+
+                loadModels(clazz);
+            }
+
+        }
     }
 
     /**
@@ -134,9 +122,12 @@ public abstract class BindyAbstractFactory implements BindyFactory {
      */
     public abstract void initAnnotatedFields() throws Exception;
 
-    public abstract void bind(List<String> data, Map<String, Object> model, int line) throws Exception;
-    
-    public abstract String unbind(Map<String, Object> model) throws Exception;
+    @Override
+    public abstract void bind(CamelContext camelContext, List<String> data, Map<String, Object> model, int line)
+            throws Exception;
+
+    @Override
+    public abstract String unbind(CamelContext camelContext, Map<String, Object> model) throws Exception;
 
     /**
      * Link objects together
@@ -157,22 +148,20 @@ public abstract class BindyAbstractFactory implements BindyFactory {
                 String toClassName = field.getType().getName();
                 Object to = model.get(toClassName);
 
-                ObjectHelper.notNull(to, "No @link annotation has been defined for the object to link");
+                org.apache.camel.util.ObjectHelper.notNull(to, "No @link annotation has been defined for the object to link");
                 field.set(model.get(field.getDeclaringClass().getName()), to);
             }
         }
     }
 
     /**
-     * Factory method generating new instances of the model and adding them to a
-     * HashMap
+     * Factory method generating new instances of the model and adding them to a HashMap
      *
-     * @return Map is a collection of the objects used to bind data from
-     *         records, messages
+     * @return           Map is a collection of the objects used to bind data from records, messages
      * @throws Exception can be thrown
      */
     public Map<String, Object> factory() throws Exception {
-        Map<String, Object> mapModel = new HashMap<String, Object>();
+        Map<String, Object> mapModel = new HashMap<>();
 
         for (Class<?> cl : models) {
             Object obj = ObjectHelper.newInstance(cl);
@@ -183,11 +172,12 @@ public abstract class BindyAbstractFactory implements BindyFactory {
 
         return mapModel;
     }
-    
+
     /**
      * Indicates whether this factory can support a row comprised of the identified classes
-     * @param classes  the names of the classes in the row
-     * @return true if the model supports the identified classes
+     * 
+     * @param  classes the names of the classes in the row
+     * @return         true if the model supports the identified classes
      */
     public boolean supportsModel(Set<String> classes) {
         return modelClassNames.containsAll(classes);
@@ -196,15 +186,15 @@ public abstract class BindyAbstractFactory implements BindyFactory {
     /**
      * Generate a unique key
      *
-     * @param key1 The key of the section number
-     * @param key2 The key of the position of the field
-     * @return the key generated
+     * @param  key1 The key of the section number
+     * @param  key2 The key of the position of the field
+     * @return      the key generated
      */
     protected static Integer generateKey(Integer key1, Integer key2) {
         String key2Formatted;
         String keyGenerated;
 
-        // Test added for ticket - camel-2773
+        // BigIntegerFormatFactory added for ticket - camel-2773
         if ((key1 != null) && (key2 != null)) {
             key2Formatted = getNumberFormat().format((long) key2);
             keyGenerated = String.valueOf(key1) + key2Formatted;
@@ -243,6 +233,8 @@ public abstract class BindyAbstractFactory implements BindyFactory {
             return Character.MIN_VALUE;
         } else if (clazz == boolean.class) {
             return false;
+        } else if (clazz == String.class) {
+            return "";
         } else {
             return null;
         }
@@ -255,7 +247,14 @@ public abstract class BindyAbstractFactory implements BindyFactory {
     public String getCarriageReturn() {
         return crlf;
     }
-    
+
+    /**
+     * Find the carriage return set
+     */
+    public String getEndOfLine() {
+        return eol;
+    }
+
     /**
      * Format the object into a string according to the format rule defined
      */
@@ -265,7 +264,7 @@ public abstract class BindyAbstractFactory implements BindyFactory {
 
         if (value != null) {
             try {
-                strValue = ((Format<Object>)format).format(value);
+                strValue = ((Format<Object>) format).format(value);
             } catch (Exception e) {
                 throw new IllegalArgumentException("Formatting error detected for the value: " + value, e);
             }
@@ -280,5 +279,9 @@ public abstract class BindyAbstractFactory implements BindyFactory {
 
     public void setLocale(String locale) {
         this.locale = locale;
+    }
+
+    public void setFormatFactory(FormatFactory formatFactory) {
+        this.formatFactory = formatFactory;
     }
 }

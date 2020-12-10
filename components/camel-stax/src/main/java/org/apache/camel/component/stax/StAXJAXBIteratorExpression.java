@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
+
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
@@ -33,21 +34,21 @@ import org.apache.camel.Exchange;
 import org.apache.camel.InvalidPayloadException;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.support.ExpressionAdapter;
-import org.apache.camel.util.LRUSoftCache;
+import org.apache.camel.support.LRUCacheFactory;
+import org.apache.camel.util.IOHelper;
 import org.apache.camel.util.ObjectHelper;
 
 import static org.apache.camel.component.stax.StAXUtil.getTagName;
 
 /**
- * {@link org.apache.camel.Expression} to walk a {@link org.apache.camel.Message} body
- * using an {@link Iterator}, which uses StAX to walk in streaming mode.
- * The elements returned is a POJO which is bound using JAXB annotations.
+ * {@link org.apache.camel.Expression} to walk a {@link org.apache.camel.Message} body using an {@link Iterator}, which
+ * uses StAX to walk in streaming mode. The elements returned is a POJO which is bound using JAXB annotations.
  * <p/>
- * The message body must be able to convert to {@link XMLEventReader} type which is used as stream
- * to access the message body. And there must be a JAXB annotated class to use as binding.
+ * The message body must be able to convert to {@link XMLEventReader} type which is used as stream to access the message
+ * body. And there must be a JAXB annotated class to use as binding.
  */
 public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
-    private static final Map<Class<?>, JAXBContext> JAX_CONTEXTS = new LRUSoftCache<Class<?>, JAXBContext>(1000);
+    private static final Map<Class<?>, JAXBContext> JAX_CONTEXTS = LRUCacheFactory.newLRUSoftCache(1000);
 
     private final Class<T> handled;
     private final String handledName;
@@ -114,13 +115,13 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
     @SuppressWarnings("unchecked")
     public Object evaluate(Exchange exchange) {
         try {
-            XMLEventReader reader;
-            if (isNamespaceAware) {
-                reader = exchange.getIn().getMandatoryBody(XMLEventReader.class);
-            } else {
-                InputStream inputStream = exchange.getIn().getMandatoryBody(InputStream.class);
+            InputStream inputStream = null;
+            XMLEventReader reader = exchange.getContext().getTypeConverter().tryConvertTo(XMLEventReader.class, exchange,
+                    exchange.getIn().getBody());
+            if (reader == null) {
+                inputStream = exchange.getIn().getMandatoryBody(InputStream.class);
                 XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
-                xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false);
+                xmlInputFactory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, isNamespaceAware);
                 reader = xmlInputFactory.createXMLEventReader(inputStream);
             }
 
@@ -128,7 +129,7 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
             if (clazz == null && handledName != null) {
                 clazz = (Class<T>) exchange.getContext().getClassResolver().resolveMandatoryClass(handledName);
             }
-            return createIterator(reader, clazz);
+            return createIterator(reader, clazz, inputStream);
         } catch (InvalidPayloadException e) {
             exchange.setException(e);
             return null;
@@ -144,8 +145,8 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
         }
     }
 
-    private Iterator<T> createIterator(XMLEventReader reader, Class<T> clazz) throws JAXBException {
-        return new StAXJAXBIterator<T>(clazz, reader);
+    private Iterator<T> createIterator(XMLEventReader reader, Class<T> clazz, InputStream inputStream) throws JAXBException {
+        return new StAXJAXBIterator<>(clazz, reader, inputStream);
     }
 
     /**
@@ -154,14 +155,16 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
     static class StAXJAXBIterator<T> implements Iterator<T>, Closeable {
 
         private final XMLEventReader reader;
+        private final InputStream inputStream;
         private final Class<T> clazz;
         private final String name;
         private final Unmarshaller unmarshaller;
         private T element;
 
-        StAXJAXBIterator(Class<T> clazz, XMLEventReader reader) throws JAXBException {
+        StAXJAXBIterator(Class<T> clazz, XMLEventReader reader, InputStream inputStream) throws JAXBException {
             this.clazz = clazz;
             this.reader = reader;
+            this.inputStream = inputStream;
 
             name = getTagName(clazz);
             JAXBContext jaxb = jaxbContext(clazz);
@@ -199,7 +202,8 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
             while (!found && reader.hasNext()) {
                 try {
                     xmlEvent = reader.peek();
-                    if (xmlEvent != null && xmlEvent.isStartElement() && name.equals(xmlEvent.asStartElement().getName().getLocalPart())) {
+                    if (xmlEvent != null && xmlEvent.isStartElement()
+                            && name.equals(xmlEvent.asStartElement().getName().getLocalPart())) {
                         found = true;
                     } else {
                         reader.nextEvent();
@@ -222,6 +226,9 @@ public class StAXJAXBIteratorExpression<T> extends ExpressionAdapter {
 
         @Override
         public void close() throws IOException {
+            if (inputStream != null) {
+                IOHelper.close(inputStream);
+            }
             try {
                 reader.close();
             } catch (XMLStreamException e) {

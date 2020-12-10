@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,7 @@ package org.apache.camel.component.dns;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 import org.xbill.DNS.DClass;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.Name;
@@ -29,8 +29,7 @@ import org.xbill.DNS.Type;
 /**
  * A producer for dig-like operations over DNS adresses.
  * <p/>
- * Inspired from Dig.java coming with the distribution of dnsjava,
- * though most if not all options are unsupported.
+ * Inspired from Dig.java coming with the distribution of dnsjava, though most if not all options are unsupported.
  */
 public class DnsDigProducer extends DefaultProducer {
 

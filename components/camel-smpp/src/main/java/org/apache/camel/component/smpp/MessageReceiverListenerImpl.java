@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -33,20 +33,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MessageReceiverListenerImpl implements MessageReceiverListener {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(MessageReceiverListenerImpl.class);
 
     private MessageIDGenerator messageIDGenerator = new RandomMessageIDGenerator();
     private SmppEndpoint endpoint;
     private Processor processor;
     private ExceptionHandler exceptionHandler;
-    
+
     public MessageReceiverListenerImpl(SmppEndpoint endpoint, Processor processor, ExceptionHandler exceptionHandler) {
         this.endpoint = endpoint;
         this.processor = processor;
         this.exceptionHandler = exceptionHandler;
     }
 
+    @Override
     public void onAcceptAlertNotification(AlertNotification alertNotification) {
         LOG.debug("Received an alertNotification {}", alertNotification);
 
@@ -58,10 +59,12 @@ public class MessageReceiverListenerImpl implements MessageReceiverListener {
         }
 
         if (exchange.getException() != null) {
-            exceptionHandler.handleException("Cannot process exchange. This exception will be ignored.", exchange, exchange.getException());
+            exceptionHandler.handleException("Cannot process exchange. This exception will be ignored.", exchange,
+                    exchange.getException());
         }
     }
 
+    @Override
     public void onAcceptDeliverSm(DeliverSm deliverSm) throws ProcessRequestException {
         LOG.debug("Received a deliverSm {}", deliverSm);
 
@@ -88,6 +91,7 @@ public class MessageReceiverListenerImpl implements MessageReceiverListener {
         }
     }
 
+    @Override
     public DataSmResult onAcceptDataSm(DataSm dataSm, Session session) throws ProcessRequestException {
         LOG.debug("Received a dataSm {}", dataSm);
 
@@ -107,7 +111,7 @@ public class MessageReceiverListenerImpl implements MessageReceiverListener {
             throw pre;
         }
 
-        return new DataSmResult(newMessageId, dataSm.getOptionalParametes());
+        return new DataSmResult(newMessageId, dataSm.getOptionalParameters());
     }
 
     public void setMessageIDGenerator(MessageIDGenerator messageIDGenerator) {

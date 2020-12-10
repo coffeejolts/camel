@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,19 +19,18 @@ package org.apache.camel.component.file.remote;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class FromFtpRecursiveNoopTest extends FtpServerTestSupport {
 
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/noop?password=admin&binary=false&initialDelay=3000"
-                + "&recursive=true&noop=true";
+        return "ftp://admin@localhost:{{ftp.server.port}}/noop?password=admin&binary=false&initialDelay=3000"
+               + "&recursive=true&noop=true";
     }
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
 
@@ -63,10 +62,7 @@ public class FromFtpRecursiveNoopTest extends FtpServerTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from(getFtpUrl())
-                    .convertBodyTo(String.class)
-                    .to("log:ftp")
-                    .to("mock:result");
+                from(getFtpUrl()).convertBodyTo(String.class).to("log:ftp").to("mock:result");
             }
         };
     }

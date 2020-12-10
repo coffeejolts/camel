@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,10 @@ package org.apache.camel.component.mail;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.PollingConsumer;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Unit test for various invalid configurations etc.
@@ -32,7 +34,7 @@ public class InvalidConfigurationTest extends CamelTestSupport {
         PollingConsumer consumer = endpoint.createPollingConsumer();
         try {
             consumer.start();
-            fail("Should have thrown NoSuchProviderException as stmp protocol cannot be used for consuming mails");
+            fail("Should have thrown NoSuchProviderException as smtp protocol cannot be used for consuming mails");
         } catch (IllegalArgumentException e) {
             // expected
         }
@@ -44,7 +46,7 @@ public class InvalidConfigurationTest extends CamelTestSupport {
         PollingConsumer consumer = endpoint.createPollingConsumer();
         try {
             consumer.start();
-            fail("Should have thrown NoSuchProviderException as stmp protocol cannot be used for consuming mails");
+            fail("Should have thrown NoSuchProviderException as smtp protocol cannot be used for consuming mails");
         } catch (IllegalArgumentException e) {
             // expected
         }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,15 +24,19 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AvroGenericMarshaAndUnmarshaTest extends CamelTestSupport {
 
     private Schema schema;
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         schema = getSchema();
         super.setUp();
@@ -43,7 +47,6 @@ public class AvroGenericMarshaAndUnmarshaTest extends CamelTestSupport {
         marshalAndUnmarshalGeneric("direct:in", "direct:back");
     }
 
-
     private void marshalAndUnmarshalGeneric(String inURI, String outURI) throws InterruptedException {
         GenericRecord input = new GenericData.Record(schema);
         input.put("name", "ceposta");
@@ -51,7 +54,7 @@ public class AvroGenericMarshaAndUnmarshaTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:reverse");
         mock.expectedMessageCount(1);
         mock.message(0).body().isInstanceOf(GenericRecord.class);
-        mock.message(0).body().equals(input);
+        mock.message(0).body().isEqualTo(input);
 
         Object marshalled = template.requestBody(inURI, input);
         template.sendBody(outURI, marshalled);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,10 +22,9 @@ import org.apache.camel.Processor;
 
 /**
  * A simple processor which transforms the input
- *
- * @version 
-*/
+ */
 public class MyProcessor implements Processor {
+    @Override
     public void process(Exchange exchange) {
         Message in = exchange.getIn();
         in.setBody(in.getBody(String.class) + " World!");

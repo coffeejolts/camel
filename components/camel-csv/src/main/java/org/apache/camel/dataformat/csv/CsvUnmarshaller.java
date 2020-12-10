@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,6 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.ExtendedExchange;
+import org.apache.camel.support.ExchangeHelper;
 import org.apache.camel.util.IOHelper;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -45,7 +47,7 @@ abstract class CsvUnmarshaller {
 
     public static CsvUnmarshaller create(CSVFormat format, CsvDataFormat dataFormat) {
         // If we want to use maps, thus the header must be either fixed or automatic
-        if (dataFormat.isUseMaps() && format.getHeader() == null) {
+        if ((dataFormat.isUseMaps() || dataFormat.isUseOrderedMaps()) && format.getHeader() == null) {
             format = format.withHeader();
         }
         // If we want to skip the header record it must automatic otherwise it's not working
@@ -62,9 +64,9 @@ abstract class CsvUnmarshaller {
     /**
      * Unmarshal the CSV
      *
-     * @param exchange    Exchange (used for accessing type converter)
-     * @param inputStream Input CSV stream
-     * @return Unmarshalled CSV
+     * @param  exchange    Exchange (used for accessing type converter)
+     * @param  inputStream Input CSV stream
+     * @return             Unmarshalled CSV
      * @throws IOException if the stream cannot be read properly
      */
     public abstract Object unmarshal(Exchange exchange, InputStream inputStream) throws IOException;
@@ -72,6 +74,8 @@ abstract class CsvUnmarshaller {
     private static CsvRecordConverter<?> extractConverter(CsvDataFormat dataFormat) {
         if (dataFormat.getRecordConverter() != null) {
             return dataFormat.getRecordConverter();
+        } else if (dataFormat.isUseOrderedMaps()) {
+            return CsvRecordConverters.orderedMapConverter();
         } else if (dataFormat.isUseMaps()) {
             return CsvRecordConverters.mapConverter();
         } else {
@@ -89,8 +93,10 @@ abstract class CsvUnmarshaller {
             super(format, dataFormat);
         }
 
+        @Override
         public Object unmarshal(Exchange exchange, InputStream inputStream) throws IOException {
-            CSVParser parser = new CSVParser(new InputStreamReader(inputStream, IOHelper.getCharsetName(exchange)), format);
+            CSVParser parser
+                    = new CSVParser(new InputStreamReader(inputStream, ExchangeHelper.getCharsetName(exchange)), format);
             try {
                 return asList(parser.iterator(), converter);
             } finally {
@@ -99,7 +105,7 @@ abstract class CsvUnmarshaller {
         }
 
         private <T> List<T> asList(Iterator<CSVRecord> iterator, CsvRecordConverter<T> converter) {
-            List<T> answer = new ArrayList<T>();
+            List<T> answer = new ArrayList<>();
             while (iterator.hasNext()) {
                 answer.add(converter.convertRecord(iterator.next()));
             }
@@ -121,11 +127,11 @@ abstract class CsvUnmarshaller {
         public Object unmarshal(Exchange exchange, InputStream inputStream) throws IOException {
             Reader reader = null;
             try {
-                reader = new InputStreamReader(inputStream, IOHelper.getCharsetName(exchange));
+                reader = new InputStreamReader(inputStream, ExchangeHelper.getCharsetName(exchange));
                 CSVParser parser = new CSVParser(reader, format);
                 CsvIterator answer = new CsvIterator(parser, converter);
                 // add to UoW so we can close the iterator so it can release any resources
-                exchange.addOnCompletion(new CsvUnmarshalOnCompletion(answer));
+                exchange.adapt(ExtendedExchange.class).addOnCompletion(new CsvUnmarshalOnCompletion(answer));
                 return answer;
             } catch (Exception e) {
                 IOHelper.close(reader);

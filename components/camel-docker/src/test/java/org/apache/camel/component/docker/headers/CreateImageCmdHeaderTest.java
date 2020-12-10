@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,14 +20,15 @@ import java.io.InputStream;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.CreateImageCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Create Image Request headers are parsed properly
@@ -40,9 +41,8 @@ public class CreateImageCmdHeaderTest extends BaseDockerHeaderTest<CreateImageCm
     @Mock
     private InputStream inputStream;
 
-    @Ignore
     @Test
-    public void createImageHeaderTest() {
+    void createImageHeaderTest() {
 
         String repository = "docker/empty";
 
@@ -51,13 +51,13 @@ public class CreateImageCmdHeaderTest extends BaseDockerHeaderTest<CreateImageCm
 
         template.sendBodyAndHeaders("direct:in", inputStream, headers);
 
-        Mockito.verify(dockerClient, Mockito.times(1)).createImageCmd(Matchers.eq(repository), Matchers.any(InputStream.class));
+        Mockito.verify(dockerClient, Mockito.times(1)).createImageCmd(eq(repository), any(InputStream.class));
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.createImageCmd(Matchers.anyString(), Matchers.any(InputStream.class))).thenReturn(mockObject);
+        Mockito.when(dockerClient.createImageCmd(anyString(), any(InputStream.class))).thenReturn(mockObject);
     }
 
     @Override

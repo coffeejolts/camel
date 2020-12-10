@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,6 +23,7 @@ import java.io.Writer;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.xml.XMLConstants;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
@@ -37,6 +38,9 @@ import org.xml.sax.XMLReader;
 import org.apache.camel.CamelException;
 import org.apache.camel.Exchange;
 import org.apache.camel.spi.DataFormat;
+import org.apache.camel.spi.DataFormatName;
+import org.apache.camel.spi.annotations.Dataformat;
+import org.apache.camel.support.service.ServiceSupport;
 import org.apache.camel.util.ObjectHelper;
 import org.ccil.cowan.tagsoup.HTMLSchema;
 import org.ccil.cowan.tagsoup.Parser;
@@ -45,15 +49,13 @@ import org.ccil.cowan.tagsoup.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
- * Dataformat for TidyMarkup (aka Well formed HTML in XML form.. may or may not
- * be XHTML) This dataformat is intended to convert bad HTML from a site (or
- * file) into a well formed HTML document which can then be sent to XSLT or
- * xpath'ed on.
- * 
+ * Dataformat for TidyMarkup (aka Well formed HTML in XML form.. may or may not be XHTML) This dataformat is intended to
+ * convert bad HTML from a site (or file) into a well formed HTML document which can then be sent to XSLT or xpath'ed
+ * on.
  */
-public class TidyMarkupDataFormat implements DataFormat {
+@Dataformat("tidyMarkup")
+public class TidyMarkupDataFormat extends ServiceSupport implements DataFormat, DataFormatName {
 
     /*
      * Our Logger
@@ -67,9 +69,9 @@ public class TidyMarkupDataFormat implements DataFormat {
     private static final String XML = "xml";
 
     /**
-     * When returning a String, do we omit the XML ?
+     * When returning a String, do we omit the XML declaration in the top.
      */
-    private boolean isOmitXmlDeclaration;
+    private boolean omitXmlDeclaration;
 
     /**
      * String or Node to return
@@ -102,21 +104,27 @@ public class TidyMarkupDataFormat implements DataFormat {
      * {@link http://www.saxproject.org/apidoc/org/xml/sax/package-summary.html}
      * </p>
      */
-    private Map<String, Object> parserPropeties;
+    private Map<String, Object> parserProperties;
+
+    @Override
+    public String getDataFormatName() {
+        return "tidyMarkup";
+    }
 
     /**
      * Unsupported operation. We cannot create ugly HTML.
      */
+    @Override
     public void marshal(Exchange exchange, Object object, OutputStream outputStream) throws Exception {
-        throw new CamelException("Marshalling from Well Formed HTML to ugly HTML is not supported."
-                + " Only unmarshal is supported");
+        throw new CamelException(
+                "Marshalling from Well Formed HTML to ugly HTML is not supported."
+                                 + " Only unmarshal is supported");
     }
 
     /**
      * Unmarshal the data
-     * 
-     * @throws Exception
      */
+    @Override
     public Object unmarshal(Exchange exchange, InputStream inputStream) throws Exception {
 
         ObjectHelper.notNull(dataObjectType, "dataObjectType", this);
@@ -126,16 +134,17 @@ public class TidyMarkupDataFormat implements DataFormat {
         } else if (dataObjectType.isAssignableFrom(String.class)) {
             return asStringTidyMarkup(inputStream);
         } else {
-            throw new IllegalArgumentException("The return type [" + dataObjectType.getCanonicalName()
-                    + "] is unsupported");
+            throw new IllegalArgumentException(
+                    "The return type [" + dataObjectType.getCanonicalName()
+                                               + "] is unsupported");
         }
     }
 
     /**
      * Return the tidy markup as a string
      * 
-     * @param inputStream
-     * @return String of XML
+     * @param  inputStream
+     * @return                String of XML
      * @throws CamelException
      */
     public String asStringTidyMarkup(InputStream inputStream) throws CamelException {
@@ -162,9 +171,8 @@ public class TidyMarkupDataFormat implements DataFormat {
     /**
      * Return the HTML Markup as an {@link org.w3c.dom.Node}
      * 
-     * @param inputStream
-     *            The input Stream to convert
-     * @return org.w3c.dom.Node The HTML Markup as a DOM Node
+     * @param  inputStream    The input Stream to convert
+     * @return                org.w3c.dom.Node The HTML Markup as a DOM Node
      * @throws CamelException
      */
     public Node asNodeTidyMarkup(InputStream inputStream) throws CamelException {
@@ -173,7 +181,9 @@ public class TidyMarkupDataFormat implements DataFormat {
         parser.setContentHandler(createContentHandler(w));
 
         try {
-            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, Boolean.TRUE);
+            Transformer transformer = transformerFactory.newTransformer();
             DOMResult result = new DOMResult();
             transformer.transform(new SAXSource(parser, new InputSource(inputStream)), result);
             return result.getNode();
@@ -184,9 +194,6 @@ public class TidyMarkupDataFormat implements DataFormat {
 
     /**
      * Create the tagSoup Parser
-     * 
-     * @return
-     * @throws CamelException
      */
     protected XMLReader createTagSoupParser() throws CamelException {
         XMLReader reader = new Parser();
@@ -211,8 +218,8 @@ public class TidyMarkupDataFormat implements DataFormat {
              * http://home.ccil.org/~cowan/XML/tagsoup/#properties}
              */
 
-            if (getParserPropeties() != null) {
-                for (Entry<String, Object> e : getParserPropeties().entrySet()) {
+            if (getParserProperties() != null) {
+                for (Entry<String, Object> e : getParserProperties().entrySet()) {
                     reader.setProperty(e.getKey(), e.getValue());
                 }
             }
@@ -230,24 +237,6 @@ public class TidyMarkupDataFormat implements DataFormat {
         return reader;
     }
 
-    /**
-     * @param htmlSchema
-     *            the htmlSchema to set
-     */
-    public void setParsingSchema(Schema schema) {
-        this.parsingSchema = schema;
-    }
-
-    /**
-     * @return the htmlSchema
-     */
-    public Schema getParsingSchema() {
-        if (parsingSchema == null) {
-            this.parsingSchema = new HTMLSchema();
-        }
-        return parsingSchema;
-    }
-
     protected ContentHandler createContentHandler(Writer w) {
         XMLWriter xmlWriter = new XMLWriter(w);
 
@@ -259,7 +248,7 @@ public class TidyMarkupDataFormat implements DataFormat {
             xmlWriter.setOutputProperty(XMLWriter.METHOD, XML);
         }
 
-        if (isOmitXmlDeclaration) {
+        if (omitXmlDeclaration) {
             xmlWriter.setOutputProperty(XMLWriter.OMIT_XML_DECLARATION, YES);
         } else {
             xmlWriter.setOutputProperty(XMLWriter.OMIT_XML_DECLARATION, NO);
@@ -268,64 +257,64 @@ public class TidyMarkupDataFormat implements DataFormat {
 
     }
 
-    /**
-     * @param parserFeatures
-     *            the parserFeatures to set
-     */
+    public void setParsingSchema(Schema schema) {
+        this.parsingSchema = schema;
+    }
+
+    public Schema getParsingSchema() {
+        if (parsingSchema == null) {
+            this.parsingSchema = new HTMLSchema();
+        }
+        return parsingSchema;
+    }
+
+    public boolean isOmitXmlDeclaration() {
+        return omitXmlDeclaration;
+    }
+
+    public void setOmitXmlDeclaration(boolean omitXmlDeclaration) {
+        this.omitXmlDeclaration = omitXmlDeclaration;
+    }
+
     public void setParserFeatures(Map<String, Boolean> parserFeatures) {
         this.parserFeatures = parserFeatures;
     }
 
-    /**
-     * @return the parserFeatures
-     */
     public Map<String, Boolean> getParserFeatures() {
         return parserFeatures;
     }
 
-    /**
-     * @param parserPropeties
-     *            the parserPropeties to set
-     */
-    public void setParserPropeties(Map<String, Object> parserPropeties) {
-        this.parserPropeties = parserPropeties;
+    public void setParserProperties(Map<String, Object> parserProperties) {
+        this.parserProperties = parserProperties;
     }
 
-    /**
-     * @return the parserPropeties
-     */
-    public Map<String, Object> getParserPropeties() {
-        return parserPropeties;
+    public Map<String, Object> getParserProperties() {
+        return parserProperties;
     }
 
-    /**
-     * @param method
-     *            the method to set
-     */
     public void setMethod(String method) {
         this.method = method;
     }
 
-    /**
-     * @return the method
-     */
     public String getMethod() {
         return method;
     }
 
-    /**
-     * @return the dataObjectType
-     */
     public Class<?> getDataObjectType() {
         return dataObjectType;
     }
 
-    /**
-     * @param dataObjectType
-     *            the dataObjectType to set
-     */
     public void setDataObjectType(Class<?> dataObjectType) {
         this.dataObjectType = dataObjectType;
     }
 
+    @Override
+    protected void doStart() throws Exception {
+        // noop
+    }
+
+    @Override
+    protected void doStop() throws Exception {
+        // noop
+    }
 }

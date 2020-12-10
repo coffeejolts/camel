@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,12 @@
 package org.apache.camel.spring.mock;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class InterceptSendToMockEndpointStrategyTest extends SpringTestSupport {
 
     @Override
@@ -30,6 +30,7 @@ public class InterceptSendToMockEndpointStrategyTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/mock/InterceptSendToMockEndpointStrategyTest.xml");
     }
 
+    @Test
     public void testAdvisedMockEndpoints() throws Exception {
         getMockEndpoint("mock:direct:start").expectedBodiesReceived("Hello World");
         getMockEndpoint("mock:direct:foo").expectedBodiesReceived("Hello World");

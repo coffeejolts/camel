@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,9 @@
  */
 package org.apache.camel.component.google.drive.internal;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.component.google.drive.GoogleDriveConfiguration;
-import org.apache.camel.util.component.ApiMethodPropertiesHelper;
+import org.apache.camel.support.component.ApiMethodPropertiesHelper;
 
 /**
  * Singleton {@link ApiMethodPropertiesHelper} for GoogleDrive component.
@@ -26,13 +27,13 @@ public final class GoogleDrivePropertiesHelper extends ApiMethodPropertiesHelper
 
     private static GoogleDrivePropertiesHelper helper;
 
-    private GoogleDrivePropertiesHelper() {
-        super(GoogleDriveConfiguration.class, GoogleDriveConstants.PROPERTY_PREFIX);
+    private GoogleDrivePropertiesHelper(CamelContext context) {
+        super(context, GoogleDriveConfiguration.class, GoogleDriveConstants.PROPERTY_PREFIX);
     }
 
-    public static synchronized GoogleDrivePropertiesHelper getHelper() {
+    public static synchronized GoogleDrivePropertiesHelper getHelper(CamelContext context) {
         if (helper == null) {
-            helper = new GoogleDrivePropertiesHelper();
+            helper = new GoogleDrivePropertiesHelper(context);
         }
         return helper;
     }

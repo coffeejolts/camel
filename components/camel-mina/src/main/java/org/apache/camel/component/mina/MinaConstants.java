@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,11 @@ package org.apache.camel.component.mina;
 
 /**
  * Mina constants
- *
- * @version 
  */
 public final class MinaConstants {
 
     public static final String MINA_CLOSE_SESSION_WHEN_COMPLETE = "CamelMinaCloseSessionWhenComplete";
-
-    /** The key of the IoSession which is stored in the message header*/
+    /** The key of the IoSession which is stored in the message header */
     public static final String MINA_IOSESSION = "CamelMinaIoSession";
     /** The socket address of local machine that received the message. */
     public static final String MINA_LOCAL_ADDRESS = "CamelMinaLocalAddress";

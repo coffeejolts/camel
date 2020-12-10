@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,12 @@
  */
 package org.apache.camel.component.netty.http;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
 import org.apache.camel.CamelContext;
 import org.apache.camel.component.netty.NettyConsumer;
 import org.apache.camel.component.netty.NettyServerBootstrapConfiguration;
 import org.apache.camel.component.netty.SingleTCPNettyServerBootstrapFactory;
-import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,14 +43,18 @@ public class HttpServerBootstrapFactory extends SingleTCPNettyServerBootstrapFac
     }
 
     @Override
-    public void init(CamelContext camelContext, NettyServerBootstrapConfiguration configuration, ChannelPipelineFactory pipelineFactory) {
+    public void init(
+            CamelContext camelContext, NettyServerBootstrapConfiguration configuration,
+            ChannelInitializer<Channel> pipelineFactory) {
         super.init(camelContext, configuration, pipelineFactory);
         this.port = configuration.getPort();
         this.bootstrapConfiguration = configuration;
 
-        LOG.info("BootstrapFactory on port {} is using bootstrap configuration: [{}]", port, bootstrapConfiguration.toStringBootstrapConfiguration());
+        LOG.info("BootstrapFactory on port {} is using bootstrap configuration: [{}]", port,
+                bootstrapConfiguration.toStringBootstrapConfiguration());
     }
 
+    @Override
     public void addConsumer(NettyConsumer consumer) {
         if (compatibleCheck) {
             // when adding additional consumers on the same port (eg to reuse port for multiple routes etc) then the Netty server bootstrap
@@ -57,15 +62,21 @@ public class HttpServerBootstrapFactory extends SingleTCPNettyServerBootstrapFac
             // we do this to avoid mis configuration, so people configure SSL and plain configuration on the same port etc.
 
             // first it may be the same instance, so only check for compatibility of different instance
-            if (bootstrapConfiguration != consumer.getConfiguration() && !bootstrapConfiguration.compatible(consumer.getConfiguration())) {
-                throw new IllegalArgumentException("Bootstrap configuration must be identical when adding additional consumer: " + consumer.getEndpoint() + " on same port: " + port
-                    + ".\n  Existing " + bootstrapConfiguration.toStringBootstrapConfiguration() + "\n       New " + consumer.getConfiguration().toStringBootstrapConfiguration());
+            if (bootstrapConfiguration != consumer.getConfiguration()
+                    && !bootstrapConfiguration.compatible(consumer.getConfiguration())) {
+                throw new IllegalArgumentException(
+                        "Bootstrap configuration must be identical when adding additional consumer: " + consumer.getEndpoint()
+                                                   + " on same port: " + port
+                                                   + ".\n  Existing " + bootstrapConfiguration.toStringBootstrapConfiguration()
+                                                   + "\n       New "
+                                                   + consumer.getConfiguration().toStringBootstrapConfiguration());
             }
         }
 
         if (LOG.isDebugEnabled()) {
             NettyHttpConsumer httpConsumer = (NettyHttpConsumer) consumer;
-            LOG.debug("BootstrapFactory on port {} is adding consumer with context-path {}", port, httpConsumer.getConfiguration().getPath());
+            LOG.debug("BootstrapFactory on port {} is adding consumer with context-path {}", port,
+                    httpConsumer.getConfiguration().getPath());
         }
 
         channelFactory.addConsumer((NettyHttpConsumer) consumer);
@@ -75,7 +86,8 @@ public class HttpServerBootstrapFactory extends SingleTCPNettyServerBootstrapFac
     public void removeConsumer(NettyConsumer consumer) {
         if (LOG.isDebugEnabled()) {
             NettyHttpConsumer httpConsumer = (NettyHttpConsumer) consumer;
-            LOG.debug("BootstrapFactory on port {} is removing consumer with context-path {}", port, httpConsumer.getConfiguration().getPath());
+            LOG.debug("BootstrapFactory on port {} is removing consumer with context-path {}", port,
+                    httpConsumer.getConfiguration().getPath());
         }
         channelFactory.removeConsumer((NettyHttpConsumer) consumer);
     }
@@ -87,7 +99,7 @@ public class HttpServerBootstrapFactory extends SingleTCPNettyServerBootstrapFac
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         // only stop if no more active consumers
         int consumers = channelFactory.consumers();
         if (consumers == 0) {

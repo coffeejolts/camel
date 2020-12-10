@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,7 +16,6 @@
  */
 package org.apache.camel.component.cxf;
 
-
 import java.net.URL;
 import java.util.ResourceBundle;
 
@@ -31,7 +30,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringCamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.wsdl_first.Person;
 import org.apache.camel.wsdl_first.PersonService;
 import org.apache.cxf.endpoint.Client;
@@ -39,33 +38,35 @@ import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.interceptor.LoggingInInterceptor;
 import org.apache.cxf.interceptor.LoggingOutInterceptor;
-import org.junit.Before;
-import org.junit.Test;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Unit test to verify CxfConsumer to generate SOAP fault in PAYLOAD mode with the exception cause returned
- * 
- * @version 
  */
 public class CxfConsumerPayloadFaultCauseEnabledTest extends CamelTestSupport {
     protected static final QName SERVICE_QNAME = new QName("http://camel.apache.org/wsdl-first", "PersonService");
-    protected final String serviceAddress = "http://localhost:" + CXFTestSupport.getPort1() 
-        + "/" + getClass().getSimpleName() + "/PersonService";
+    protected final String serviceAddress = "http://localhost:" + CXFTestSupport.getPort1()
+                                            + "/" + getClass().getSimpleName() + "/PersonService";
     protected AbstractXmlApplicationContext applicationContext;
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         CXFTestSupport.getPort1();
-        applicationContext = new ClassPathXmlApplicationContext("org/apache/camel/component/cxf/CxfConsumerFaultCauseEnabledBeans.xml");
+        applicationContext
+                = new ClassPathXmlApplicationContext("org/apache/camel/component/cxf/CxfConsumerFaultCauseEnabledBeans.xml");
         super.setUp();
-        assertNotNull("Should have created a valid spring context", applicationContext);
+        assertNotNull(applicationContext, "Should have created a valid spring context");
     }
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
@@ -73,7 +74,7 @@ public class CxfConsumerPayloadFaultCauseEnabledTest extends CamelTestSupport {
                 from("cxf:bean:consumerEndpoint").process(new Processor() {
                     public void process(final Exchange exchange) throws Exception {
                         Throwable cause = new IllegalArgumentException("Homer");
-                        Fault fault = new Fault("Someone messed up the service.", (ResourceBundle)null, cause);
+                        Fault fault = new Fault("Someone messed up the service.", (ResourceBundle) null, cause);
                         exchange.setException(fault);
                     }
                 });
@@ -86,31 +87,31 @@ public class CxfConsumerPayloadFaultCauseEnabledTest extends CamelTestSupport {
         this.getCamelContextService();
         URL wsdlURL = getClass().getClassLoader().getResource("person.wsdl");
         PersonService ss = new PersonService(wsdlURL, SERVICE_QNAME);
-        
+
         Person client = ss.getSoap();
-        
+
         Client c = ClientProxy.getClient(client);
         c.getInInterceptors().add(new LoggingInInterceptor());
         c.getOutInterceptors().add(new LoggingOutInterceptor());
-        ((BindingProvider)client).getRequestContext()
-            .put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, serviceAddress);
-        
-        Holder<String> personId = new Holder<String>();
+        ((BindingProvider) client).getRequestContext()
+                .put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, serviceAddress);
+
+        Holder<String> personId = new Holder<>();
         personId.value = "";
-        Holder<String> ssn = new Holder<String>();
-        Holder<String> name = new Holder<String>();
+        Holder<String> ssn = new Holder<>();
+        Holder<String> name = new Holder<>();
         try {
             client.getPerson(personId, ssn, name);
             fail("SOAPFault expected!");
         } catch (Exception e) {
             assertTrue(e instanceof SOAPFaultException);
-            SOAPFault fault = ((SOAPFaultException)e).getFault();
+            SOAPFault fault = ((SOAPFaultException) e).getFault();
             assertEquals("Someone messed up the service. Caused by: Homer", fault.getFaultString());
         }
     }
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        return SpringCamelContext.springCamelContext(applicationContext);
+        return SpringCamelContext.springCamelContext(applicationContext, true);
     }
 }

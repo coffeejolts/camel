@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,34 +18,40 @@ package org.apache.camel.component.jt400;
 
 import java.net.URISyntaxException;
 import java.util.Arrays;
+
 import javax.naming.OperationNotSupportedException;
 
 import com.ibm.as400.access.AS400;
 import com.ibm.as400.access.AS400ConnectionPool;
 import org.apache.camel.CamelException;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
-import org.apache.camel.PollingConsumer;
+import org.apache.camel.MultipleConsumersSupport;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultPollingEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.ScheduledPollEndpoint;
 import org.apache.camel.util.ObjectHelper;
 import org.apache.camel.util.URISupport;
 
-@UriEndpoint(scheme = "jt400", title = "JT400", syntax = "jt400:userID:password/systemName/objectPath.type", consumerClass = Jt400DataQueueConsumer.class, label = "messaging")
-public class Jt400Endpoint extends DefaultPollingEndpoint {
+/**
+ * Exchanges messages with an IBM i system using data queues, message queues, or program call. IBM i is the replacement
+ * for AS/400 and iSeries servers.
+ */
+@UriEndpoint(firstVersion = "1.5.0", scheme = "jt400", title = "JT400",
+             syntax = "jt400:userID:password/systemName/objectPath.type", category = { Category.MESSAGING })
+public class Jt400Endpoint extends ScheduledPollEndpoint implements MultipleConsumersSupport {
 
-    public static final String KEY = "KEY";
-    public static final String SENDER_INFORMATION = "SENDER_INFORMATION";
+    public static final String KEY = Jt400Constants.KEY;
+    public static final String SENDER_INFORMATION = Jt400Constants.SENDER_INFORMATION;
 
     @UriParam
     private final Jt400Configuration configuration;
 
     /**
-     * Creates a new AS/400 data queue endpoint using a default connection pool
-     * provided by the component.
-     * 
+     * Creates a new IBM i data queue endpoint using a default connection pool provided by the component.
+     *
      * @throws NullPointerException if {@code component} is null
      */
     protected Jt400Endpoint(String endpointUri, Jt400Component component) throws CamelException {
@@ -53,10 +59,10 @@ public class Jt400Endpoint extends DefaultPollingEndpoint {
     }
 
     /**
-     * Creates a new AS/400 data queue endpoint using the specified connection
-     * pool.
+     * Creates a new IBM i data queue endpoint using the specified connection pool.
      */
-    protected Jt400Endpoint(String endpointUri, Jt400Component component, AS400ConnectionPool connectionPool) throws CamelException {
+    protected Jt400Endpoint(String endpointUri, Jt400Component component,
+                            AS400ConnectionPool connectionPool) throws CamelException {
         super(endpointUri, component);
         ObjectHelper.notNull(connectionPool, "connectionPool");
         try {
@@ -66,17 +72,16 @@ public class Jt400Endpoint extends DefaultPollingEndpoint {
         }
     }
 
-    @Override
-    public PollingConsumer createPollingConsumer() throws Exception {
-        Jt400DataQueueConsumer answer = new Jt400DataQueueConsumer(this);
-        configurePollingConsumer(answer);
-        return answer;
+    public Jt400Configuration getConfiguration() {
+        return configuration;
     }
 
     @Override
     public Producer createProducer() throws Exception {
         if (Jt400Type.DTAQ == configuration.getType()) {
             return new Jt400DataQueueProducer(this);
+        } else if (Jt400Type.MSGQ == configuration.getType()) {
+            return new Jt400MsgQueueProducer(this);
         } else {
             return new Jt400PgmProducer(this);
         }
@@ -85,31 +90,31 @@ public class Jt400Endpoint extends DefaultPollingEndpoint {
     @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         if (Jt400Type.DTAQ == configuration.getType()) {
-            return new Jt400DataQueueConsumer(this);
+            Consumer consumer = new Jt400DataQueueConsumer(this, processor);
+            configureConsumer(consumer);
+            return consumer;
+        } else if (Jt400Type.MSGQ == configuration.getType()) {
+            Consumer consumer = new Jt400MsgQueueConsumer(this, processor);
+            configureConsumer(consumer);
+            return consumer;
         } else {
             throw new OperationNotSupportedException();
         }
     }
 
-    public boolean isSingleton() {
-        // cannot be singleton as we store an AS400 instance on the configuration
-        return false;
-    }
-
     /**
-     * Obtains an {@code AS400} object that connects to this endpoint. Since
-     * these objects represent limited resources, clients have the
-     * responsibility of {@link #releaseSystem(AS400) releasing them} when done.
-     * 
+     * Obtains an {@code AS400} object that connects to this endpoint. Since these objects represent limited resources,
+     * clients have the responsibility of {@link #releaseSystem(AS400) releasing them} when done.
+     *
      * @return an {@code AS400} object that connects to this endpoint
      */
     protected AS400 getSystem() {
         return configuration.getConnection();
     }
-    
+
     /**
      * Releases a previously obtained {@code AS400} object from use.
-     * 
+     *
      * @param system a previously obtained {@code AS400} object
      */
     protected void releaseSystem(AS400 system) {
@@ -117,11 +122,9 @@ public class Jt400Endpoint extends DefaultPollingEndpoint {
     }
 
     /**
-     * Returns the fully qualified integrated file system path name of the data
-     * queue of this endpoint.
-     * 
-     * @return the fully qualified integrated file system path name of the data
-     *         queue of this endpoint
+     * Returns the fully qualified integrated file system path name of the data queue of this endpoint.
+     *
+     * @return the fully qualified integrated file system path name of the data queue of this endpoint
      */
     protected String getObjectPath() {
         return configuration.getObjectPath();
@@ -246,4 +249,42 @@ public class Jt400Endpoint extends DefaultPollingEndpoint {
     public void setSystemName(String systemName) {
         configuration.setSystemName(systemName);
     }
+
+    public void setSecured(boolean secured) {
+        configuration.setSecured(secured);
+    }
+
+    public boolean isSecured() {
+        return configuration.isSecured();
+    }
+
+    public int getReadTimeout() {
+        return configuration.getReadTimeout();
+    }
+
+    public void setReadTimeout(int readTimeout) {
+        configuration.setReadTimeout(readTimeout);
+    }
+
+    public void setProcedureName(String procedureName) {
+        configuration.setProcedureName(procedureName);
+    }
+
+    public String getProcedureName() {
+        return configuration.getProcedureName();
+    }
+
+    public void setMessageAction(Jt400Configuration.MessageAction messageAction) {
+        configuration.setMessageAction(messageAction);
+    }
+
+    public Jt400Configuration.MessageAction getMessageAction() {
+        return configuration.getMessageAction();
+    }
+
+    @Override
+    public boolean isMultipleConsumersSupported() {
+        return true;
+    }
+
 }

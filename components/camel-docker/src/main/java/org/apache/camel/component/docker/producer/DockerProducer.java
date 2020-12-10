@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,34 +16,29 @@
  */
 package org.apache.camel.component.docker.producer;
 
-import java.io.File;
 import java.io.InputStream;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.AttachContainerCmd;
 import com.github.dockerjava.api.command.AuthCmd;
-import com.github.dockerjava.api.command.BuildImageCmd;
 import com.github.dockerjava.api.command.CommitCmd;
+import com.github.dockerjava.api.command.ConnectToNetworkCmd;
 import com.github.dockerjava.api.command.ContainerDiffCmd;
-import com.github.dockerjava.api.command.CopyFileFromContainerCmd;
+import com.github.dockerjava.api.command.CopyArchiveFromContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateImageCmd;
-import com.github.dockerjava.api.command.DockerCmd;
+import com.github.dockerjava.api.command.CreateNetworkCmd;
 import com.github.dockerjava.api.command.ExecCreateCmd;
-import com.github.dockerjava.api.command.ExecStartCmd;
 import com.github.dockerjava.api.command.InfoCmd;
 import com.github.dockerjava.api.command.InspectContainerCmd;
 import com.github.dockerjava.api.command.InspectImageCmd;
 import com.github.dockerjava.api.command.KillContainerCmd;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.command.ListImagesCmd;
-import com.github.dockerjava.api.command.LogContainerCmd;
 import com.github.dockerjava.api.command.PauseContainerCmd;
 import com.github.dockerjava.api.command.PingCmd;
-import com.github.dockerjava.api.command.PullImageCmd;
-import com.github.dockerjava.api.command.PushImageCmd;
 import com.github.dockerjava.api.command.RemoveContainerCmd;
 import com.github.dockerjava.api.command.RemoveImageCmd;
+import com.github.dockerjava.api.command.RemoveNetworkCmd;
 import com.github.dockerjava.api.command.RestartContainerCmd;
 import com.github.dockerjava.api.command.SearchImagesCmd;
 import com.github.dockerjava.api.command.StartContainerCmd;
@@ -52,23 +47,14 @@ import com.github.dockerjava.api.command.TagImageCmd;
 import com.github.dockerjava.api.command.TopContainerCmd;
 import com.github.dockerjava.api.command.UnpauseContainerCmd;
 import com.github.dockerjava.api.command.VersionCmd;
-import com.github.dockerjava.api.command.WaitContainerCmd;
 import com.github.dockerjava.api.model.AuthConfig;
-import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Capability;
-import com.github.dockerjava.api.model.Device;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.ExposedPorts;
 import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.Link;
-import com.github.dockerjava.api.model.LxcConf;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.api.model.RestartPolicy;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.api.model.Volumes;
 import com.github.dockerjava.api.model.VolumesFrom;
-
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.component.docker.DockerClientFactory;
@@ -79,10 +65,12 @@ import org.apache.camel.component.docker.DockerEndpoint;
 import org.apache.camel.component.docker.DockerHelper;
 import org.apache.camel.component.docker.DockerOperation;
 import org.apache.camel.component.docker.exception.DockerException;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.github.dockerjava.api.model.HostConfig.newHostConfig;
 
 /**
  * The Docker producer.
@@ -98,131 +86,111 @@ public class DockerProducer extends DefaultProducer {
         this.component = (DockerComponent) endpoint.getComponent();
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
-
-        DockerCmd<?> dockerCmd = null;
 
         Message message = exchange.getIn();
         DockerClient client = DockerClientFactory.getDockerClient(component, configuration, message);
 
         DockerOperation operation = configuration.getOperation();
 
+        Object result = null;
+
         switch (operation) {
 
-        /** General **/
-        case AUTH:
-            dockerCmd = executeAuthRequest(client, message);
-            break;
-        case INFO:
-            dockerCmd = executeInfoRequest(client, message);
-            break;
-        case PING:
-            dockerCmd = executePingRequest(client, message);
-            break;
-        case VERSION:
-            dockerCmd = executeVersionRequest(client, message);
-            break;
-
-        /** Images **/
-        case BUILD_IMAGE:
-            dockerCmd = executeBuildImageRequest(client, message);
-            break;
-        case CREATE_IMAGE:
-            dockerCmd = executeCreateImageRequest(client, message);
-            break;
-        case INSPECT_IMAGE:
-            dockerCmd = executeInspectImageRequest(client, message);
-            break;
-        case LIST_IMAGES:
-            dockerCmd = executeListImagesRequest(client, message);
-            break;
-        case PULL_IMAGE:
-            dockerCmd = executePullImageRequest(client, message);
-            break;
-        case PUSH_IMAGE:
-            dockerCmd = executePushImageRequest(client, message);
-            break;
-        case REMOVE_IMAGE:
-            dockerCmd = executeRemoveImageRequest(client, message);
-            break;
-        case SEARCH_IMAGES:
-            dockerCmd = executeSearchImageRequest(client, message);
-            break;
-        case TAG_IMAGE:
-            dockerCmd = executeTagImageRequest(client, message);
-            break;
-
-        /** Containers **/
-        case ATTACH_CONTAINER:
-            dockerCmd = executeAttachContainerRequest(client, message);
-            break;
-        case COMMIT_CONTAINER:
-            dockerCmd = executeCommitContainerRequest(client, message);
-            break;
-        case COPY_FILE_CONTAINER:
-            dockerCmd = executeCopyFileContainerRequest(client, message);
-            break;
-        case CREATE_CONTAINER:
-            dockerCmd = executeCreateContainerRequest(client, message);
-            break;
-        case DIFF_CONTAINER:
-            dockerCmd = executeDiffContainerRequest(client, message);
-            break;
-        case INSPECT_CONTAINER:
-            dockerCmd = executeInspectContainerRequest(client, message);
-            break;
-        case LIST_CONTAINERS:
-            dockerCmd = executeListContainersRequest(client, message);
-            break;
-        case LOG_CONTAINER:
-            dockerCmd = executeLogContainerRequest(client, message);
-            break;
-        case KILL_CONTAINER:
-            dockerCmd = executeKillContainerRequest(client, message);
-            break;
-        case PAUSE_CONTAINER:
-            dockerCmd = executePauseContainerRequest(client, message);
-            break;
-        case REMOVE_CONTAINER:
-            dockerCmd = executeRemoveContainerRequest(client, message);
-            break;
-        case RESTART_CONTAINER:
-            dockerCmd = executeRestartContainerRequest(client, message);
-            break;
-        case START_CONTAINER:
-            dockerCmd = executeStartContainerRequest(client, message);
-            break;
-        case STOP_CONTAINER:
-            dockerCmd = executeStopContainerRequest(client, message);
-            break;
-        case TOP_CONTAINER:
-            dockerCmd = executeTopContainerRequest(client, message);
-            break;
-        case UNPAUSE_CONTAINER:
-            dockerCmd = executeUnpauseContainerRequest(client, message);
-            break;
-        case WAIT_CONTAINER:
-            dockerCmd = executeWaitContainerRequest(client, message);
-            break;
-
-        /** Exec **/
-        case EXEC_CREATE:
-            dockerCmd = executeExecCreateRequest(client, message);
-            break;
-        case EXEC_START:
-            dockerCmd = executeExecStartRequest(client, message);
-            break;
-        default:
-            throw new DockerException("Invalid operation: " + operation);
+            /** General **/
+            case AUTH:
+                result = executeAuthRequest(client, message).exec();
+                break;
+            case INFO:
+                result = executeInfoRequest(client, message).exec();
+                break;
+            case PING:
+                result = executePingRequest(client, message).exec();
+                break;
+            case VERSION:
+                result = executeVersionRequest(client, message).exec();
+                break;
+            case CREATE_IMAGE:
+                result = executeCreateImageRequest(client, message).exec();
+                break;
+            case INSPECT_IMAGE:
+                result = executeInspectImageRequest(client, message).exec();
+                break;
+            case LIST_IMAGES:
+                result = executeListImagesRequest(client, message).exec();
+                break;
+            case REMOVE_IMAGE:
+                result = executeRemoveImageRequest(client, message).exec();
+                break;
+            case SEARCH_IMAGES:
+                result = executeSearchImageRequest(client, message).exec();
+                break;
+            case TAG_IMAGE:
+                result = executeTagImageRequest(client, message).exec();
+                break;
+            case COMMIT_CONTAINER:
+                result = executeCommitContainerRequest(client, message).exec();
+                break;
+            case COPY_FILE_CONTAINER:
+                result = executeCopyFileContainerRequest(client, message).exec();
+                break;
+            case CREATE_CONTAINER:
+                result = executeCreateContainerRequest(client, message).exec();
+                break;
+            case DIFF_CONTAINER:
+                result = executeDiffContainerRequest(client, message).exec();
+                break;
+            case INSPECT_CONTAINER:
+                result = executeInspectContainerRequest(client, message).exec();
+                break;
+            case LIST_CONTAINERS:
+                result = executeListContainersRequest(client, message).exec();
+                break;
+            case KILL_CONTAINER:
+                result = executeKillContainerRequest(client, message).exec();
+                break;
+            case PAUSE_CONTAINER:
+                result = executePauseContainerRequest(client, message).exec();
+                break;
+            case REMOVE_CONTAINER:
+                result = executeRemoveContainerRequest(client, message).exec();
+                break;
+            case RESTART_CONTAINER:
+                result = executeRestartContainerRequest(client, message).exec();
+                break;
+            case START_CONTAINER:
+                result = executeStartContainerRequest(client, message).exec();
+                break;
+            case STOP_CONTAINER:
+                result = executeStopContainerRequest(client, message).exec();
+                break;
+            case TOP_CONTAINER:
+                result = executeTopContainerRequest(client, message).exec();
+                break;
+            case UNPAUSE_CONTAINER:
+                result = executeUnpauseContainerRequest(client, message).exec();
+                break;
+            case CREATE_NETWORK:
+                result = executeCreateNetworkRequest(client, message).exec();
+                break;
+            case REMOVE_NETWORK:
+                result = executeRemoveNetworkRequest(client, message).exec();
+                break;
+            case CONNECT_NETWORK:
+                result = executeConnectToNetworkRequest(client, message).exec();
+                break;
+            case EXEC_CREATE:
+                result = executeExecCreateRequest(client, message).exec();
+                break;
+            default:
+                throw new DockerException("Invalid operation: " + operation);
         }
-
-        Object result = dockerCmd.exec();
 
         // If request included a response, set as body
         if (result != null) {
             exchange.getIn().setBody(result);
         }
-
 
     }
 
@@ -233,8 +201,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a Authorization request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private AuthCmd executeAuthRequest(DockerClient client, Message message) {
@@ -255,8 +223,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a platform information request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private InfoCmd executeInfoRequest(DockerClient client, Message message) {
@@ -272,8 +240,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Executes a ping platform request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private PingCmd executePingRequest(DockerClient client, Message message) {
@@ -289,8 +257,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Executes a platform version request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private VersionCmd executeVersionRequest(DockerClient client, Message message) {
@@ -308,63 +276,10 @@ public class DockerProducer extends DefaultProducer {
      ********************/
 
     /**
-     * Produces a build image request
-     *
-     * @param client
-     * @param message
-     * @return
-     * @throws DockerException
-     */
-    private BuildImageCmd executeBuildImageRequest(DockerClient client, Message message) throws DockerException {
-
-        LOGGER.debug("Executing Docker Build Image Request");
-
-        Object body = message.getBody();
-
-        BuildImageCmd buildImageCmd;
-
-        if (body != null && body instanceof InputStream) {
-            buildImageCmd = client.buildImageCmd((InputStream) body);
-        } else if (body != null && body instanceof File) {
-            buildImageCmd = client.buildImageCmd((File) body);
-        } else {
-            throw new DockerException("Unable to location source Image");
-        }
-
-        Boolean noCache = DockerHelper.getProperty(DockerConstants.DOCKER_NO_CACHE, configuration, message, Boolean.class);
-
-        if (noCache != null) {
-            buildImageCmd.withNoCache(noCache);
-        }
-
-        Boolean quiet = DockerHelper.getProperty(DockerConstants.DOCKER_QUIET, configuration, message, Boolean.class);
-
-        if (quiet != null) {
-            buildImageCmd.withQuiet(quiet);
-        }
-
-        Boolean remove = DockerHelper.getProperty(DockerConstants.DOCKER_REMOVE, configuration, message, Boolean.class);
-
-        if (remove != null) {
-            buildImageCmd.withRemove(remove);
-        }
-
-        String tag = DockerHelper.getProperty(DockerConstants.DOCKER_TAG, configuration, message, String.class);
-
-        if (tag != null) {
-            buildImageCmd.withTag(tag);
-        }
-
-        return buildImageCmd;
-
-    }
-
-
-    /**
      * Performs a create image request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private CreateImageCmd executeCreateImageRequest(DockerClient client, Message message) {
@@ -388,8 +303,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a inspect image request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private InspectImageCmd executeInspectImageRequest(DockerClient client, Message message) {
@@ -406,12 +321,11 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
     /**
      * Performs a list images request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private ListImagesCmd executeListImagesRequest(DockerClient client, Message message) {
@@ -423,7 +337,7 @@ public class DockerProducer extends DefaultProducer {
         String filter = DockerHelper.getProperty(DockerConstants.DOCKER_FILTER, configuration, message, String.class);
 
         if (filter != null) {
-            listImagesCmd.withFilters(filter);
+            listImagesCmd.withLabelFilter(filter);
         }
 
         Boolean showAll = DockerHelper.getProperty(DockerConstants.DOCKER_SHOW_ALL, configuration, message, Boolean.class);
@@ -436,83 +350,11 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
-    /**
-     * Produces a pull image request
-     *
-     * @param client
-     * @param message
-     * @return
-     */
-    private PullImageCmd executePullImageRequest(DockerClient client, Message message) {
-
-        LOGGER.debug("Executing Docker Pull Image Request");
-
-        String repository = DockerHelper.getProperty(DockerConstants.DOCKER_REPOSITORY, configuration, message, String.class);
-
-        ObjectHelper.notNull(repository, "Repository must be specified");
-
-        PullImageCmd pullImageCmd = client.pullImageCmd(repository);
-
-        String registry = DockerHelper.getProperty(DockerConstants.DOCKER_REGISTRY, configuration, message, String.class);
-        if (registry != null) {
-            pullImageCmd.withRegistry(registry);
-        }
-
-        String tag = DockerHelper.getProperty(DockerConstants.DOCKER_TAG, configuration, message, String.class);
-        if (tag != null) {
-            pullImageCmd.withTag(tag);
-        }
-
-        AuthConfig authConfig = client.authConfig();
-
-        if (authConfig != null) {
-            pullImageCmd.withAuthConfig(authConfig);
-        }
-
-        return pullImageCmd;
-
-    }
-
-
-    /**
-     * Produces a push image request
-     *
-     * @param client
-     * @param message
-     * @return
-     */
-    private PushImageCmd executePushImageRequest(DockerClient client, Message message) {
-
-        LOGGER.debug("Executing Docker Push Image Request");
-
-        String name = DockerHelper.getProperty(DockerConstants.DOCKER_NAME, configuration, message, String.class);
-
-        ObjectHelper.notNull(name, "Image name must be specified");
-
-        PushImageCmd pushImageCmd = client.pushImageCmd(name);
-
-        String tag = DockerHelper.getProperty(DockerConstants.DOCKER_TAG, configuration, message, String.class);
-
-        if (tag != null) {
-            pushImageCmd.withTag(tag);
-        }
-
-        AuthConfig authConfig = client.authConfig();
-
-        if (authConfig != null) {
-            pushImageCmd.withAuthConfig(authConfig);
-        }
-
-        return pushImageCmd;
-
-    }
-
     /**
      * Produces a remove image request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private RemoveImageCmd executeRemoveImageRequest(DockerClient client, Message message) {
@@ -528,7 +370,7 @@ public class DockerProducer extends DefaultProducer {
         Boolean force = DockerHelper.getProperty(DockerConstants.DOCKER_FORCE, configuration, message, Boolean.class);
 
         if (force != null) {
-            removeImagesCmd.withForce();
+            removeImagesCmd.withForce(force);
         }
 
         Boolean noPrune = DockerHelper.getProperty(DockerConstants.DOCKER_NO_PRUNE, configuration, message, Boolean.class);
@@ -541,12 +383,11 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
     /**
      * Produces a search image request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private SearchImagesCmd executeSearchImageRequest(DockerClient client, Message message) {
@@ -563,12 +404,11 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
     /**
      * Produces a tag image request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private TagImageCmd executeTagImageRequest(DockerClient client, Message message) {
@@ -597,68 +437,15 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
     /*********************
      * Container Requests
      ********************/
 
     /**
-     * Produce a attach container request
-     *
-     * @param client
-     * @param message
-     * @return
-     */
-    private AttachContainerCmd executeAttachContainerRequest(DockerClient client, Message message) {
-
-        LOGGER.debug("Executing Docker Attach Container Request");
-
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
-
-        ObjectHelper.notNull(containerId, "Container ID must be specified");
-
-        AttachContainerCmd attachContainerCmd = client.attachContainerCmd(containerId);
-
-        Boolean followStream = DockerHelper.getProperty(DockerConstants.DOCKER_FOLLOW_STREAM, configuration, message, Boolean.class);
-
-        if (followStream != null) {
-            attachContainerCmd.withFollowStream(followStream);
-        }
-
-        Boolean logs = DockerHelper.getProperty(DockerConstants.DOCKER_LOGS, configuration, message, Boolean.class);
-
-        if (logs != null) {
-            attachContainerCmd.withLogs(logs);
-        }
-
-        Boolean stdErr = DockerHelper.getProperty(DockerConstants.DOCKER_STD_ERR, configuration, message, Boolean.class);
-
-        if (stdErr != null) {
-            attachContainerCmd.withStdErr(stdErr);
-        }
-
-        Boolean stdOut = DockerHelper.getProperty(DockerConstants.DOCKER_STD_OUT, configuration, message, Boolean.class);
-
-        if (stdOut != null) {
-            attachContainerCmd.withStdOut(stdOut);
-        }
-
-
-        Boolean timestamps = DockerHelper.getProperty(DockerConstants.DOCKER_TIMESTAMPS, configuration, message, Boolean.class);
-
-        if (timestamps != null) {
-            attachContainerCmd.withTimestamps(timestamps);
-        }
-
-        return attachContainerCmd;
-
-    }
-
-    /**
      * Produces a commit container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      * @throws DockerException
      */
@@ -666,7 +453,8 @@ public class DockerProducer extends DefaultProducer {
 
         LOGGER.debug("Executing Docker Commit Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -678,19 +466,22 @@ public class DockerProducer extends DefaultProducer {
             commitCmd.withAuthor(author);
         }
 
-        Boolean attachStdErr = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
+        Boolean attachStdErr
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
 
         if (attachStdErr != null) {
             commitCmd.withAttachStderr(attachStdErr);
         }
 
-        Boolean attachStdIn = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
+        Boolean attachStdIn
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
 
         if (attachStdIn != null) {
             commitCmd.withAttachStdin(attachStdIn);
         }
 
-        Boolean attachStdOut = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
+        Boolean attachStdOut
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
 
         if (attachStdOut != null) {
             commitCmd.withAttachStdout(attachStdOut);
@@ -702,7 +493,8 @@ public class DockerProducer extends DefaultProducer {
             commitCmd.withCmd(cmds);
         }
 
-        Boolean disableNetwork = DockerHelper.getProperty(DockerConstants.DOCKER_DISABLE_NETWORK, configuration, message, Boolean.class);
+        Boolean disableNetwork
+                = DockerHelper.getProperty(DockerConstants.DOCKER_DISABLE_NETWORK, configuration, message, Boolean.class);
 
         if (disableNetwork != null) {
             commitCmd.withDisableNetwork(disableNetwork);
@@ -714,7 +506,8 @@ public class DockerProducer extends DefaultProducer {
             commitCmd.withEnv(envs);
         }
 
-        ExposedPorts exposedPorts = DockerHelper.getProperty(DockerConstants.DOCKER_EXPOSED_PORTS, configuration, message, ExposedPorts.class);
+        ExposedPorts exposedPorts
+                = DockerHelper.getProperty(DockerConstants.DOCKER_EXPOSED_PORTS, configuration, message, ExposedPorts.class);
 
         if (exposedPorts != null) {
             commitCmd.withExposedPorts(exposedPorts);
@@ -732,7 +525,8 @@ public class DockerProducer extends DefaultProducer {
             commitCmd.withMemory(memory);
         }
 
-        Integer memorySwap = DockerHelper.getProperty(DockerConstants.DOCKER_MEMORY_SWAP, configuration, message, Integer.class);
+        Integer memorySwap
+                = DockerHelper.getProperty(DockerConstants.DOCKER_MEMORY_SWAP, configuration, message, Integer.class);
 
         if (memorySwap != null) {
             commitCmd.withMemorySwap(memorySwap);
@@ -811,38 +605,39 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a copy file/folder from container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
-    private CopyFileFromContainerCmd executeCopyFileContainerRequest(DockerClient client, Message message) {
+    private CopyArchiveFromContainerCmd executeCopyFileContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Copy File/Folder Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
         String resource = DockerHelper.getProperty(DockerConstants.DOCKER_RESOURCE, configuration, message, String.class);
 
         if (containerId == null || resource == null) {
             throw new IllegalArgumentException("Container ID and Resource must be specified");
         }
 
-        CopyFileFromContainerCmd copyFileContainerCmd = client.copyFileFromContainerCmd(containerId, resource);
+        CopyArchiveFromContainerCmd copyArchiveFromContainerCmd = client.copyArchiveFromContainerCmd(containerId, resource);
 
         String hostPath = DockerHelper.getProperty(DockerConstants.DOCKER_HOST_PATH, configuration, message, String.class);
 
         if (hostPath != null) {
-            copyFileContainerCmd.withHostPath(hostPath);
+            copyArchiveFromContainerCmd.withHostPath(hostPath);
         }
 
-        return copyFileContainerCmd;
+        return copyArchiveFromContainerCmd;
 
     }
 
     /**
      * Produce a create container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private CreateContainerCmd executeCreateContainerRequest(DockerClient client, Message message) {
@@ -854,20 +649,24 @@ public class DockerProducer extends DefaultProducer {
         ObjectHelper.notNull(image, "Image must be specified");
 
         CreateContainerCmd createContainerCmd = client.createContainerCmd(image);
+        createContainerCmd.withHostConfig(newHostConfig());
 
-        Boolean attachStdErr = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
+        Boolean attachStdErr
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
 
         if (attachStdErr != null) {
             createContainerCmd.withAttachStderr(attachStdErr);
         }
 
-        Boolean attachStdIn = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
+        Boolean attachStdIn
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
 
         if (attachStdIn != null) {
             createContainerCmd.withAttachStdin(attachStdIn);
         }
 
-        Boolean attachStdOut = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
+        Boolean attachStdOut
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
 
         if (attachStdOut != null) {
             createContainerCmd.withAttachStdout(attachStdOut);
@@ -876,13 +675,13 @@ public class DockerProducer extends DefaultProducer {
         Capability[] capAdd = DockerHelper.getArrayProperty(DockerConstants.DOCKER_CAP_ADD, message, Capability.class);
 
         if (capAdd != null) {
-            createContainerCmd.withCapAdd(capAdd);
+            createContainerCmd.getHostConfig().withCapAdd(capAdd);
         }
 
         Capability[] capDrop = DockerHelper.getArrayProperty(DockerConstants.DOCKER_CAP_DROP, message, Capability.class);
 
         if (capDrop != null) {
-            createContainerCmd.withCapDrop(capDrop);
+            createContainerCmd.getHostConfig().withCapDrop(capDrop);
         }
 
         String[] cmd = DockerHelper.parseDelimitedStringHeader(DockerConstants.DOCKER_CMD, message);
@@ -894,19 +693,26 @@ public class DockerProducer extends DefaultProducer {
         Integer cpuShares = DockerHelper.getProperty(DockerConstants.DOCKER_CPU_SHARES, configuration, message, Integer.class);
 
         if (cpuShares != null) {
-            createContainerCmd.withCpuShares(cpuShares);
+            createContainerCmd.getHostConfig().withCpuShares(cpuShares);
         }
 
-        Boolean disableNetwork = DockerHelper.getProperty(DockerConstants.DOCKER_DISABLE_NETWORK, configuration, message, Boolean.class);
+        Boolean disableNetwork
+                = DockerHelper.getProperty(DockerConstants.DOCKER_DISABLE_NETWORK, configuration, message, Boolean.class);
 
         if (disableNetwork != null) {
-            createContainerCmd.withDisableNetwork(disableNetwork);
+            createContainerCmd.withNetworkDisabled(disableNetwork);
         }
 
         String[] dns = DockerHelper.parseDelimitedStringHeader(DockerConstants.DOCKER_DNS, message);
 
         if (dns != null) {
-            createContainerCmd.withDns(dns);
+            createContainerCmd.getHostConfig().withDns(dns);
+        }
+
+        String domainName = DockerHelper.getProperty(DockerConstants.DOCKER_DOMAIN_NAME, configuration, message, String.class);
+
+        if (domainName != null) {
+            createContainerCmd.withDomainName(domainName);
         }
 
         String[] env = DockerHelper.parseDelimitedStringHeader(DockerConstants.DOCKER_ENV, message);
@@ -921,13 +727,15 @@ public class DockerProducer extends DefaultProducer {
             createContainerCmd.withEntrypoint(entrypoint);
         }
 
-        ExposedPort[] exposedPorts = DockerHelper.getArrayProperty(DockerConstants.DOCKER_EXPOSED_PORTS, message, ExposedPort.class);
+        ExposedPort[] exposedPorts
+                = DockerHelper.getArrayProperty(DockerConstants.DOCKER_EXPOSED_PORTS, message, ExposedPort.class);
 
         if (exposedPorts != null) {
             createContainerCmd.withExposedPorts(exposedPorts);
         }
 
-        HostConfig hostConfig = DockerHelper.getProperty(DockerConstants.DOCKER_HOST_CONFIG, configuration, message, HostConfig.class);
+        HostConfig hostConfig
+                = DockerHelper.getProperty(DockerConstants.DOCKER_HOST_CONFIG, configuration, message, HostConfig.class);
 
         if (hostConfig != null) {
             createContainerCmd.withHostConfig(hostConfig);
@@ -942,13 +750,13 @@ public class DockerProducer extends DefaultProducer {
         Long memoryLimit = DockerHelper.getProperty(DockerConstants.DOCKER_MEMORY_LIMIT, configuration, message, Long.class);
 
         if (memoryLimit != null) {
-            createContainerCmd.withMemoryLimit(memoryLimit);
+            createContainerCmd.getHostConfig().withMemory(memoryLimit);
         }
 
         Long memorySwap = DockerHelper.getProperty(DockerConstants.DOCKER_MEMORY_SWAP, configuration, message, Long.class);
 
         if (memorySwap != null) {
-            createContainerCmd.withMemorySwap(memorySwap);
+            createContainerCmd.getHostConfig().withMemorySwap(memorySwap);
         }
 
         String name = DockerHelper.getProperty(DockerConstants.DOCKER_NAME, configuration, message, String.class);
@@ -993,10 +801,11 @@ public class DockerProducer extends DefaultProducer {
             createContainerCmd.withVolumes(volume);
         }
 
-        VolumesFrom[] volumesFrom = DockerHelper.getArrayProperty(DockerConstants.DOCKER_VOLUMES_FROM, message, VolumesFrom.class);
+        VolumesFrom[] volumesFrom
+                = DockerHelper.getArrayProperty(DockerConstants.DOCKER_VOLUMES_FROM, message, VolumesFrom.class);
 
         if (volumesFrom != null) {
-            createContainerCmd.withVolumesFrom(volumesFrom);
+            createContainerCmd.getHostConfig().withVolumesFrom(volumesFrom);
         }
 
         String workingDir = DockerHelper.getProperty(DockerConstants.DOCKER_WORKING_DIR, configuration, message, String.class);
@@ -1012,21 +821,23 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a diff container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private ContainerDiffCmd executeDiffContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Diff Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
         ContainerDiffCmd diffContainerCmd = client.containerDiffCmd(containerId);
 
-        String containerIdDiff = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID_DIFF, configuration, message, String.class);
+        String containerIdDiff
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID_DIFF, configuration, message, String.class);
 
         if (containerIdDiff != null) {
             diffContainerCmd.withContainerId(containerIdDiff);
@@ -1039,15 +850,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produce a inspect container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private InspectContainerCmd executeInspectContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Inspect Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1060,15 +872,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a kill container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private KillContainerCmd executeKillContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Kill Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1087,8 +900,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a list containers request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private ListContainersCmd executeListContainersRequest(DockerClient client, Message message) {
@@ -1121,7 +934,6 @@ public class DockerProducer extends DefaultProducer {
             listContainersCmd.withShowSize(showSize);
         }
 
-
         String since = DockerHelper.getProperty(DockerConstants.DOCKER_SINCE, configuration, message, String.class);
 
         if (since != null) {
@@ -1133,74 +945,18 @@ public class DockerProducer extends DefaultProducer {
     }
 
     /**
-     * Produce a log container request
-     *
-     * @param client
-     * @param message
-     * @return
-     */
-    private LogContainerCmd executeLogContainerRequest(DockerClient client, Message message) {
-
-        LOGGER.debug("Executing Docker Log Container Request");
-
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
-
-        ObjectHelper.notNull(containerId, "Container ID must be specified");
-
-        LogContainerCmd logContainerCmd = client.logContainerCmd(containerId);
-
-        Boolean followStream = DockerHelper.getProperty(DockerConstants.DOCKER_FOLLOW_STREAM, configuration, message, Boolean.class);
-
-        if (followStream != null) {
-            logContainerCmd.withFollowStream(followStream);
-        }
-
-        Boolean stdErr = DockerHelper.getProperty(DockerConstants.DOCKER_STD_ERR, configuration, message, Boolean.class);
-
-        if (stdErr != null) {
-            logContainerCmd.withStdErr(stdErr);
-        }
-
-        Boolean stdOut = DockerHelper.getProperty(DockerConstants.DOCKER_STD_OUT, configuration, message, Boolean.class);
-
-        if (stdOut != null) {
-            logContainerCmd.withStdOut(stdOut);
-        }
-
-        Integer tail = DockerHelper.getProperty(DockerConstants.DOCKER_TAIL, configuration, message, Integer.class);
-
-        if (tail != null) {
-            logContainerCmd.withTail(tail);
-        }
-
-        Boolean tailAll = DockerHelper.getProperty(DockerConstants.DOCKER_TAIL_ALL, configuration, message, Boolean.class);
-
-        if (tailAll != null && tailAll) {
-            logContainerCmd.withTailAll();
-        }
-
-        Boolean timestamps = DockerHelper.getProperty(DockerConstants.DOCKER_TIMESTAMPS, configuration, message, Boolean.class);
-
-        if (timestamps != null) {
-            logContainerCmd.withTimestamps(timestamps);
-        }
-
-        return logContainerCmd;
-
-    }
-
-    /**
      * Produces a pause container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private PauseContainerCmd executePauseContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Pause Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1213,15 +969,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a remove container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private RemoveContainerCmd executeRemoveContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Remove Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1233,7 +990,8 @@ public class DockerProducer extends DefaultProducer {
             removeContainerCmd.withForce(force);
         }
 
-        Boolean removeVolumes = DockerHelper.getProperty(DockerConstants.DOCKER_REMOVE_VOLUMES, configuration, message, Boolean.class);
+        Boolean removeVolumes
+                = DockerHelper.getProperty(DockerConstants.DOCKER_REMOVE_VOLUMES, configuration, message, Boolean.class);
 
         if (removeVolumes != null) {
             removeContainerCmd.withRemoveVolumes(removeVolumes);
@@ -1246,8 +1004,8 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a restart container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      * @throws DockerException
      */
@@ -1255,7 +1013,8 @@ public class DockerProducer extends DefaultProducer {
 
         LOGGER.debug("Executing Docker Restart Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         RestartContainerCmd restartContainerCmd = client.restartContainerCmd(containerId);
 
@@ -1272,109 +1031,20 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produce a start container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private StartContainerCmd executeStartContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Start Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
         StartContainerCmd startContainerCmd = client.startContainerCmd(containerId);
-
-        Bind[] binds = DockerHelper.getArrayProperty(DockerConstants.DOCKER_BINDS, message, Bind.class);
-
-        if (binds != null) {
-            startContainerCmd.withBinds(binds);
-        }
-
-        Capability[] capAdd = DockerHelper.getArrayProperty(DockerConstants.DOCKER_CAP_ADD, message, Capability.class);
-
-        if (capAdd != null) {
-            startContainerCmd.withCapAdd(capAdd);
-        }
-
-        Capability[] capDrop = DockerHelper.getArrayProperty(DockerConstants.DOCKER_CAP_DROP, message, Capability.class);
-
-        if (capDrop != null) {
-            startContainerCmd.withCapDrop(capDrop);
-        }
-
-        Device[] devices = DockerHelper.getArrayProperty(DockerConstants.DOCKER_DEVICES, message, Device.class);
-
-        if (devices != null) {
-            startContainerCmd.withDevices(devices);
-        }
-
-        String[] dns = DockerHelper.parseDelimitedStringHeader(DockerConstants.DOCKER_DNS, message);
-
-        if (dns != null) {
-            startContainerCmd.withDns(dns);
-        }
-
-        String[] dnsSearch = DockerHelper.parseDelimitedStringHeader(DockerConstants.DOCKER_DNS_SEARCH, message);
-
-        if (dnsSearch != null) {
-            startContainerCmd.withDnsSearch(dnsSearch);
-        }
-
-        Link[] links = DockerHelper.getArrayProperty(DockerConstants.DOCKER_LINKS, message, Link.class);
-
-        if (links != null) {
-            startContainerCmd.withLinks(links);
-        }
-
-        LxcConf[] lxcConf = DockerHelper.getArrayProperty(DockerConstants.DOCKER_LXC_CONF, message, LxcConf.class);
-
-        if (lxcConf != null) {
-            startContainerCmd.withLxcConf(lxcConf);
-        }
-
-        String networkMode = DockerHelper.getProperty(DockerConstants.DOCKER_NETWORK_MODE, configuration, message, String.class);
-
-        if (networkMode != null) {
-            startContainerCmd.withNetworkMode(networkMode);
-        }
-
-        Ports ports = DockerHelper.getProperty(DockerConstants.DOCKER_PORTS, configuration, message, Ports.class);
-
-        if (ports != null) {
-            startContainerCmd.withPortBindings(ports);
-        }
-
-        PortBinding[] portBinding = DockerHelper.getArrayProperty(DockerConstants.DOCKER_PORT_BINDINGS, message, PortBinding.class);
-
-        if (portBinding != null) {
-            startContainerCmd.withPortBindings(portBinding);
-        }
-
-        Boolean privileged = DockerHelper.getProperty(DockerConstants.DOCKER_PRIVILEGED, configuration, message, Boolean.class);
-
-        if (privileged != null) {
-            startContainerCmd.withPrivileged(privileged);
-        }
-
-        Boolean publishAllPorts = DockerHelper.getProperty(DockerConstants.DOCKER_PUBLISH_ALL_PORTS, configuration, message, Boolean.class);
-
-        if (publishAllPorts != null) {
-            startContainerCmd.withPublishAllPorts(publishAllPorts);
-        }
-
-        RestartPolicy restartPolicy = DockerHelper.getProperty(DockerConstants.DOCKER_RESTART_POLICY, configuration, message, RestartPolicy.class);
-
-        if (restartPolicy != null) {
-            startContainerCmd.withRestartPolicy(restartPolicy);
-        }
-
-        String volumesFrom = DockerHelper.getProperty(DockerConstants.DOCKER_VOLUMES_FROM, configuration, message, String.class);
-
-        if (volumesFrom != null) {
-            startContainerCmd.withVolumesFrom(volumesFrom);
-        }
 
         return startContainerCmd;
 
@@ -1383,15 +1053,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a stop container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private StopContainerCmd executeStopContainerRequest(DockerClient client, Message message) {
 
-        LOGGER.debug("Executing Docker Kill Container Request");
+        LOGGER.debug("Executing Docker Stop Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         StopContainerCmd stopContainerCmd = client.stopContainerCmd(containerId);
 
@@ -1408,15 +1079,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a top container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private TopContainerCmd executeTopContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Top Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1435,15 +1107,16 @@ public class DockerProducer extends DefaultProducer {
     /**
      * Produces a unpause container request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private UnpauseContainerCmd executeUnpauseContainerRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Unpause Container Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
@@ -1453,54 +1126,100 @@ public class DockerProducer extends DefaultProducer {
 
     }
 
-
     /**
-     * Produce a wait container request
+     * Produces a network create request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
-    private WaitContainerCmd executeWaitContainerRequest(DockerClient client, Message message) {
+    private CreateNetworkCmd executeCreateNetworkRequest(DockerClient client, Message message) {
 
-        LOGGER.debug("Executing Docker Wait Container Request");
+        LOGGER.debug("Executing Docker Network Create Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String networkName = DockerHelper.getProperty(DockerConstants.DOCKER_NETWORK, configuration, message, String.class);
 
-        ObjectHelper.notNull(containerId, "Container ID must be specified");
+        ObjectHelper.notNull(networkName, "Network Name must be specified");
 
-        WaitContainerCmd waitContainerCmd = client.waitContainerCmd(containerId);
+        CreateNetworkCmd createNetworkCmd = client.createNetworkCmd().withName(networkName);
 
-        return waitContainerCmd;
+        return createNetworkCmd;
 
     }
 
+    /**
+     * Produces a network remove request
+     *
+     * @param  client
+     * @param  message
+     * @return
+     */
+    private RemoveNetworkCmd executeRemoveNetworkRequest(DockerClient client, Message message) {
+
+        LOGGER.debug("Executing Docker Network Remove Request");
+
+        String networkId = DockerHelper.getProperty(DockerConstants.DOCKER_NETWORK, configuration, message, String.class);
+
+        ObjectHelper.notNull(networkId, "Network ID must be specified");
+
+        RemoveNetworkCmd removeNetworkCmd = client.removeNetworkCmd(networkId);
+
+        return removeNetworkCmd;
+
+    }
+
+    /**
+     * Produces a network connect request
+     *
+     * @param  client
+     * @param  message
+     * @return
+     */
+    private ConnectToNetworkCmd executeConnectToNetworkRequest(DockerClient client, Message message) {
+
+        LOGGER.debug("Executing Docker Network Connect Request");
+
+        String networkId = DockerHelper.getProperty(DockerConstants.DOCKER_NETWORK, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+
+        ObjectHelper.notNull(networkId, "Network ID must be specified");
+        ObjectHelper.notNull(containerId, "Container ID must be specified");
+
+        ConnectToNetworkCmd connectToNetworkCmd
+                = client.connectToNetworkCmd().withNetworkId(networkId).withContainerId(containerId);
+
+        return connectToNetworkCmd;
+
+    }
 
     /*********************
      * Exec Requests
      ********************/
 
-
     /**
      * Produces a exec create request
      *
-     * @param client
-     * @param message
+     * @param  client
+     * @param  message
      * @return
      */
     private ExecCreateCmd executeExecCreateRequest(DockerClient client, Message message) {
 
         LOGGER.debug("Executing Docker Exec Create Request");
 
-        String containerId = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
+        String containerId
+                = DockerHelper.getProperty(DockerConstants.DOCKER_CONTAINER_ID, configuration, message, String.class);
 
         ObjectHelper.notNull(containerId, "Container ID must be specified");
 
         ExecCreateCmd execCreateCmd = client.execCreateCmd(containerId);
 
-        Boolean attachStdIn = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
+        Boolean attachStdIn
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_IN, configuration, message, Boolean.class);
 
-        Boolean attachStdErr = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
+        Boolean attachStdErr
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_ERR, configuration, message, Boolean.class);
 
         if (attachStdErr != null) {
             execCreateCmd.withAttachStderr(attachStdErr);
@@ -1510,7 +1229,8 @@ public class DockerProducer extends DefaultProducer {
             execCreateCmd.withAttachStdin(attachStdIn);
         }
 
-        Boolean attachStdOut = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
+        Boolean attachStdOut
+                = DockerHelper.getProperty(DockerConstants.DOCKER_ATTACH_STD_OUT, configuration, message, Boolean.class);
 
         if (attachStdOut != null) {
             execCreateCmd.withAttachStdout(attachStdOut);
@@ -1529,39 +1249,6 @@ public class DockerProducer extends DefaultProducer {
         }
 
         return execCreateCmd;
-
-    }
-
-    /**
-     * Produces a exec start request
-     *
-     * @param client
-     * @param message
-     * @return
-     */
-    private ExecStartCmd executeExecStartRequest(DockerClient client, Message message) {
-
-        LOGGER.debug("Executing Docker Exec Create Request");
-
-        String execId = DockerHelper.getProperty(DockerConstants.DOCKER_EXEC_ID, configuration, message, String.class);
-
-        ObjectHelper.notNull(execId, "Exec ID must be specified");
-
-        ExecStartCmd execStartCmd = client.execStartCmd(execId);
-
-        Boolean detach = DockerHelper.getProperty(DockerConstants.DOCKER_DETACH, configuration, message, Boolean.class);
-
-        if (detach != null) {
-            execStartCmd.withDetach(detach);
-        }
-
-        Boolean tty = DockerHelper.getProperty(DockerConstants.DOCKER_TTY, configuration, message, Boolean.class);
-
-        if (tty != null) {
-            execStartCmd.withTty(tty);
-        }
-
-        return execStartCmd;
 
     }
 

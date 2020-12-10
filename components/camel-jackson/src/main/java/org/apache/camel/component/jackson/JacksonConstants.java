@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,10 @@
 package org.apache.camel.component.jackson;
 
 public final class JacksonConstants {
+
+    public static final String ENABLE_TYPE_CONVERTER = "CamelJacksonEnableTypeConverter";
+    public static final String TYPE_CONVERTER_TO_POJO = "CamelJacksonTypeConverterToPojo";
+    public static final String TYPE_CONVERTER_MODULE_CLASS_NAMES = "CamelJacksonTypeConverterModuleClassNames";
 
     public static final String UNMARSHAL_TYPE = "CamelJacksonUnmarshalType";
 

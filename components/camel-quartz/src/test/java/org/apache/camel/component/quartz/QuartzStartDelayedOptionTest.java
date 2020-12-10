@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,14 @@ package org.apache.camel.component.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class QuartzStartDelayedOptionTest extends BaseQuartzTest {
 
     @Test
     public void testStartDelayed() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
-        mock.setMinimumResultWaitTime(1500);
+        mock.setResultMinimumWaitTime(1500);
         mock.setResultWaitTime(3000);
         mock.expectedMessageCount(2);
 
@@ -37,8 +37,9 @@ public class QuartzStartDelayedOptionTest extends BaseQuartzTest {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("quartz://myGroup/myTimerName?startDelayedSeconds=2&trigger.repeatInterval=2&trigger.repeatCount=1").routeId("myRoute")
-                    .to("mock:result");
+                from("quartz://myGroup/myTimerName?startDelayedSeconds=2&trigger.repeatInterval=2&trigger.repeatCount=1")
+                        .routeId("myRoute")
+                        .to("mock:result");
             }
         };
     }

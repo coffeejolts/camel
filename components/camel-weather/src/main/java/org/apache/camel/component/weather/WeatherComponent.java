@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,33 +18,29 @@ package org.apache.camel.component.weather;
 
 import java.util.Map;
 
-import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * A <a href="http://camel.apache.org/weather.html">Weather Component</a>.
  * <p/>
  * Camel uses <a href="http://openweathermap.org/api#weather">Open Weather</a> to get the information.
  */
-public class WeatherComponent extends UriEndpointComponent {
+@Component("weather")
+public class WeatherComponent extends DefaultComponent {
 
     public WeatherComponent() {
-        super(WeatherEndpoint.class);
-    }
 
-    public WeatherComponent(CamelContext context) {
-        super(context, WeatherEndpoint.class);
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        WeatherConfiguration configuration = new WeatherConfiguration(this);
-
-        // and then override from parameters
-        setProperties(configuration, parameters);
+        WeatherConfiguration configuration = new WeatherConfiguration();
 
         WeatherEndpoint endpoint = new WeatherEndpoint(uri, this, configuration);
+        setProperties(endpoint, parameters);
+
         return endpoint;
     }
 }

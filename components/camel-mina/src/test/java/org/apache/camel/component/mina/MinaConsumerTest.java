@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.mina;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for wiki documentation
@@ -46,13 +47,15 @@ public class MinaConsumerTest extends BaseMinaTest {
     @Test
     public void testSendTextlineSyncText() throws Exception {
         // START SNIPPET: e4
-        String response = (String)template.requestBody("mina:tcp://localhost:" + port2 + "?textline=true&sync=true", "World");
+        String response = (String) template.requestBody("mina:tcp://localhost:" + port2 + "?textline=true&sync=true", "World");
         assertEquals("Bye World", response);
         // END SNIPPET: e4
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             public void configure() throws Exception {
                 port1 = getPort();
                 port2 = getNextPort();
@@ -63,9 +66,10 @@ public class MinaConsumerTest extends BaseMinaTest {
 
                 // START SNIPPET: e3
                 from("mina:tcp://localhost:" + port2 + "?textline=true&sync=true").process(new Processor() {
+
                     public void process(Exchange exchange) throws Exception {
                         String body = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Bye " + body);
+                        exchange.getMessage().setBody("Bye " + body);
                     }
                 });
                 // END SNIPPET: e3

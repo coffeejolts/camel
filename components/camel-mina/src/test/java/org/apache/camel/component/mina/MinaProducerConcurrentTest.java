@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,14 +25,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MinaProducerConcurrentTest extends BaseMinaTest {
 
     @Test
@@ -51,12 +48,13 @@ public class MinaProducerConcurrentTest extends BaseMinaTest {
         ExecutorService executor = Executors.newFixedThreadPool(poolSize);
         // we access the responses Map below only inside the main thread,
         // so no need for a thread-safe Map implementation
-        Map<Integer, Future<String>> responses = new HashMap<Integer, Future<String>>();
+        Map<Integer, Future<String>> responses = new HashMap<>();
         for (int i = 0; i < files; i++) {
             final int index = i;
             Future<String> out = executor.submit(new Callable<String>() {
                 public String call() throws Exception {
-                    return template.requestBody("mina:tcp://localhost:{{port}}?sync=true", index, String.class);
+                    return template.requestBody(String.format("mina:tcp://localhost:%1$s?sync=true", getPort()), index,
+                            String.class);
                 }
             });
             responses.put(index, out);
@@ -66,28 +64,26 @@ public class MinaProducerConcurrentTest extends BaseMinaTest {
         assertEquals(files, responses.size());
 
         // get all responses
-        Set<String> unique = new HashSet<String>();
+        Set<String> unique = new HashSet<>();
         for (Future<String> future : responses.values()) {
             unique.add(future.get());
         }
 
         // should be 'files' unique responses
-        assertEquals("Should be " + files + " unique responses", files, unique.size());
+        assertEquals(files, unique.size(), "Should be " + files + " unique responses");
         executor.shutdownNow();
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             public void configure() throws Exception {
-                from("mina:tcp://localhost:{{port}}?sync=true").process(new Processor() {
-                    public void process(Exchange exchange) throws Exception {
-                        String body = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Bye " + body);
-                    }
+                from(String.format("mina:tcp://localhost:%1$s?sync=true", getPort())).process(exchange -> {
+                    String body = exchange.getIn().getBody(String.class);
+                    exchange.getMessage().setBody("Bye " + body);
                 }).to("mock:result");
             }
         };
     }
-
 }

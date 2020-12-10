@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,17 +26,25 @@ import java.util.zip.ZipInputStream;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.util.IOHelper;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AggregationStrategyWithPreservationTest extends CamelTestSupport {
 
     private static final int EXPECTED_NO_FILES = 5;
+    private static final String TEST_DIR = "target/out_AggregationStrategyWithPreservationTest";
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
-        deleteDirectory("target/out");
+        deleteDirectory(TEST_DIR);
         super.setUp();
     }
 
@@ -44,28 +52,32 @@ public class AggregationStrategyWithPreservationTest extends CamelTestSupport {
     public void testSplitter() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:aggregateToZipEntry");
         mock.expectedMessageCount(1);
-
         assertMockEndpointsSatisfied();
 
-        Thread.sleep(500);
+        File[] files = new File(TEST_DIR).listFiles();
+        assertNotNull(files);
+        assertTrue(files.length > 0, "Should be a file in " + TEST_DIR + " directory");
 
-        File[] files = new File("target/out").listFiles();
-        assertTrue("Should be a file in target/out directory", files.length > 0);
-        
         File resultFile = files[0];
-        Set<String> expectedZipFiles = new HashSet<String>(Arrays.asList("another" + File.separator + "hello.txt", 
-                                                                         "other" + File.separator + "greetings.txt",
-                                                                         "chiau.txt", "hi.txt", "hola.txt"));
+        Set<String> expectedZipFiles = new HashSet<>(
+                Arrays.asList("another/hello.txt",
+                        "other/greetings.txt",
+                        "chiau.txt", "hi.txt", "hola.txt"));
         ZipInputStream zin = new ZipInputStream(new FileInputStream(resultFile));
         try {
             int fileCount = 0;
             for (ZipEntry ze = zin.getNextEntry(); ze != null; ze = zin.getNextEntry()) {
-                expectedZipFiles.remove(ze.toString());
-                fileCount++;
+                if (!ze.isDirectory()) {
+                    assertTrue(expectedZipFiles.remove(ze.toString()), "Found unexpected entry " + ze + " in zipfile");
+                    fileCount++;
+                }
             }
-            assertTrue("Zip file should contains " + AggregationStrategyWithPreservationTest.EXPECTED_NO_FILES + " files",
-                       fileCount == AggregationStrategyWithPreservationTest.EXPECTED_NO_FILES);
-            assertEquals("Should have found all of the zip files in the file.", 0, expectedZipFiles.size());
+
+            assertEquals(AggregationStrategyWithPreservationTest.EXPECTED_NO_FILES, fileCount,
+                    String.format("Zip file should contains %d files, got %d files",
+                            AggregationStrategyWithPreservationTest.EXPECTED_NO_FILES, fileCount));
+            assertEquals(0, expectedZipFiles.size(),
+                    "Should have found all of the zip files in the file. Remaining: " + expectedZipFiles);
         } finally {
             IOHelper.close(zin);
         }
@@ -77,14 +89,14 @@ public class AggregationStrategyWithPreservationTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
                 // Unzip file and Split it according to FileEntry
-                from("file:src/test/resources/org/apache/camel/aggregate/zipfile/data?consumer.delay=1000&noop=true&recursive=true")
-                    .aggregate(new ZipAggregationStrategy(true))
+                from("file:src/test/resources/org/apache/camel/aggregate/zipfile/data?delay=1000&noop=true&recursive=true")
+                        .aggregate(new ZipAggregationStrategy(true, true))
                         .constant(true)
                         .completionFromBatchConsumer()
                         .eagerCheckCompletion()
-                    .to("file:target/out")
-                    .to("mock:aggregateToZipEntry")
-                    .log("Done processing zip file: ${header.CamelFileName}");
+                        .to("file:" + TEST_DIR)
+                        .to("mock:aggregateToZipEntry")
+                        .log("Done processing zip file: ${header.CamelFileName}");
             }
         };
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,38 +21,35 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Arrays;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.JndiRegistry;
 import org.apache.camel.util.IOHelper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  */
 public class UnsharableCodecsConflictsTest extends BaseNettyTest {
 
-    static final byte[] LENGTH_HEADER = {0x00, 0x00, 0x40, 0x00}; // 4096 bytes
+    private static final byte[] LENGTH_HEADER = { 0x00, 0x00, 0x40, 0x00 }; // 4096 bytes
+
+    private static final Logger LOG = LoggerFactory.getLogger(UnsharableCodecsConflictsTest.class);
 
     private Processor processor = new P();
 
     private int port1;
     private int port2;
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
+    @BindToRegistry("length-decoder")
+    private ChannelHandlerFactory decoder = ChannelHandlerFactories.newLengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4);
 
-        // we can share the decoder between multiple netty consumers, because they have the same configuration
-        // and we use a ChannelHandlerFactory
-        ChannelHandlerFactory decoder = ChannelHandlerFactories.newLengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4);
-        registry.bind("length-decoder", decoder);
-        registry.bind("length-decoder2", decoder);
-
-        return registry;
-    }
+    @BindToRegistry("length-decoder2")
+    private ChannelHandlerFactory decoder2 = ChannelHandlerFactories.newLengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4);
 
     @Test
     public void canSupplyMultipleCodecsToEndpointPipeline() throws Exception {
@@ -74,7 +71,7 @@ public class UnsharableCodecsConflictsTest extends BaseNettyTest {
             sendSopBuffer(bodyPort1, server1);
             sendSopBuffer(new String("9").getBytes(), server2);
         } catch (Exception e) {
-            log.error("", e);
+            LOG.error("", e);
         } finally {
             server1.close();
             server2.close();
@@ -83,17 +80,16 @@ public class UnsharableCodecsConflictsTest extends BaseNettyTest {
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 port1 = getPort();
                 port2 = getNextPort();
 
-                from("netty:tcp://localhost:" + port1 + "?decoder=#length-decoder&sync=false")
-                        .process(processor);
+                from("netty:tcp://localhost:" + port1 + "?decoders=#length-decoder&sync=false").process(processor);
 
-                from("netty:tcp://localhost:" + port2 + "?decoder=#length-decoder2&sync=false")
-                        .process(processor)
+                from("netty:tcp://localhost:" + port2 + "?decoders=#length-decoder2&sync=false").process(processor)
                         .to("mock:result");
             }
         };

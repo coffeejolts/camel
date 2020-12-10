@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,8 +22,10 @@ import org.apache.camel.spring.SpringRouteBuilder;
 /**
  * Same route but not transacted
  */
-public class TransactionalClientDataSourceMixedTransactedRedeliveryTest extends TransactionalClientDataSourceMixedTransactedTest {
+public class TransactionalClientDataSourceMixedTransactedRedeliveryTest
+        extends TransactionalClientDataSourceMixedTransactedTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
@@ -32,17 +34,17 @@ public class TransactionalClientDataSourceMixedTransactedRedeliveryTest extends 
                 onException(IllegalArgumentException.class).onWhen(exceptionMessage().contains("Donkey")).handled(true);
 
                 from("direct:okay")
-                    // mark this route as transacted
-                    .errorHandler(transactionErrorHandler().maximumRedeliveries(3))
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Elephant in Action")).bean("bookService")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        // mark this route as transacted
+                        .errorHandler(transactionErrorHandler().maximumRedeliveries(3))
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
 
                 from("direct:fail")
-                    // and this route is not transacted
-                    .errorHandler(defaultErrorHandler())
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        // and this route is not transacted
+                        .errorHandler(defaultErrorHandler())
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
             }
         };
     }

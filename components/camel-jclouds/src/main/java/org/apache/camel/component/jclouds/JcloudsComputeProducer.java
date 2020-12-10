@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,10 +17,12 @@
 package org.apache.camel.component.jclouds;
 
 import java.util.Set;
+
 import com.google.common.base.Predicate;
 import org.apache.camel.CamelException;
 import org.apache.camel.CamelExchangeException;
 import org.apache.camel.Exchange;
+import org.apache.camel.util.ObjectHelper;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
 import org.jclouds.compute.domain.ComputeMetadata;
@@ -44,7 +46,7 @@ public class JcloudsComputeProducer extends JcloudsProducer {
 
     @Override
     public JcloudsComputeEndpoint getEndpoint() {
-        return (JcloudsComputeEndpoint)super.getEndpoint();
+        return (JcloudsComputeEndpoint) super.getEndpoint();
     }
 
     @Override
@@ -52,7 +54,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
         String operation = getOperation(exchange);
 
         if (operation == null) {
-            throw new CamelExchangeException("Operation must be specified in the endpoint URI or as a property on the exchange.", exchange);
+            throw new CamelExchangeException(
+                    "Operation must be specified in the endpoint URI or as a property on the exchange.", exchange);
         }
 
         if (JcloudsConstants.LIST_NODES.equals(operation)) {
@@ -67,6 +70,12 @@ public class JcloudsComputeProducer extends JcloudsProducer {
             createNode(exchange);
         } else if (JcloudsConstants.DESTROY_NODE.equals(operation)) {
             destroyNode(exchange);
+        } else if (JcloudsConstants.REBOOT_NODE.equals(operation)) {
+            rebootNode(exchange);
+        } else if (JcloudsConstants.SUSPEND_NODE.equals(operation)) {
+            suspendNode(exchange);
+        } else if (JcloudsConstants.RESUME_NODE.equals(operation)) {
+            resumeNode(exchange);
         }
     }
 
@@ -79,19 +88,20 @@ public class JcloudsComputeProducer extends JcloudsProducer {
         String locationId = getLocationId(exchange);
         String hardwareId = getHardwareId(exchange);
 
-        if (group == null) {
-            throw new CamelExchangeException("Group must be specific in the URI or as exchange property for the destroy node operation.", exchange);
+        if (ObjectHelper.isEmpty(group)) {
+            throw new CamelExchangeException(
+                    "Group must be specific in the URI or as exchange property for the destroy node operation.", exchange);
         }
         TemplateBuilder builder = computeService.templateBuilder();
         builder.any();
 
-        if (locationId != null) {
+        if (ObjectHelper.isNotEmpty(locationId)) {
             builder.locationId(locationId);
         }
-        if (imageId != null) {
+        if (ObjectHelper.isNotEmpty(imageId)) {
             builder.imageId(imageId);
         }
-        if (hardwareId != null) {
+        if (ObjectHelper.isNotEmpty(hardwareId)) {
             builder.hardwareId(hardwareId);
         }
 
@@ -114,7 +124,7 @@ public class JcloudsComputeProducer extends JcloudsProducer {
 
         LoginCredentials credentials = null;
 
-        if (user != null) {
+        if (ObjectHelper.isNotEmpty(user)) {
             credentials = LoginCredentials.builder().user(user).build();
         }
         ExecResponse execResponse = null;
@@ -122,11 +132,14 @@ public class JcloudsComputeProducer extends JcloudsProducer {
         if (credentials == null) {
             execResponse = computeService.runScriptOnNode(nodeId, script);
         } else {
-            execResponse = computeService.runScriptOnNode(nodeId, script, RunScriptOptions.Builder.overrideLoginCredentials(credentials).runAsRoot(false));
+            execResponse = computeService.runScriptOnNode(nodeId, script,
+                    RunScriptOptions.Builder.overrideLoginCredentials(credentials).runAsRoot(false));
         }
 
         if (execResponse == null) {
-            throw new CamelExchangeException("Failed to receive response for run script operation on node: " + nodeId + " using script: " + script, exchange);
+            throw new CamelExchangeException(
+                    "Failed to receive response for run script operation on node: " + nodeId + " using script: " + script,
+                    exchange);
         }
 
         exchange.setProperty(JcloudsConstants.RUN_SCRIPT_ERROR, execResponse.getError());
@@ -167,10 +180,33 @@ public class JcloudsComputeProducer extends JcloudsProducer {
         exchange.getOut().setBody(hardwareProfiles);
     }
 
+    /**
+     * Reboot the node with the specified nodeId.
+     */
+    protected void rebootNode(Exchange exchange) {
+        Predicate<NodeMetadata> predicate = getNodePredicate(exchange);
+        computeService.rebootNodesMatching(predicate);
+    }
 
     /**
-     * Returns the required {@ComputeMetadata} {@link Predicate} for the Exhcnage.
-     * The predicate can be used for filtering.
+     * Suspend the node with the specified nodeId.
+     */
+    protected void suspendNode(Exchange exchange) {
+        Predicate<NodeMetadata> predicate = getNodePredicate(exchange);
+        computeService.suspendNodesMatching(predicate);
+    }
+
+    /**
+     * Suspend the node with the specified nodeId.
+     */
+    protected void resumeNode(Exchange exchange) {
+        Predicate<NodeMetadata> predicate = getNodePredicate(exchange);
+        computeService.resumeNodesMatching(predicate);
+    }
+
+    /**
+     * Returns the required {@ComputeMetadata} {@link Predicate} for the Exhcnage. The predicate can be used for
+     * filtering.
      */
     public Predicate<ComputeMetadata> getComputePredicate(final Exchange exchange) {
         final String nodeId = getNodeId(exchange);
@@ -196,8 +232,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     }
 
     /**
-     * Returns the required {@ComputeMetadata} {@link Predicate} for the Exhcnage.
-     * The predicate can be used for filtering.
+     * Returns the required {@ComputeMetadata} {@link Predicate} for the Exhcnage. The predicate can be used for
+     * filtering.
      */
     public Predicate<NodeMetadata> getNodePredicate(Exchange exchange) {
         final String nodeId = getNodeId(exchange);
@@ -231,8 +267,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     public String getOperation(Exchange exchange) {
         String operation = getEndpoint().getOperation();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.OPERATION) != null) {
-            operation = (String) exchange.getIn().getHeader(JcloudsConstants.OPERATION);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.OPERATION))) {
+            operation = exchange.getIn().getHeader(JcloudsConstants.OPERATION, String.class);
         }
         return operation;
     }
@@ -243,56 +279,58 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     public NodeMetadata.Status getNodeState(Exchange exchange) {
         NodeMetadata.Status nodeState = null;
         String state = getEndpoint().getNodeState();
-        if (state != null) {
-            nodeState =  NodeMetadata.Status.valueOf(state);
+        if (ObjectHelper.isNotEmpty(state)) {
+            nodeState = NodeMetadata.Status.valueOf(state);
         }
 
-        if (exchange.getIn().getHeader(JcloudsConstants.NODE_STATE) != null) {
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.NODE_STATE))) {
             Object stateHeader = exchange.getIn().getHeader(JcloudsConstants.NODE_STATE);
             if (stateHeader == null) {
                 nodeState = null;
-            } else if (stateHeader instanceof  NodeMetadata.Status) {
+            } else if (stateHeader instanceof NodeMetadata.Status) {
                 nodeState = (NodeMetadata.Status) stateHeader;
             } else {
-                nodeState =  NodeMetadata.Status.valueOf(String.valueOf(stateHeader));
+                nodeState = NodeMetadata.Status.valueOf(String.valueOf(stateHeader));
             }
         }
         return nodeState;
     }
 
-
     /**
-     * Retrieves the image id from the URI or from the exchange properties. The property will take precedence over the URI.
+     * Retrieves the image id from the URI or from the exchange properties. The property will take precedence over the
+     * URI.
      */
     protected String getImageId(Exchange exchange) {
         String imageId = getEndpoint().getImageId();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.IMAGE_ID) != null) {
-            imageId = (String) exchange.getIn().getHeader(JcloudsConstants.IMAGE_ID);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.IMAGE_ID))) {
+            imageId = exchange.getIn().getHeader(JcloudsConstants.IMAGE_ID, String.class);
         }
         return imageId;
     }
 
     /**
-     * Retrieves the hardware id from the URI or from the exchange headers. The header will take precedence over the URI.
+     * Retrieves the hardware id from the URI or from the exchange headers. The header will take precedence over the
+     * URI.
      */
     protected String getHardwareId(Exchange exchange) {
         String hardwareId = getEndpoint().getHardwareId();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.HARDWARE_ID) != null) {
-            hardwareId = (String) exchange.getIn().getHeader(JcloudsConstants.HARDWARE_ID);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.HARDWARE_ID))) {
+            hardwareId = exchange.getIn().getHeader(JcloudsConstants.HARDWARE_ID, String.class);
         }
         return hardwareId;
     }
 
     /**
-     * Retrieves the location id from the URI or from the exchange headers. The header will take precedence over the URI.
+     * Retrieves the location id from the URI or from the exchange headers. The header will take precedence over the
+     * URI.
      */
     protected String getLocationId(Exchange exchange) {
         String locationId = getEndpoint().getLocationId();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.LOCATION_ID) != null) {
-            locationId = (String) exchange.getIn().getHeader(JcloudsConstants.LOCATION_ID);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.LOCATION_ID))) {
+            locationId = exchange.getIn().getHeader(JcloudsConstants.LOCATION_ID, String.class);
         }
         return locationId;
     }
@@ -303,8 +341,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     protected String getNodeId(Exchange exchange) {
         String nodeId = getEndpoint().getNodeId();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.NODE_ID) != null) {
-            nodeId = (String) exchange.getIn().getHeader(JcloudsConstants.NODE_ID);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.NODE_ID))) {
+            nodeId = exchange.getIn().getHeader(JcloudsConstants.NODE_ID, String.class);
         }
         return nodeId;
     }
@@ -315,8 +353,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     protected String getGroup(Exchange exchange) {
         String group = getEndpoint().getGroup();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.GROUP) != null) {
-            group = (String) exchange.getIn().getHeader(JcloudsConstants.GROUP);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.GROUP))) {
+            group = exchange.getIn().getHeader(JcloudsConstants.GROUP, String.class);
         }
         return group;
     }
@@ -327,8 +365,8 @@ public class JcloudsComputeProducer extends JcloudsProducer {
     protected String getUser(Exchange exchange) {
         String user = getEndpoint().getUser();
 
-        if (exchange.getIn().getHeader(JcloudsConstants.USER) != null) {
-            user = (String) exchange.getIn().getHeader(JcloudsConstants.USER);
+        if (ObjectHelper.isNotEmpty(exchange.getIn().getHeader(JcloudsConstants.USER))) {
+            user = exchange.getIn().getHeader(JcloudsConstants.USER, String.class);
         }
         return user;
     }

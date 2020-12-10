@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,8 @@
  */
 package org.apache.camel.component.jms;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class JmsRouteWithObjectMessageTest extends JmsRouteTest {
 
     @Override
@@ -28,5 +25,5 @@ public class JmsRouteWithObjectMessageTest extends JmsRouteTest {
     public void testSendAndReceiveMessage() throws Exception {
         assertSendAndReceiveBody(new PurchaseOrder("Beer", 10));
     }
-    
+
 }

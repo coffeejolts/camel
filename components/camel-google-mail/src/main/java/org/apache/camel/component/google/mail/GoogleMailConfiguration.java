@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,8 @@
  */
 package org.apache.camel.component.google.mail;
 
-import java.util.Arrays;
-import java.util.List;
-
-import com.google.api.services.gmail.GmailScopes;
 import org.apache.camel.component.google.mail.internal.GoogleMailApiName;
+import org.apache.camel.spi.Configurer;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriParams;
@@ -30,31 +27,22 @@ import org.apache.camel.spi.UriPath;
  * Component configuration for GoogleMail component.
  */
 @UriParams
+@Configurer(extended = true)
 public class GoogleMailConfiguration {
-    private static final List<String> DEFAULT_SCOPES = Arrays.asList(GmailScopes.GMAIL_COMPOSE, GmailScopes.GMAIL_MODIFY, GmailScopes.MAIL_GOOGLE_COM);
-
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private GoogleMailApiName apiName;
-
-    @UriPath(enums = "create,delete,get,getProfile,gmailImport,insert,list,modify,patch,send,trash,untrash,update")
-    @Metadata(required = "true")
+    @UriPath(enums = "attachments,create,delete,get,getProfile,gmailImport,insert,list,modify,patch,send,stop,trash,untrash,update,watch")
+    @Metadata(required = true)
     private String methodName;
-
-    @UriParam
-    private List<String> scopes = DEFAULT_SCOPES;
-
     @UriParam
     private String clientId;
-
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String clientSecret;
-
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String accessToken;
-
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String refreshToken;
-
     @UriParam
     private String applicationName;
 
@@ -118,7 +106,8 @@ public class GoogleMailConfiguration {
     }
 
     /**
-     * OAuth 2 refresh token. Using this, the Google Calendar component can obtain a new accessToken whenever the current one expires - a necessity if the application is long-lived.
+     * OAuth 2 refresh token. Using this, the Google Calendar component can obtain a new accessToken whenever the
+     * current one expires - a necessity if the application is long-lived.
      */
     public void setRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
@@ -133,17 +122,6 @@ public class GoogleMailConfiguration {
      */
     public void setApplicationName(String applicationName) {
         this.applicationName = applicationName;
-    }
-
-    public List<String> getScopes() {
-        return scopes;
-    }
-
-    /**
-     * Specifies the level of permissions you want a mail application to have to a user account. See https://developers.google.com/gmail/api/auth/scopes for more info.
-     */
-    public void setScopes(List<String> scopes) {
-        this.scopes = scopes;
     }
 
 }

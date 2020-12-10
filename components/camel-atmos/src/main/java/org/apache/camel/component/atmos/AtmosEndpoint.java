@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +16,7 @@
  */
 package org.apache.camel.component.atmos;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
@@ -27,18 +28,18 @@ import org.apache.camel.component.atmos.integration.producer.AtmosMoveProducer;
 import org.apache.camel.component.atmos.integration.producer.AtmosPutProducer;
 import org.apache.camel.component.atmos.util.AtmosException;
 import org.apache.camel.component.atmos.util.AtmosOperation;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.camel.support.DefaultEndpoint;
 
 import static org.apache.camel.component.atmos.util.AtmosConstants.POLL_CONSUMER_DELAY;
 
-@UriEndpoint(scheme = "atmos", title = "Atmos", syntax = "atmos:name/operation", consumerClass = AtmosScheduledPollConsumer.class, label = "file,cloud")
+/**
+ * Integrate with EMC's ViPR object data services using the Atmos Client.
+ */
+@UriEndpoint(firstVersion = "2.15.0", scheme = "atmos", title = "Atmos", syntax = "atmos:name/operation",
+             category = { Category.CLOUD, Category.FILE })
 public class AtmosEndpoint extends DefaultEndpoint {
-
-    private static final transient Logger LOG = LoggerFactory.getLogger(AtmosEndpoint.class);
 
     @UriParam
     private AtmosConfiguration configuration;
@@ -49,10 +50,6 @@ public class AtmosEndpoint extends DefaultEndpoint {
     public AtmosEndpoint(String uri, AtmosComponent component, AtmosConfiguration configuration) {
         super(uri, component);
         this.configuration = configuration;
-    }
-
-    public AtmosEndpoint(String endpointUri) {
-        super(endpointUri);
     }
 
     public AtmosConfiguration getConfiguration() {
@@ -67,11 +64,9 @@ public class AtmosEndpoint extends DefaultEndpoint {
      * Create one of the camel producer available based on the configuration
      *
      * @return the camel producer
-     * @throws Exception
      */
+    @Override
     public Producer createProducer() throws Exception {
-        LOG.debug("resolve producer atmos endpoint {" + configuration.getOperation().toString() + "}");
-        LOG.debug("resolve producer atmos attached client: " + configuration.getClient());
         if (configuration.getOperation() == AtmosOperation.put) {
             return new AtmosPutProducer(this, configuration);
         } else if (this.configuration.getOperation() == AtmosOperation.del) {
@@ -88,25 +83,20 @@ public class AtmosEndpoint extends DefaultEndpoint {
     /**
      * Create one of the camel consumer available based on the configuration
      *
-     * @param processor the given processor
-     * @return the camel consumer
-     * @throws Exception
+     * @param  processor the given processor
+     * @return           the camel consumer
      */
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        LOG.debug("resolve consumer atmos endpoint {" + configuration.getOperation().toString() + "}");
-        LOG.debug("resolve consumer atmos attached client:" + configuration.getClient());
-
         AtmosScheduledPollConsumer consumer;
         if (this.configuration.getOperation() == AtmosOperation.get) {
             consumer = new AtmosScheduledPollGetConsumer(this, processor, configuration);
             consumer.setDelay(POLL_CONSUMER_DELAY);
+            configureConsumer(consumer);
             return consumer;
         } else {
             throw new AtmosException("operation specified is not valid for consumer!");
         }
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
 }

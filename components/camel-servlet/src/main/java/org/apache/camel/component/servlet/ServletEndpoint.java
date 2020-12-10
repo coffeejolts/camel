@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,29 +19,92 @@ package org.apache.camel.component.servlet;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
+import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.component.http.HttpClientConfigurer;
-import org.apache.camel.component.http.HttpEndpoint;
+import org.apache.camel.http.common.DefaultHttpBinding;
+import org.apache.camel.http.common.HttpBinding;
+import org.apache.camel.http.common.HttpCommonEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
+import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.params.HttpClientParams;
 
-@UriEndpoint(scheme = "servlet", title = "Servlet", syntax = "servlet:servletName", consumerOnly = true, consumerClass = ServletConsumer.class, label = "http")
-public class ServletEndpoint extends HttpEndpoint {
+/**
+ * Serve HTTP requests by a Servlet.
+ */
+@UriEndpoint(firstVersion = "2.0.0", scheme = "servlet", extendsScheme = "http", title = "Servlet",
+             syntax = "servlet:contextPath", consumerOnly = true, category = { Category.HTTP })
+@Metadata(excludeProperties = "httpUri")
+public class ServletEndpoint extends HttpCommonEndpoint {
 
-    @UriPath @Metadata(required = "true")
+    private HttpBinding binding;
+
+    @UriPath(label = "consumer")
+    @Metadata(required = true)
+    private String contextPath;
+    @UriParam(label = "consumer", defaultValue = "CamelServlet")
     private String servletName;
+    @UriParam(label = "consumer,advanced")
+    private boolean attachmentMultipartBinding;
+    @UriParam(label = "consumer,advanced")
+    private String fileNameExtWhitelist;
 
     public ServletEndpoint() {
     }
 
-    public ServletEndpoint(String endPointURI, ServletComponent component, URI httpUri, HttpClientParams params, HttpConnectionManager httpConnectionManager,
-                           HttpClientConfigurer clientConfigurer) throws URISyntaxException {
-        super(endPointURI, component, httpUri, params, httpConnectionManager, clientConfigurer);
+    public ServletEndpoint(String endPointURI, ServletComponent component, URI httpUri) throws URISyntaxException {
+        super(endPointURI, component, httpUri);
+        this.contextPath = httpUri.getPath();
+    }
+
+    @Override
+    public ServletComponent getComponent() {
+        return (ServletComponent) super.getComponent();
+    }
+
+    @Override
+    public HttpBinding getHttpBinding() {
+        // make sure we include servlet variant of the http binding
+        if (this.binding == null) {
+            // is attachment binding enabled?
+            if (isAttachmentMultipartBinding()) {
+                this.binding = new AttachmentHttpBinding();
+            } else {
+                this.binding = new DefaultHttpBinding();
+            }
+            this.binding.setFileNameExtWhitelist(getFileNameExtWhitelist());
+            this.binding.setTransferException(isTransferException());
+            this.binding.setMuteException(isMuteException());
+            if (getComponent() != null) {
+                this.binding.setAllowJavaSerializedObject(getComponent().isAllowJavaSerializedObject());
+            }
+            this.binding.setHeaderFilterStrategy(getHeaderFilterStrategy());
+            this.binding.setEagerCheckContentAvailable(isEagerCheckContentAvailable());
+            this.binding.setMapHttpMessageBody(isMapHttpMessageBody());
+            this.binding.setMapHttpMessageHeaders(isMapHttpMessageHeaders());
+            this.binding.setMapHttpMessageFormUrlEncodedBody(isMapHttpMessageFormUrlEncodedBody());
+        }
+        return this.binding;
+    }
+
+    @Override
+    public void setHttpBinding(HttpBinding binding) {
+        super.setHttpBinding(binding);
+        this.binding = binding;
+    }
+
+    public String getContextPath() {
+        return contextPath;
+    }
+
+    /**
+     * The context-path to use
+     */
+    public void setContextPath(String contextPath) {
+        this.contextPath = contextPath;
     }
 
     /**
@@ -55,9 +118,40 @@ public class ServletEndpoint extends HttpEndpoint {
         return servletName;
     }
 
+    public boolean isAttachmentMultipartBinding() {
+        return attachmentMultipartBinding;
+    }
+
+    /**
+     * Whether to automatic bind multipart/form-data as attachments on the Camel {@link Exchange}.
+     * <p/>
+     * The options attachmentMultipartBinding=true and disableStreamCache=false cannot work together. Remove
+     * disableStreamCache to use AttachmentMultipartBinding.
+     * <p/>
+     * This is turn off by default as this may require servlet specific configuration to enable this when using
+     * Servlet's.
+     */
+    public void setAttachmentMultipartBinding(boolean attachmentMultipartBinding) {
+        this.attachmentMultipartBinding = attachmentMultipartBinding;
+    }
+
+    public String getFileNameExtWhitelist() {
+        return fileNameExtWhitelist;
+    }
+
+    /**
+     * Whitelist of accepted filename extensions for accepting uploaded files.
+     * <p/>
+     * Multiple extensions can be separated by comma, such as txt,xml.
+     */
+    public void setFileNameExtWhitelist(String fileNameExtWhitelist) {
+        this.fileNameExtWhitelist = fileNameExtWhitelist;
+    }
+
     @Override
     public Producer createProducer() throws Exception {
-        throw new UnsupportedOperationException("You cannot create producer with servlet endpoint, please consider to use http or http4 endpoint.");
+        throw new UnsupportedOperationException(
+                "You cannot create producer with servlet endpoint, please consider to use http endpoint.");
     }
 
     @Override

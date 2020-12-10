@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,99 +16,11 @@
  */
 package org.apache.camel.component.file.remote.sftp;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.util.Arrays;
-
 import org.apache.camel.component.file.remote.BaseServerTestSupport;
-import org.apache.camel.util.ObjectHelper;
-import org.apache.sshd.SshServer;
-import org.apache.sshd.common.NamedFactory;
-import org.apache.sshd.common.keyprovider.FileKeyPairProvider;
-import org.apache.sshd.server.Command;
-import org.apache.sshd.server.PublickeyAuthenticator;
-import org.apache.sshd.server.command.ScpCommandFactory;
-import org.apache.sshd.server.session.ServerSession;
-import org.apache.sshd.server.sftp.SftpSubsystem;
-import org.junit.After;
-import org.junit.Before;
+import org.apache.camel.component.file.remote.services.SftpEmbeddedService;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-/**
- * @version 
- */
 public class SftpServerTestSupport extends BaseServerTestSupport {
-
-    protected static final String FTP_ROOT_DIR = "target/res/home";
-    protected SshServer sshd;
-    protected boolean canTest;
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        deleteDirectory(FTP_ROOT_DIR);
-        super.setUp();
-
-        setUpServer();
-    }
-
-    @SuppressWarnings("unchecked")
-    protected void setUpServer() throws Exception {
-        canTest = true;
-        try {
-            sshd = SshServer.setUpDefaultServer();
-            sshd.setPort(getPort());
-            sshd.setKeyPairProvider(new FileKeyPairProvider(new String[]{"src/test/resources/hostkey.pem"}));
-            sshd.setSubsystemFactories(Arrays.<NamedFactory<Command>>asList(new SftpSubsystem.Factory()));
-            sshd.setCommandFactory(new ScpCommandFactory());
-            sshd.setPasswordAuthenticator(new MyPasswordAuthenticator());
-            PublickeyAuthenticator publickeyAuthenticator = new PublickeyAuthenticator() {
-                // consider all keys as authorized for all users
-                @Override
-                public boolean authenticate(String username, PublicKey key, ServerSession session) {
-                    return true;
-                }
-            };
-            sshd.setPublickeyAuthenticator(publickeyAuthenticator);
-            sshd.start();
-        } catch (Exception e) {
-            // ignore if algorithm is not on the OS
-            NoSuchAlgorithmException nsae = ObjectHelper.getException(NoSuchAlgorithmException.class, e);
-            if (nsae != null) {
-                canTest = false;
-
-                String name = System.getProperty("os.name");
-                String message = nsae.getMessage();
-                log.warn("SunX509 is not avail on this platform [{}] Testing is skipped! Real cause: {}", name, message);
-            } else {
-                // some other error then throw it so the test can fail
-                throw e;
-            }
-        }
-    }
-
-    @Override
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-
-        tearDownServer();
-    }
-
-    protected void tearDownServer() {
-        if (sshd != null) {
-            try {
-                // stop asap as we may hang forever
-                sshd.stop(true);
-                sshd = null;
-            } catch (Exception e) {
-                // ignore while shutting down as we could be polling during shutdown
-                // and get errors when the ftp server is stopping. This is only an issue
-                // since we host the ftp server embedded in the same jvm for unit testing
-            }
-        }
-    }
-
-    protected boolean canTest() {
-        return canTest;
-    }
+    @RegisterExtension
+    protected static SftpEmbeddedService service = new SftpEmbeddedService();
 }

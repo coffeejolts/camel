@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,19 +22,33 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.apache.camel.language.LanguageAnnotation;
+import com.jayway.jsonpath.Option;
+import org.apache.camel.support.language.LanguageAnnotation;
 
 /**
- * An annotation used to inject a <a href="http://commons.apache.org/jsonpath/">JSon Path</a>
- * expression into a method parameter when using
- * <a href="http://camel.apache.org/bean-integration.html">Bean Integration</a>
- *
- * @version
+ * An annotation used to inject a <a href="http://commons.apache.org/jsonpath/">JsonPath</a> expression into a method
+ * parameter when using <a href="http://camel.apache.org/bean-integration.html">Bean Integration</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER })
-@LanguageAnnotation(language = "jsonpath")
+@Target({ ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER })
+@LanguageAnnotation(language = "jsonpath", factory = JsonPathAnnotationExpressionFactory.class)
 public @interface JsonPath {
+
     String value();
+
+    /**
+     * Whether to suppress exceptions such as PathNotFoundException
+     */
+    boolean suppressExceptions() default false;
+
+    /**
+     * Whether to allow in inlined simple exceptions in the JsonPath expression
+     */
+    boolean allowSimple() default true;
+
+    /**
+     * To configure the JsonPath options to use
+     */
+    Option[] options() default {};
 }

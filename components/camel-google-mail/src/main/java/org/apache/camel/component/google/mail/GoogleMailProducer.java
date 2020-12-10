@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,14 +20,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest;
-
+import org.apache.camel.ExtendedCamelContext;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.TypeConverter;
 import org.apache.camel.component.google.mail.internal.GoogleMailApiName;
 import org.apache.camel.component.google.mail.internal.GoogleMailPropertiesHelper;
-import org.apache.camel.util.IntrospectionSupport;
-import org.apache.camel.util.component.AbstractApiProducer;
-import org.apache.camel.util.component.ApiMethod;
+import org.apache.camel.spi.BeanIntrospection;
+import org.apache.camel.support.component.AbstractApiProducer;
+import org.apache.camel.support.component.ApiMethod;
 
 /**
  * The GoogleMail producer.
@@ -35,16 +34,17 @@ import org.apache.camel.util.component.ApiMethod;
 public class GoogleMailProducer extends AbstractApiProducer<GoogleMailApiName, GoogleMailConfiguration> {
 
     public GoogleMailProducer(GoogleMailEndpoint endpoint) {
-        super(endpoint, GoogleMailPropertiesHelper.getHelper());
+        super(endpoint, GoogleMailPropertiesHelper.getHelper(endpoint.getCamelContext()));
     }
 
     @Override
     protected Object doInvokeMethod(ApiMethod method, Map<String, Object> properties) throws RuntimeCamelException {
         AbstractGoogleClientRequest request = (AbstractGoogleClientRequest) super.doInvokeMethod(method, properties);
         try {
-            TypeConverter typeConverter = getEndpoint().getCamelContext().getTypeConverter();
+            BeanIntrospection beanIntrospection
+                    = getEndpoint().getCamelContext().adapt(ExtendedCamelContext.class).getBeanIntrospection();
             for (Entry<String, Object> p : properties.entrySet()) {
-                IntrospectionSupport.setProperty(typeConverter, request, p.getKey(), p.getValue());
+                beanIntrospection.setProperty(getEndpoint().getCamelContext(), request, p.getKey(), p.getValue());
             }
             return request.execute();
         } catch (Exception e) {

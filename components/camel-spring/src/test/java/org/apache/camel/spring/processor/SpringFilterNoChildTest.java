@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,14 +17,15 @@
 package org.apache.camel.spring.processor;
 
 import org.apache.camel.FailedToCreateRouteException;
-import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class SpringFilterNoChildTest extends SpringTestSupport {
 
     @Override
@@ -32,8 +33,8 @@ public class SpringFilterNoChildTest extends SpringTestSupport {
         try {
             new ClassPathXmlApplicationContext("org/apache/camel/spring/processor/filterNoChild.xml");
             fail("Should thrown an exception");
-        } catch (RuntimeCamelException e) {
-            FailedToCreateRouteException cause = assertIsInstanceOf(FailedToCreateRouteException.class, e.getCause());
+        } catch (Exception e) {
+            FailedToCreateRouteException cause = assertIsInstanceOf(FailedToCreateRouteException.class, e);
             IllegalArgumentException iae = assertIsInstanceOf(IllegalArgumentException.class, cause.getCause());
             assertEquals("Definition has no children on Filter[xpath{$foo = 'bar'} -> []]", iae.getMessage());
         }
@@ -41,11 +42,13 @@ public class SpringFilterNoChildTest extends SpringTestSupport {
     }
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         // must override as there is no valid spring xml file
         createApplicationContext();
     }
 
+    @Test
     public void testFilterNoOutput() throws Exception {
         // noop
     }

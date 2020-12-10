@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,12 @@
  */
 package org.apache.camel.spring;
 
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class ApplicationContextClassLoaderTest extends SpringTestSupport {
 
@@ -25,11 +29,12 @@ public class ApplicationContextClassLoaderTest extends SpringTestSupport {
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/disableJmxConfig.xml");
     }
-    
+
+    @Test
     public void testClassLoader() {
         ClassLoader cl = context.getApplicationContextClassLoader();
-        assertNotNull("The application context class loader should not be null", cl);
-        assertEquals("Get a wrong class loader", this.getClass().getClassLoader(), cl);
+        assertNotNull(cl, "The application context class loader should not be null");
+        assertEquals(this.getClass().getClassLoader(), cl, "Get a wrong class loader");
     }
 
 }

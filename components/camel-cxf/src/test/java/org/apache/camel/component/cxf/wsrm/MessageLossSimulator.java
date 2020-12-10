@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.cxf.wsrm;
 
 import java.io.IOException;
@@ -31,15 +30,14 @@ import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.phase.PhaseInterceptor;
 import org.apache.cxf.ws.rm.RMContextUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class MessageLossSimulator extends AbstractPhaseInterceptor<Message> {
 
     private static final Logger LOG = LoggerFactory.getLogger(MessageLossSimulator.class.getName());
-    private int appMessageCount; 
-    
+    private int appMessageCount;
+
     public MessageLossSimulator() {
         super(Phase.PREPARE_SEND);
         addBefore(MessageSenderInterceptor.class.getName());
@@ -51,18 +49,19 @@ public class MessageLossSimulator extends AbstractPhaseInterceptor<Message> {
         }
         try {
             Object o = map.getClass().getMethod("getAction").invoke(map);
-            return (String)o.getClass().getMethod("getValue").invoke(o);
+            return (String) o.getClass().getMethod("getValue").invoke(o);
         } catch (Throwable t) {
             throw new Fault(t);
         }
     }
+
+    @Override
     public void handleMessage(Message message) throws Fault {
-        Object maps =
-            RMContextUtils.retrieveMAPs(message, false, true);
+        Object maps = RMContextUtils.retrieveMAPs(message, false, true);
         // RMContextUtils.ensureExposedVersion(maps);
         String action = getAction(maps);
 
-        if (RMContextUtils.isRMProtocolMessage(action)) { 
+        if (RMContextUtils.isRMProtocolMessage(action)) {
             return;
         }
         appMessageCount++;
@@ -70,20 +69,20 @@ public class MessageLossSimulator extends AbstractPhaseInterceptor<Message> {
         if (0 != (appMessageCount % 2)) {
             return;
         }
-        
+
         // discard even-numbered message
         InterceptorChain chain = message.getInterceptorChain();
         ListIterator<Interceptor<? extends Message>> it = chain.getIterator();
         while (it.hasNext()) {
-            PhaseInterceptor<?> pi = (PhaseInterceptor<?>)it.next();
+            PhaseInterceptor<?> pi = (PhaseInterceptor<?>) it.next();
             if (MessageSenderInterceptor.class.getName().equals(pi.getId())) {
                 chain.remove(pi);
                 LOG.debug("Removed MessageSenderInterceptor from interceptor chain.");
                 break;
             }
         }
-        
-        message.setContent(OutputStream.class, new WrappedOutputStream(message));  
+
+        message.setContent(OutputStream.class, new WrappedOutputStream(message));
 
         message.getInterceptorChain().add(new AbstractPhaseInterceptor<Message>(Phase.PREPARE_SEND_ENDING) {
 
@@ -94,15 +93,15 @@ public class MessageLossSimulator extends AbstractPhaseInterceptor<Message> {
                     throw new Fault(e);
                 }
             }
-            
-        });   
+
+        });
     }
-    
+
     private class WrappedOutputStream extends AbstractWrappedOutputStream {
 
         private Message outMessage;
 
-        public WrappedOutputStream(Message m) {
+        WrappedOutputStream(Message m) {
             this.outMessage = m;
         }
 
@@ -114,13 +113,13 @@ public class MessageLossSimulator extends AbstractPhaseInterceptor<Message> {
             }
             wrappedStream = new DummyOutputStream();
         }
-    }    
+    }
 
     private class DummyOutputStream extends OutputStream {
 
         @Override
         public void write(int b) throws IOException {
-            // TODO Auto-generated method stub
+            // noop
         }
     }
 }

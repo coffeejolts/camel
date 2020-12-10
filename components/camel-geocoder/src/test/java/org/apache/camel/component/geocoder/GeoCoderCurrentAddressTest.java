@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,19 +18,21 @@ package org.apache.camel.component.geocoder;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
-public class GeoCoderCurrentAddressTest extends CamelTestSupport {
+@EnabledIfEnvironmentVariable(named = "CAMEL_GEOCODER_APIKEY", matches = ".+")
+public class GeoCoderCurrentAddressTest extends GeoCoderApiKeyTestBase {
 
     @Test
     public void testGeoCoder() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
+        mock.expectedMessageCount(1);
         mock.expectedBodiesReceived("Hello");
         mock.message(0).header(GeoCoderConstants.LATLNG).isNotNull();
 
         template.sendBody("direct:start", "Hello");
-        
+
         assertMockEndpointsSatisfied();
     }
 
@@ -38,11 +40,9 @@ public class GeoCoderCurrentAddressTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("direct:start")
-                    .to("geocoder:address:current?headersOnly=true")
-                    .to("log:result")
-                    .log("You are at ${header.CamelGeoCoderLatlng} in city ${header.CamelGeoCoderCity} in country ${header.CamelGeoCoderCountryLong}")
-                    .to("mock:result");
+                from("direct:start").to("geocoder:address:current?headersOnly=true&apiKey=" + getApiKey()).to("log:result")
+                        .log("You are at ${header.CamelGeoCoderLatlng} in city ${header.CamelGeoCoderCity} in country ${header.CamelGeoCoderCountryLong}")
+                        .to("mock:result");
             }
         };
     }

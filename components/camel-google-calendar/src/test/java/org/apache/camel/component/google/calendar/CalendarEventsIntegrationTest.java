@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,13 +26,15 @@ import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.calendar.internal.CalendarEventsApiMethod;
 import org.apache.camel.component.google.calendar.internal.GoogleCalendarApiCollection;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test class for {@link com.google.api.services.calendar.Calendar$Events} APIs.
@@ -40,7 +42,8 @@ import org.slf4j.LoggerFactory;
 public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(CalendarEventsIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleCalendarApiCollection.getCollection().getApiName(CalendarEventsApiMethod.class).getName();
+    private static final String PATH_PREFIX
+            = GoogleCalendarApiCollection.getCollection().getApiName(CalendarEventsApiMethod.class).getName();
 
     @Test
     public void testInsert() throws Exception {
@@ -49,7 +52,7 @@ public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSup
         event.setSummary("Feed the Camel");
         event.setLocation("Somewhere");
 
-        ArrayList<EventAttendee> attendees = new ArrayList<EventAttendee>();
+        ArrayList<EventAttendee> attendees = new ArrayList<>();
         attendees.add(new EventAttendee().setEmail("camel-google-calendar.janstey@gmail.com"));
         event.setAttendees(attendees);
 
@@ -60,7 +63,7 @@ public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSup
         DateTime end = new DateTime(endDate, TimeZone.getTimeZone("UTC"));
         event.setEnd(new EventDateTime().setDateTime(end));
 
-        final Map<String, Object> headers = new HashMap<String, Object>();
+        final Map<String, Object> headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleCalendar.calendarId", getCalendar().getId());
         // parameter type is com.google.api.services.calendar.model.Event
@@ -75,13 +78,13 @@ public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSup
     @Test
     public void testManipulatingAnEvent() throws Exception {
         // Add an event
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleCalendar.calendarId", getCalendar().getId());
         // parameter type is String
         headers.put("CamelGoogleCalendar.text", "Feed the Camel");
         com.google.api.services.calendar.model.Event result = requestBodyAndHeaders("direct://QUICKADD", null, headers);
-        assertNotNull("quickAdd result", result);
+        assertNotNull(result, "quickAdd result");
 
         // Check if it is in the list of events for this calendar
         com.google.api.services.calendar.model.Events events = requestBody("direct://LIST", getCalendar().getId());
@@ -90,7 +93,7 @@ public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSup
         assertEquals("Feed the Camel", item.getSummary());
 
         // Get the event metadata
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleCalendar.calendarId", getCalendar().getId());
         // parameter type is String
@@ -106,7 +109,7 @@ public class CalendarEventsIntegrationTest extends AbstractGoogleCalendarTestSup
         assertEquals("Feed the Camel later", newResult.getSummary());
 
         // Delete the event
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleCalendar.calendarId", getCalendar().getId());
         // parameter type is String

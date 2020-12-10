@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,14 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
+import org.apache.camel.RollbackExchangeException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.sjms.SjmsComponent;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TransactedQueueProducerTest extends CamelTestSupport {
 
@@ -43,25 +46,30 @@ public class TransactedQueueProducerTest extends CamelTestSupport {
 
     @Test
     public void testRoute() throws Exception {
-        
+
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World 2");
 
-        template.sendBodyAndHeader("direct:start", "Hello World 1", "isfailed", true);
+        try {
+            template.sendBodyAndHeader("direct:start", "Hello World 1", "isfailed", true);
+            fail("Should fail");
+        } catch (Exception e) {
+            // expected
+        }
         template.sendBodyAndHeader("direct:start", "Hello World 2", "isfailed", false);
 
         mock.assertIsSatisfied();
     }
 
-
     /*
-     * @see org.apache.camel.test.junit4.CamelTestSupport#createCamelContext()
+     * @see org.apache.camel.test.junit5.CamelTestSupport#createCamelContext()
      * @return
      * @throws Exception
      */
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("vm://broker?broker.persistent=false&broker.useJmx=false");
+        ActiveMQConnectionFactory connectionFactory
+                = new ActiveMQConnectionFactory("vm://broker?broker.persistent=false&broker.useJmx=false");
         CamelContext camelContext = super.createCamelContext();
         SjmsComponent component = new SjmsComponent();
         component.setConnectionFactory(connectionFactory);
@@ -70,7 +78,7 @@ public class TransactedQueueProducerTest extends CamelTestSupport {
     }
 
     /*
-     * @see org.apache.camel.test.junit4.CamelTestSupport#createRouteBuilder()
+     * @see org.apache.camel.test.junit5.CamelTestSupport#createRouteBuilder()
      * @return
      * @throws Exception
      */
@@ -81,24 +89,23 @@ public class TransactedQueueProducerTest extends CamelTestSupport {
             public void configure() {
 
                 from("direct:start")
-                    .to("sjms:queue:test.queue?transacted=true")
-                    .process(
-                         new Processor() {
-                            @Override
-                            public void process(Exchange exchange) throws Exception {
-                                if (exchange.getIn().getHeader("isfailed", Boolean.class)) {
-                                    log.info("We failed.  Should roll back.");
-                                    exchange.getOut().setFault(true);
-                                } else {
-                                    log.info("We passed.  Should commit.");
-                                }
-                            }
-                        });
-                
-                from("sjms:queue:test.queue?durableSubscriptionId=bar&transacted=true")
-                    .to("mock:result");
+                        .to("sjms:queue:test.queue?transacted=true")
+                        .process(
+                                new Processor() {
+                                    @Override
+                                    public void process(Exchange exchange) throws Exception {
+                                        if (exchange.getIn().getHeader("isfailed", Boolean.class)) {
+                                            log.info("We failed. Should roll back.");
+                                            throw new RollbackExchangeException(exchange);
+                                        } else {
+                                            log.info("We passed.  Should commit.");
+                                        }
+                                    }
+                                });
 
-                
+                from("sjms:queue:test.queue?durableSubscriptionId=bar&transacted=true")
+                        .to("mock:result");
+
             }
         };
     }

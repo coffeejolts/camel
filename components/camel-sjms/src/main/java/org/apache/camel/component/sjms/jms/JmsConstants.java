@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,6 +20,11 @@ package org.apache.camel.component.sjms.jms;
  * JMS constants
  */
 public interface JmsConstants {
+
+    String QUEUE_PREFIX = "queue:";
+    String TOPIC_PREFIX = "topic:";
+    String TEMP_QUEUE_PREFIX = "temp:queue:";
+    String TEMP_TOPIC_PREFIX = "temp:topic:";
 
     /**
      * Set by the publishing Client

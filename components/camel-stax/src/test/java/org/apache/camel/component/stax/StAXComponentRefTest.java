@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,32 +16,30 @@
  */
 package org.apache.camel.component.stax;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.stax.model.RecordsUtil;
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class StAXComponentRefTest extends CamelTestSupport {
 
-    @EndpointInject(uri = "mock:records")
+    @EndpointInject("mock:records")
     private MockEndpoint recordsEndpoint;
 
-    @BeforeClass
+    @BindToRegistry("myHandler")
+    private CountingHandler handler = new CountingHandler();
+
+    @BeforeAll
     public static void initRouteExample() {
         RecordsUtil.createXMLFile();
-    }
-
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-        jndi.bind("myHandler", new CountingHandler());
-        return jndi;
     }
 
     @Override
@@ -49,16 +47,12 @@ public class StAXComponentRefTest extends CamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("file:target/in")
-                    .routeId("stax-parser")
-                    .to("stax:#myHandler")
-                    .process(new Processor() {
-                        @Override
-                        public void process(Exchange exchange) throws Exception {
-                            assertEquals(11, exchange.getIn().getBody(CountingHandler.class).getNumber());
-                        }
-                    })
-                    .to("mock:records");
+                from("file:target/in").routeId("stax-parser").to("stax:#myHandler").process(new Processor() {
+                    @Override
+                    public void process(Exchange exchange) throws Exception {
+                        assertEquals(11, exchange.getIn().getBody(CountingHandler.class).getNumber());
+                    }
+                }).to("mock:records");
             }
         };
     }

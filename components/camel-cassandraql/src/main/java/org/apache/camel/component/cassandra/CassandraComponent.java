@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,16 @@ package org.apache.camel.component.cassandra;
 
 import java.util.Map;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.CamelContextHelper;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.util.StringHelper;
 
 /**
- * Represents the component that manages {@link CassandraEndpoint}. This
- * component is based on Datastax Java Driver for Cassandra.
+ * Represents the component that manages {@link CassandraEndpoint}. This component is based on Datastax Java Driver for
+ * Cassandra.
  * <p/>
  * URI examples:
  * <ul>
@@ -37,10 +39,15 @@ import org.apache.camel.util.ObjectHelper;
  * <li>cql:bean:clusterRef/keyspace</li>
  * </ul>
  */
-public class CassandraComponent extends UriEndpointComponent {
+@Component("cql")
+public class CassandraComponent extends DefaultComponent {
 
     public CassandraComponent() {
-        super(CassandraEndpoint.class);
+        this(null);
+    }
+
+    public CassandraComponent(CamelContext context) {
+        super(context);
     }
 
     @Override
@@ -50,7 +57,7 @@ public class CassandraComponent extends UriEndpointComponent {
         String port = null;
         String keyspace = null;
 
-        int pos = remaining.lastIndexOf("/");
+        int pos = remaining.lastIndexOf('/');
         if (pos > 0) {
             keyspace = remaining.substring(pos + 1);
             remaining = remaining.substring(0, pos);
@@ -62,18 +69,13 @@ public class CassandraComponent extends UriEndpointComponent {
         } else {
             // hosts and port (port is optional)
             if (remaining.contains(":")) {
-                port = ObjectHelper.after(remaining, ":");
-                hosts = ObjectHelper.before(remaining, ":");
+                port = StringHelper.after(remaining, ":");
+                hosts = StringHelper.before(remaining, ":");
             } else {
                 hosts = remaining;
             }
         }
 
-        ResultSetConversionStrategy rs = null;
-        String strategy = getAndRemoveParameter(parameters, "resultSetConversionStrategy", String.class);
-        if (strategy != null) {
-            rs = ResultSetConversionStrategies.fromName(strategy);
-        }
         CassandraEndpoint endpoint = new CassandraEndpoint(uri, this);
         endpoint.setBean(beanRef);
         endpoint.setHosts(hosts);
@@ -82,8 +84,16 @@ public class CassandraComponent extends UriEndpointComponent {
             endpoint.setPort(num);
         }
         endpoint.setKeyspace(keyspace);
-        if (rs != null) {
-            endpoint.setResultSetConversionStrategy(rs);
+
+        // special in some use-cases
+        Object strategy = parameters.get("resultSetConversionStrategy");
+        if (strategy != null) {
+            String text = CamelContextHelper.parseText(getCamelContext(), strategy.toString());
+            if (text.equalsIgnoreCase("ALL") || text.equalsIgnoreCase("ONE") || text.startsWith("LIMIT_")) {
+                ResultSetConversionStrategy rs = ResultSetConversionStrategies.fromName(text);
+                endpoint.setResultSetConversionStrategy(rs);
+                parameters.remove("resultSetConversionStrategy");
+            }
         }
         setProperties(endpoint, parameters);
         return endpoint;

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,50 +16,35 @@
  */
 package org.apache.camel.component.jmx;
 
-import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.EndpointHelper;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.PropertyBindingSupport;
+import org.apache.camel.util.PropertiesHelper;
 
 /**
- * Component for connecting JMX Notification events to a camel route.
- * The endpoint created from this component allows users to specify
- * an ObjectName to listen to and any JMX Notifications received from
- * that object will flow into the route.
+ * Component for connecting JMX Notification events to a camel route. The endpoint created from this component allows
+ * users to specify an ObjectName to listen to and any JMX Notifications received from that object will flow into the
+ * route.
  */
-public class JMXComponent extends UriEndpointComponent {
+@Component("jmx")
+public class JMXComponent extends DefaultComponent {
 
     public JMXComponent() {
-        super(JMXEndpoint.class);
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         JMXEndpoint endpoint = new JMXEndpoint(uri, this);
-        // use the helper class to set all of the properties
-        EndpointHelper.setReferenceProperties(getCamelContext(), endpoint, parameters);
-        EndpointHelper.setProperties(getCamelContext(), endpoint, parameters);
+        PropertyBindingSupport.bindProperties(getCamelContext(), endpoint, parameters);
 
         endpoint.setServerURL(remaining);
 
-        // we may have some extra params left over for the object properties hashtable
-        // these properties need to be consumed or the framework will throw an exception
-        // for unused params
-        if (!parameters.isEmpty()) {
-            Hashtable<String, String> objectProperties = new Hashtable<String, String>();
-
-            for (Iterator<Entry<String, Object>> it = parameters.entrySet().iterator(); it.hasNext();) {
-                Entry<String, Object> entry = it.next();
-                if (entry.getKey().startsWith("key.")) {
-                    objectProperties.put(entry.getKey().substring("key.".length()), entry.getValue().toString());
-                    it.remove();
-                }
-            }
-
+        Map objectProperties = PropertiesHelper.extractProperties(parameters, "key.");
+        if (!objectProperties.isEmpty()) {
             endpoint.setObjectProperties(objectProperties);
         }
 

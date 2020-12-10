@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,8 +19,8 @@ package org.apache.camel.component.beanstalk.integration;
 import com.surftools.BeanstalkClient.Client;
 import org.apache.camel.component.beanstalk.ConnectionSettings;
 import org.apache.camel.component.beanstalk.ConnectionSettingsFactory;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Before;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
 
 public abstract class BeanstalkCamelTestSupport extends CamelTestSupport {
     protected final ConnectionSettingsFactory connFactory = ConnectionSettingsFactory.DEFAULT;
@@ -28,7 +28,7 @@ public abstract class BeanstalkCamelTestSupport extends CamelTestSupport {
     protected Client reader;
     protected Client writer;
 
-    @Before
+    @BeforeEach
     @Override
     public void setUp() throws Exception {
         super.setUp();

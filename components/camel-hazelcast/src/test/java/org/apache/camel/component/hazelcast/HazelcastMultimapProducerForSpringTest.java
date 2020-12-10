@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,14 +20,15 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.MultiMap;
-
-import org.junit.After;
-import org.junit.Test;
+import com.hazelcast.multimap.MultiMap;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -48,7 +49,7 @@ public class HazelcastMultimapProducerForSpringTest extends HazelcastCamelSpring
         verify(hazelcastInstance, atLeastOnce()).getMultiMap("bar");
     }
 
-    @After
+    @AfterEach
     public void verifyMapMock() {
         verifyNoMoreInteractions(map);
     }
@@ -72,7 +73,7 @@ public class HazelcastMultimapProducerForSpringTest extends HazelcastCamelSpring
 
     @Test
     public void testGet() {
-        when(map.get("4711")).thenReturn(Arrays.<Object>asList("my-foo"));
+        when(map.get("4711")).thenReturn(Arrays.<Object> asList("my-foo"));
         template.sendBodyAndHeader("direct:get", null, HazelcastConstants.OBJECT_ID, "4711");
         verify(map).get("4711");
         Collection<?> body = consumer.receiveBody("seda:out", 5000, Collection.class);
@@ -85,4 +86,37 @@ public class HazelcastMultimapProducerForSpringTest extends HazelcastCamelSpring
         verify(map).remove(4711);
     }
 
+    @Test
+    public void testValueCount() {
+        template.sendBodyAndHeader("direct:valueCount", "test", HazelcastConstants.OBJECT_ID, "4711");
+        verify(map).valueCount("4711");
+    }
+
+    @Test
+    public void testContainsKey() {
+        when(map.containsKey("testOk")).thenReturn(true);
+        when(map.containsKey("testKo")).thenReturn(false);
+        template.sendBodyAndHeader("direct:containsKey", null, HazelcastConstants.OBJECT_ID, "testOk");
+        Boolean body = consumer.receiveBody("seda:out", 5000, Boolean.class);
+        verify(map).containsKey("testOk");
+        assertEquals(true, body);
+        template.sendBodyAndHeader("direct:containsKey", null, HazelcastConstants.OBJECT_ID, "testKo");
+        body = consumer.receiveBody("seda:out", 5000, Boolean.class);
+        verify(map).containsKey("testKo");
+        assertEquals(false, body);
+    }
+
+    @Test
+    public void testContainsValue() {
+        when(map.containsValue("testOk")).thenReturn(true);
+        when(map.containsValue("testKo")).thenReturn(false);
+        template.sendBody("direct:containsValue", "testOk");
+        Boolean body = consumer.receiveBody("seda:out", 5000, Boolean.class);
+        verify(map).containsValue("testOk");
+        assertEquals(true, body);
+        template.sendBody("direct:containsValue", "testKo");
+        body = consumer.receiveBody("seda:out", 5000, Boolean.class);
+        verify(map).containsValue("testKo");
+        assertEquals(false, body);
+    }
 }

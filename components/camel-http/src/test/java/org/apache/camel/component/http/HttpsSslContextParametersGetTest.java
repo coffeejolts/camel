@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,31 +16,52 @@
  */
 package org.apache.camel.component.http;
 
-import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.util.jsse.SSLContextParameters;
-import org.apache.commons.httpclient.protocol.Protocol;
-import org.apache.commons.httpclient.protocol.ProtocolSocketFactory;
+import org.apache.camel.Exchange;
+import org.apache.camel.component.http.handler.BasicValidationHandler;
+import org.apache.http.impl.bootstrap.HttpServer;
+import org.apache.http.impl.bootstrap.ServerBootstrap;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.component.http.HttpMethods.GET;
 
 public class HttpsSslContextParametersGetTest extends HttpsGetTest {
-    
+
+    private HttpServer localServer;
+
+    @BeforeEach
     @Override
-    protected RouteBuilder createRouteBuilder() throws Exception {
-        return new RouteBuilder() {
-            public void configure() {                
-                SSLContextParameters params = new SSLContextParameters();
-                
-                ProtocolSocketFactory factory = 
-                    new SSLContextParametersSecureProtocolSocketFactory(params);
-                
-                Protocol.registerProtocol("https",
-                        new Protocol(
-                                "https",
-                                factory,
-                                443));
-                
-                from("direct:start")
-                    .to("https://mail.google.com/mail/").to("mock:results");
-            }
-        };
+    public void setUp() throws Exception {
+        localServer = ServerBootstrap.bootstrap().setHttpProcessor(getBasicHttpProcessor())
+                .setConnectionReuseStrategy(getConnectionReuseStrategy()).setResponseFactory(getHttpResponseFactory())
+                .setExpectationVerifier(getHttpExpectationVerifier()).setSslContext(getSSLContext())
+                .registerHandler("/mail/", new BasicValidationHandler(GET.name(), null, null, getExpectedContent())).create();
+        localServer.start();
+
+        super.setUp();
     }
+
+    @AfterEach
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+
+        if (localServer != null) {
+            localServer.stop();
+        }
+    }
+
+    @Override
+    @Test
+    public void httpsGet() throws Exception {
+
+        Exchange exchange = template.request("https://127.0.0.1:" + localServer.getLocalPort()
+                                             + "/mail/?x509HostnameVerifier=x509HostnameVerifier&sslContextParameters=#sslContextParameters",
+                exchange1 -> {
+                });
+
+        assertExchange(exchange);
+    }
+
 }

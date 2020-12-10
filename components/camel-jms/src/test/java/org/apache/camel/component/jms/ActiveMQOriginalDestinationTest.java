@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,14 +26,14 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-/**
- * @version 
- */
 public class ActiveMQOriginalDestinationTest extends CamelTestSupport {
 
     protected String componentName = "activemq";
@@ -61,6 +61,7 @@ public class ActiveMQOriginalDestinationTest extends CamelTestSupport {
         assertEquals("Queue", original.getDestinationTypeAsString());
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 
@@ -79,20 +80,21 @@ public class ActiveMQOriginalDestinationTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
                 from("activemq:queue:foo")
-                    .to("activemq:queue:bar")
-                    .to("mock:result");
+                        .to("activemq:queue:bar")
+                        .to("mock:result");
             }
         };
     }
 
     /**
-     * A strategy to enrich JMS message with their original destination if the Camel
-     * route originates from a JMS destination.
+     * A strategy to enrich JMS message with their original destination if the Camel route originates from a JMS
+     * destination.
      * <p/>
-     * This implementation uses ActiveMQ specific code which can be moved to activemq-camel
-     * when it supports Camel 2.16
+     * This implementation uses ActiveMQ specific code which can be moved to activemq-camel when it supports Camel 2.16
      */
     private class OriginalDestinationPropagateStrategy implements MessageCreatedStrategy {
+
+        // TODO: This is supported out of the box from ActiveMQ 5.14 onwards, and hence remove OriginalDestinationPropagateStrategy
 
         @Override
         public void onMessageCreated(Message message, Session session, Exchange exchange, Throwable cause) {

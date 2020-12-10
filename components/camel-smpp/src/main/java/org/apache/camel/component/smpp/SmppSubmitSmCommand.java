@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,7 +23,7 @@ import java.util.Map;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.jsmpp.bean.DataCoding;
+import org.jsmpp.bean.DataCodings;
 import org.jsmpp.bean.ESMClass;
 import org.jsmpp.bean.GSMSpecificFeature;
 import org.jsmpp.bean.MessageMode;
@@ -44,8 +44,8 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
     @Override
     public void execute(Exchange exchange) throws SmppException {
         SubmitSm[] submitSms = createSubmitSm(exchange);
-        List<String> messageIDs = new ArrayList<String>(submitSms.length);
-        
+        List<String> messageIDs = new ArrayList<>(submitSms.length);
+
         for (int i = 0; i < submitSms.length; i++) {
             SubmitSm submitSm = submitSms[i];
             String messageID;
@@ -69,10 +69,10 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
                         submitSm.getValidityPeriod(),
                         new RegisteredDelivery(submitSm.getRegisteredDelivery()),
                         submitSm.getReplaceIfPresent(),
-                        DataCoding.newInstance(submitSm.getDataCoding()),
+                        DataCodings.newInstance(submitSm.getDataCoding()),
                         (byte) 0,
                         submitSm.getShortMessage(),
-                        submitSm.getOptionalParametes());
+                        submitSm.getOptionalParameters());
             } catch (Exception e) {
                 throw new SmppException(e);
             }
@@ -95,8 +95,11 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
         SubmitSm template = createSubmitSmTemplate(exchange);
         byte[][] segments = splitBody(exchange.getIn());
 
-        // multipart message
-        if (segments.length > 1) {
+        ESMClass esmClass = exchange.getIn().getHeader(SmppConstants.ESM_CLASS, ESMClass.class);
+        if (null != esmClass) {
+            template.setEsmClass(esmClass.value());
+            // multipart message
+        } else if (segments.length > 1) {
             template.setEsmClass(new ESMClass(MessageMode.DEFAULT, MessageType.DEFAULT, GSMSpecificFeature.UDHI).value());
         }
 
@@ -110,7 +113,7 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
         return submitSms;
     }
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings({ "unchecked" })
     protected SubmitSm createSubmitSmTemplate(Exchange exchange) {
         Message in = exchange.getIn();
         SubmitSm submitSm = new SubmitSm();
@@ -184,7 +187,8 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
         }
 
         if (in.getHeaders().containsKey(SmppConstants.SCHEDULE_DELIVERY_TIME)) {
-            submitSm.setScheduleDeliveryTime(SmppUtils.formatTime(in.getHeader(SmppConstants.SCHEDULE_DELIVERY_TIME, Date.class)));
+            submitSm.setScheduleDeliveryTime(
+                    SmppUtils.formatTime(in.getHeader(SmppConstants.SCHEDULE_DELIVERY_TIME, Date.class)));
         }
 
         if (in.getHeaders().containsKey(SmppConstants.VALIDITY_PERIOD)) {
@@ -207,14 +211,14 @@ public class SmppSubmitSmCommand extends SmppSmCommand {
         Map<java.lang.Short, Object> optinalParamater = in.getHeader(SmppConstants.OPTIONAL_PARAMETER, Map.class);
         if (optinalParamater != null) {
             List<OptionalParameter> optParams = createOptionalParametersByCode(optinalParamater);
-            submitSm.setOptionalParametes(optParams.toArray(new OptionalParameter[optParams.size()]));
+            submitSm.setOptionalParameters(optParams.toArray(new OptionalParameter[optParams.size()]));
         } else {
             Map<String, String> optinalParamaters = in.getHeader(SmppConstants.OPTIONAL_PARAMETERS, Map.class);
             if (optinalParamaters != null) {
                 List<OptionalParameter> optParams = createOptionalParametersByName(optinalParamaters);
-                submitSm.setOptionalParametes(optParams.toArray(new OptionalParameter[optParams.size()]));
+                submitSm.setOptionalParameters(optParams.toArray(new OptionalParameter[optParams.size()]));
             } else {
-                submitSm.setOptionalParametes();
+                submitSm.setOptionalParameters();
             }
         }
 

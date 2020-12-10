@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,8 @@ package org.apache.camel.component.netty;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class NettyFileTcpTest extends BaseNettyTest {
 
     @Test
@@ -34,6 +31,7 @@ public class NettyFileTcpTest extends BaseNettyTest {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
@@ -41,8 +39,8 @@ public class NettyFileTcpTest extends BaseNettyTest {
                 from("netty:tcp://localhost:{{port}}?sync=false&textline=true")
                         .to("mock:results");
 
-                from("file:src/test/data?noop=true&fileName=message1.txt").
-                        to("netty:tcp://localhost:{{port}}?sync=false&textline=true");
+                from("file:src/test/data?noop=true&fileName=message1.txt")
+                        .to("netty:tcp://localhost:{{port}}?sync=false&textline=true");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,11 +19,9 @@ package org.apache.camel.component.sjms.jms;
 import org.apache.camel.RuntimeCamelException;
 
 /**
- * IllegalHeaderException is thrown if a header is detected that doesn't meet
- * the JMS standard.
+ * IllegalHeaderException is thrown if a header is detected that doesn't meet the JMS standard.
  */
 public class IllegalHeaderException extends RuntimeCamelException {
-
 
     private static final long serialVersionUID = 3136304415267471091L;
 

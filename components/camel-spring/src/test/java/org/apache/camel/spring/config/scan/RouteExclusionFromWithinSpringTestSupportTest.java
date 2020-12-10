@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,26 +21,33 @@ import java.util.concurrent.TimeUnit;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
 import org.apache.camel.spring.config.scan.route.MyExcludedRouteBuilder;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RouteExclusionFromWithinSpringTestSupportTest extends SpringTestSupport {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext(new String[] {"org/apache/camel/spring/config/scan/componentScan.xml"}, getRouteExcludingApplicationContext());
+        return new ClassPathXmlApplicationContext(
+                new String[] { "org/apache/camel/spring/config/scan/componentScan.xml" },
+                getRouteExcludingApplicationContext());
     }
 
+    @Test
     public void testRouteExcluded() throws InterruptedException {
         assertEquals(1, context.getRoutes().size());
         MockEndpoint mock = getMockEndpoint("mock:definitelyShouldNeverReceiveExchange");
         mock.expectedMessageCount(0);
 
-        sendBody("direct:shouldNeverRecieveExchange", "dropped like a hot rock");
+        sendBody("seda:shouldNeverReceiveExchange", "dropped like a hot rock");
         mock.await(500, TimeUnit.MILLISECONDS);
         mock.assertIsSatisfied();
     }
 
+    @Test
     public void testRoutesNotExcludedWorkNormally() throws InterruptedException {
         template.sendBody("direct:start", "request");
         MockEndpoint mock = getMockEndpoint("mock:end");

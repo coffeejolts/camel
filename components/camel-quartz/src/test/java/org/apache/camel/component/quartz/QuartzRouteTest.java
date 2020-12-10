@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,12 +18,8 @@ package org.apache.camel.component.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
-import org.quartz.JobDetail;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class QuartzRouteTest extends BaseQuartzTest {
     protected MockEndpoint resultEndpoint;
 
@@ -36,13 +32,6 @@ public class QuartzRouteTest extends BaseQuartzTest {
 
         // lets test the receive worked
         resultEndpoint.assertIsSatisfied();
-
-        JobDetail job = resultEndpoint.getReceivedExchanges().get(0).getIn().getHeader("jobDetail", JobDetail.class);
-        assertNotNull(job);
-
-        assertEquals("simple", job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_TYPE));
-        assertEquals(2L, job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_INTERVAL));
-        assertEquals(1, job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_COUNTER));
     }
 
     @Override
@@ -50,7 +39,8 @@ public class QuartzRouteTest extends BaseQuartzTest {
         return new RouteBuilder() {
             public void configure() {
                 // START SNIPPET: example
-                from("quartz://myGroup/myTimerName?trigger.repeatInterval=2&trigger.repeatCount=1").routeId("myRoute").to("mock:result");
+                from("quartz://myGroup/myTimerName?trigger.repeatInterval=2&trigger.repeatCount=1").routeId("myRoute")
+                        .to("mock:result");
                 // END SNIPPET: example
             }
         };

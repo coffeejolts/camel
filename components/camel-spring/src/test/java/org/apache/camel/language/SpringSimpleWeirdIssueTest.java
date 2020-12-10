@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.language;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -26,7 +27,8 @@ public class SpringSimpleWeirdIssueTest extends SpringTestSupport {
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/language/SpringSimpleWeirdIssueTest.xml");
     }
-    
+
+    @Test
     public void testSimple() throws Exception {
         getMockEndpoint("mock:result").expectedBodiesReceived("Hello World");
 

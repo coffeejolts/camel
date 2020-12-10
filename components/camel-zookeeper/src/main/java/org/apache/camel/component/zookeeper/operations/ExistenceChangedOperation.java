@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,9 +22,8 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 
 /**
- * <code>DataChangedOperation</code> is an watch driven operation. It will wait
- * for an watched event indicating that a given node has been created or
- * deleted.
+ * <code>DataChangedOperation</code> is an watch driven operation. It will wait for an watched event indicating that a
+ * given node has been created or deleted.
  */
 public class ExistenceChangedOperation extends FutureEventDrivenOperation<String> {
 
@@ -48,9 +47,9 @@ public class ExistenceChangedOperation extends FutureEventDrivenOperation<String
         try {
             String path = getNode();
             Stat statistics = connection.exists(path, true);
-            return new OperationResult<String>(path, statistics);
+            return new OperationResult<>(path, statistics);
         } catch (Exception e) {
-            return new OperationResult<String>(e);
+            return new OperationResult<>(e);
         }
     }
 }

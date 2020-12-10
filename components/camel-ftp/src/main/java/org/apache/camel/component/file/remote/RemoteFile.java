@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -35,9 +35,17 @@ public class RemoteFile<T> extends GenericFile<T> implements Cloneable {
      */
     public void populateHeaders(GenericFileMessage<T> message) {
         if (message != null) {
-            super.populateHeaders(message);
+            // because there is not probeContentType option
+            // in other file based components, false may be passed
+            // as the second argument.
+            super.populateHeaders(message, false);
             message.setHeader("CamelFileHost", getHostname());
         }
+    }
+
+    @Override
+    public void populateHeaders(GenericFileMessage<T> message, boolean isProbeContentTypeFromEndpoint) {
+        populateHeaders(message);
     }
 
     public String getHostname() {
@@ -53,7 +61,7 @@ public class RemoteFile<T> extends GenericFile<T> implements Cloneable {
         // always use / as separator for FTP
         return '/';
     }
-    
+
     @Override
     protected boolean isAbsolute(String name) {
         if (name.length() > 0) {
@@ -61,9 +69,9 @@ public class RemoteFile<T> extends GenericFile<T> implements Cloneable {
         }
         return false;
     }
-    
+
     @Override
-    protected String normalizePath(String name) {        
+    protected String normalizePath(String name) {
         return name;
     }
 

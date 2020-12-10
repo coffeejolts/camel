@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,20 +22,22 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Producer;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.test.junit4.TestSupport;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Unit testing for using a MinaProducer that it can shutdown properly (CAMEL-395)
  * <p>
  * Run this test from maven: mvn exec:java and see the output if there is a error.
  */
-@Ignore
-public class MinaProducerShutdownTest extends TestSupport {
+@Disabled
+public class MinaProducerShutdownTest {
 
+    private static final Logger LOG = LoggerFactory.getLogger(MinaProducerShutdownTest.class);
     private static final String URI = "mina:tcp://localhost:6321?textline=true&sync=false";
     private long start;
-
     private CamelContext context;
 
     public static void main(String[] args) throws Exception {
@@ -43,6 +45,7 @@ public class MinaProducerShutdownTest extends TestSupport {
         me.testProducer();
     }
 
+    @Test
     public void testProducer() throws Exception {
         // use shutdown hook to verify that we have stopped within 5 seconds
         Thread hook = new AssertShutdownHook();
@@ -60,10 +63,12 @@ public class MinaProducerShutdownTest extends TestSupport {
     }
 
     private class AssertShutdownHook extends Thread {
+
+        @Override
         public void run() {
             long diff = System.currentTimeMillis() - start;
             if (diff > 5000) {
-                log.error("ERROR: MinaProducer should be able to shutdown within 5000 millis: time=" + diff);
+                LOG.error("ERROR: MinaProducer should be able to shutdown within 5000 millis: time=" + diff);
             }
         }
     }
@@ -82,10 +87,10 @@ public class MinaProducerShutdownTest extends TestSupport {
 
     private RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
+
             public void configure() {
                 from(URI).to("mock:result");
             }
         };
     }
-
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,13 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.CamelExchangeException;
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultAsyncProducer;
+import org.apache.camel.support.DefaultAsyncProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @version 
- */
 public class MyAsyncProducer extends DefaultAsyncProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(MyAsyncProducer.class);
@@ -41,10 +38,12 @@ public class MyAsyncProducer extends DefaultAsyncProducer {
         super(endpoint);
     }
 
+    @Override
     public MyAsyncEndpoint getEndpoint() {
         return (MyAsyncEndpoint) super.getEndpoint();
     }
 
+    @Override
     public boolean process(final Exchange exchange, final AsyncCallback callback) {
         executor.submit(new Callable<Object>() {
             public Object call() throws Exception {
@@ -57,9 +56,9 @@ public class MyAsyncProducer extends DefaultAsyncProducer {
                     exchange.setException(new CamelExchangeException("Simulated error at attempt " + count, exchange));
                 } else {
                     String reply = getEndpoint().getReply();
-                    exchange.getOut().setBody(reply);
+                    exchange.getMessage().setBody(reply);
                     // propagate headers
-                    exchange.getOut().setHeaders(exchange.getIn().getHeaders());
+                    exchange.getMessage().setHeaders(exchange.getIn().getHeaders());
                     LOG.info("Setting reply " + reply);
                 }
 

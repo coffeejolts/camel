@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,35 +19,42 @@ package org.apache.camel.component.jgroups;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.jgroups.Channel;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.jgroups.JChannel;
 
 /**
  * Component providing support for messages multicasted from- or to JGroups channels ({@code org.jgroups.Channel}).
  */
-public class JGroupsComponent extends UriEndpointComponent {
+@Component("jgroups")
+public class JGroupsComponent extends DefaultComponent {
 
-    private Channel channel;
+    @Metadata
+    private JChannel channel;
+    @Metadata
     private String channelProperties;
+    @Metadata(label = "consumer")
     private boolean enableViewMessages;
 
     public JGroupsComponent() {
-        super(JGroupsEndpoint.class);
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String clusterName, Map<String, Object> parameters) throws Exception {
-        return new JGroupsEndpoint(uri, this, channel, clusterName, channelProperties, enableViewMessages);
+        JGroupsEndpoint endpoint = new JGroupsEndpoint(uri, this, channel, clusterName, channelProperties, enableViewMessages);
+        setProperties(endpoint, parameters);
+        return endpoint;
     }
 
-    public Channel getChannel() {
+    public JChannel getChannel() {
         return channel;
     }
 
     /**
      * Channel to use
      */
-    public void setChannel(Channel channel) {
+    public void setChannel(JChannel channel) {
         this.channel = channel;
     }
 
@@ -67,8 +74,8 @@ public class JGroupsComponent extends UriEndpointComponent {
     }
 
     /**
-     * If set to true, the consumer endpoint will receive org.jgroups.View messages as well (not only org.jgroups.Message instances).
-     * By default only regular messages are consumed by the endpoint.
+     * If set to true, the consumer endpoint will receive org.jgroups.View messages as well (not only
+     * org.jgroups.Message instances). By default only regular messages are consumed by the endpoint.
      */
     public void setEnableViewMessages(boolean enableViewMessages) {
         this.enableViewMessages = enableViewMessages;

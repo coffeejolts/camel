@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,8 @@ import java.util.Map;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
 /**
@@ -41,7 +41,7 @@ public class MailHeaderOverrulePreConfigurationRecipientsTest extends CamelTestS
         mock.expectedHeaderReceived("cc", "willem@localhost");
         mock.expectedHeaderReceived("bcc", "hadrian@localhost");
 
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put("to", "claus@localhost");
         headers.put("cc", "willem@localhost");
         headers.put("bcc", "hadrian@localhost");
@@ -51,10 +51,12 @@ public class MailHeaderOverrulePreConfigurationRecipientsTest extends CamelTestS
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("pop3://claus@localhost?To=someone@outhere.com&CC=none@world.com&consumer.delay=1000").to("mock:result");
+                from("pop3://claus@localhost?to=someone@outhere.com&cc=none@world.com&initialDelay=100&delay=100")
+                        .to("mock:result");
             }
         };
     }

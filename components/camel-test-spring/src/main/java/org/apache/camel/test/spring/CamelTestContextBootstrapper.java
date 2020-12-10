@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,7 +20,7 @@ import org.springframework.test.context.ContextLoader;
 import org.springframework.test.context.support.DefaultTestContextBootstrapper;
 
 /**
- * To boostrap Camel for testing with Spring 4.1 onwards.
+ * To bootstrap Camel for testing with Spring 4.1 onwards.
  */
 public class CamelTestContextBootstrapper extends DefaultTestContextBootstrapper {
 

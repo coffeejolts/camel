@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,12 @@
  */
 package org.apache.camel.component.hbase;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.ObjectStreamClass;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.camel.component.hbase.processor.idempotent.HBaseIdempotentRepository;
 import org.apache.camel.util.IOHelper;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -33,7 +31,7 @@ import org.slf4j.LoggerFactory;
 public final class HBaseHelper {
 
     private static final Logger LOG = LoggerFactory.getLogger(HBaseIdempotentRepository.class);
-    private static final Map<String, byte[]> NAMES = new HashMap<String, byte[]>();
+    private static final Map<String, byte[]> NAMES = new HashMap<>();
 
     private HBaseHelper() {
         //Utility Class
@@ -42,7 +40,7 @@ public final class HBaseHelper {
     public static byte[] getHBaseFieldAsBytes(String n) {
         byte[] name = null;
         name = NAMES.get(n);
-        if (name == null) {
+        if (name == null && n != null) {
             name = n.getBytes();
             NAMES.put(n, name);
         }
@@ -50,7 +48,9 @@ public final class HBaseHelper {
     }
 
     public static byte[] toBytes(Object obj) {
-        if (obj instanceof byte[]) {
+        if (obj instanceof String) {
+            return Bytes.toBytes((String) obj);
+        } else if (obj instanceof byte[]) {
             return (byte[]) obj;
         } else if (obj instanceof Byte) {
             return Bytes.toBytes((Byte) obj);
@@ -62,8 +62,6 @@ public final class HBaseHelper {
             return Bytes.toBytes((Long) obj);
         } else if (obj instanceof Double) {
             return Bytes.toBytes((Double) obj);
-        } else if (obj instanceof String) {
-            return Bytes.toBytes((String) obj);
         } else {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = null;
@@ -81,36 +79,4 @@ public final class HBaseHelper {
         }
     }
 
-    public Object fromBytes(byte[] binary) {
-        Object result = null;
-        ObjectInputStream ois = null;
-
-        if (binary == null) {
-            return null;
-        }
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(binary);
-        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        try {
-            ois = new ObjectInputStream(bais) {
-                @Override
-                public Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
-                    try {
-                        return classLoader.loadClass(desc.getName());
-                    } catch (Exception e) {
-                    }
-                    return super.resolveClass(desc);
-                }
-            };
-            result = ois.readObject();
-        } catch (IOException e) {
-            LOG.warn("Error while deserializing object. Null will be used.", e);
-        } catch (ClassNotFoundException e) {
-            LOG.warn("Could not find class while deserializing object. Null will be used.", e);
-        } finally {
-            IOHelper.close(ois);
-            IOHelper.close(bais);
-        }
-        return result;
-    }
 }

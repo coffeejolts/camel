@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,13 +25,12 @@ import org.apache.camel.component.xmlsecurity.api.XmlSignatureChecker;
 import org.apache.camel.component.xmlsecurity.api.XmlSignatureInvalidException;
 
 /**
- * Checks that root element local name is "Signature" and the root element
- * namespace is "http://www.w3.org/2000/09/xmldsig#". If the checks fails then a
- * {@link XmlSignatureInvalidException} is thrown.
+ * Checks that root element local name is "Signature" and the root element namespace is
+ * "http://www.w3.org/2000/09/xmldsig#". If the checks fails then a {@link XmlSignatureInvalidException} is thrown.
  */
 public class EnvelopingXmlSignatureChecker implements XmlSignatureChecker {
 
-    private static final Set<String> ALLOWED_TRANSFORM_ALGORITHMS = new HashSet<String>(4);
+    private static final Set<String> ALLOWED_TRANSFORM_ALGORITHMS = new HashSet<>(4);
 
     static {
         ALLOWED_TRANSFORM_ALGORITHMS.add(CanonicalizationMethod.INCLUSIVE);
@@ -45,7 +44,7 @@ public class EnvelopingXmlSignatureChecker implements XmlSignatureChecker {
 
         if (!"Signature".equals(input.getMessageBodyDocument().getDocumentElement().getLocalName())) {
             throw new XmlSignatureInvalidException(
-                "XML signature is not enveloping. Only enveloping XML signatures are allowed.");
+                    "XML signature is not enveloping. Only enveloping XML signatures are allowed.");
         }
     }
 

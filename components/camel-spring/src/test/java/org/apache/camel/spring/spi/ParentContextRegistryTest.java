@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,11 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ParentContextRegistryTest extends SpringTestSupport {
     private static final List<String> EXPECTED_BEAN = Collections.singletonList("TestValue");
@@ -31,23 +34,26 @@ public class ParentContextRegistryTest extends SpringTestSupport {
         ClassPathXmlApplicationContext parentContext = new ClassPathXmlApplicationContext(
                 "parentContextRegistryTestParent.xml", ParentContextRegistryTest.class);
         return new ClassPathXmlApplicationContext(
-                new String[]{"parentContextRegistryTestChild.xml"},
-                ParentContextRegistryTest.class, parentContext
-        );
+                new String[] { "parentContextRegistryTestChild.xml" },
+                ParentContextRegistryTest.class, parentContext);
     }
 
+    @Test
     public void testLookupByName() {
         assertEquals(EXPECTED_BEAN, context.getRegistry().lookupByName("testParentBean"));
     }
 
+    @Test
     public void testLookupByNameAndType() {
         assertEquals(EXPECTED_BEAN, context.getRegistry().lookupByNameAndType("testParentBean", List.class));
     }
 
+    @Test
     public void testFindByType() {
         assertEquals(Collections.singleton(EXPECTED_BEAN), context.getRegistry().findByType(List.class));
     }
 
+    @Test
     public void testFindByTypeWithName() {
         assertEquals(Collections.singletonMap("testParentBean", EXPECTED_BEAN),
                 context.getRegistry().findByTypeWithName(List.class));

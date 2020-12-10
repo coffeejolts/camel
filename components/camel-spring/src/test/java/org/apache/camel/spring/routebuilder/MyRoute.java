@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,9 @@
 package org.apache.camel.spring.routebuilder;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.spring.SpringRouteBuilder;
+import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
-public class MyRoute extends SpringRouteBuilder {
+public class MyRoute extends RouteBuilder {
 
     private CamelContext ctx;
 
@@ -33,10 +30,11 @@ public class MyRoute extends SpringRouteBuilder {
         }
     }
 
+    @Override
     public void configure() throws Exception {
         from("direct:a").to("mock:a");
     }
-    
+
     public CamelContext getCamelContext() {
         return ctx;
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,14 +26,16 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.builder.NotifyBuilder;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.apache.camel.test.junit5.TestSupport.body;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Mail producer concurrent test.
- *
- * @version 
  */
 public class MailProducerConcurrentTest extends CamelTestSupport {
 
@@ -72,18 +74,18 @@ public class MailProducerConcurrentTest extends CamelTestSupport {
         assertTrue(latch.await(5, TimeUnit.SECONDS));
 
         assertMockEndpointsSatisfied();
-        assertTrue(builder.matchesMockWaitTime());
+        assertTrue(builder.matchesWaitTime());
 
         Mailbox box = Mailbox.get("someone@localhost");
         assertEquals(files, box.size());
 
         // as we use concurrent producers the mails can arrive out of order
-        Set<Object> bodies = new HashSet<Object>();
+        Set<Object> bodies = new HashSet<>();
         for (int i = 0; i < files; i++) {
             bodies.add(box.get(i).getContent());
         }
 
-        assertEquals("There should be " + files + " unique mails", files, bodies.size());
+        assertEquals(files, bodies.size(), "There should be " + files + " unique mails");
         executor.shutdownNow();
     }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +17,14 @@
 package org.apache.camel.component.mina;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultExchangeHolder;
+import org.apache.camel.support.DefaultExchangeHolder;
 
 /**
- * Helper to get and set the correct payload when transferring data using camel-mina.
- * Always use this helper instead of direct access on the exchange object.
+ * Helper to get and set the correct payload when transferring data using camel-mina. Always use this helper instead of
+ * direct access on the exchange object.
  * <p/>
- * This helper ensures that we can also transfer exchange objects over the wire using the
- * <tt>transferExchange=true</tt> option.
- *
- * @version 
+ * This helper ensures that we can also transfer exchange objects over the wire using the <tt>transferExchange=true</tt>
+ * option.
  */
 public final class MinaPayloadHelper {
 

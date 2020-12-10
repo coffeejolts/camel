@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,24 +16,30 @@
  */
 package org.apache.camel.spring;
 
+import org.apache.camel.CamelContext;
+import org.apache.camel.spi.ManagementAgent;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Test that verifies JMX properties can be configured via Spring.
- *
- * @version 
  */
-public class JMXAgentPropertiesTest extends JMXAgentTest {
-
-    @Override
-    protected int getPort() {
-        return 20009;
-    }
+public class JMXAgentPropertiesTest extends DefaultJMXAgentTest {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/jmxConfigUsingProperties.xml");
+    }
+
+    @Test
+    public void testEnableUseHostIPAddress() throws Exception {
+        CamelContext ctx = createCamelContext();
+        ManagementAgent agent = ctx.getManagementStrategy().getManagementAgent();
+        agent.start();
+        assertTrue(agent.getUseHostIPAddress());
     }
 
 }

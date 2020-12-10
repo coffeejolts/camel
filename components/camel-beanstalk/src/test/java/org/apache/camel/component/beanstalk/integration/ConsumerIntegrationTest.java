@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,16 +24,16 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.beanstalk.Headers;
 import org.apache.camel.component.beanstalk.Helper;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ConsumerIntegrationTest extends BeanstalkCamelTestSupport {
     final String testMessage = "Hello, world!";
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     MockEndpoint result;
 
     @Test
-    public void testReceive() throws IOException, InterruptedException {
+    void testReceive() throws IOException, InterruptedException {
         long prio = 0;
         int ttr = 10;
         final long jobId = writer.put(prio, 0, ttr, Helper.stringToBytes(testMessage));

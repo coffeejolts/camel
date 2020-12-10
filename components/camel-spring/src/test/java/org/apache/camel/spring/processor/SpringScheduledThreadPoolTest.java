@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,13 @@ package org.apache.camel.spring.processor;
 
 import org.apache.camel.spring.SpringTestSupport;
 import org.apache.camel.util.concurrent.SizedScheduledExecutorService;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class SpringScheduledThreadPoolTest extends SpringTestSupport {
 
@@ -28,11 +33,13 @@ public class SpringScheduledThreadPoolTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/processor/SpringScheduledThreadPoolTest.xml");
     }
 
+    @Test
     public void testScheduledThreadPool() throws Exception {
-        SizedScheduledExecutorService pool = context.getRegistry().lookupByNameAndType("myPool", SizedScheduledExecutorService.class);
+        SizedScheduledExecutorService pool
+                = context.getRegistry().lookupByNameAndType("myPool", SizedScheduledExecutorService.class);
         assertNotNull(pool);
 
-        assertFalse("Should be started", pool.isShutdown());
+        assertFalse(pool.isShutdown(), "Should be started");
         assertEquals(5, pool.getCorePoolSize());
     }
 

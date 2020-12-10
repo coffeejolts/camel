@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,12 +16,17 @@
  */
 package org.apache.camel.component.infinispan;
 
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.BindToRegistry;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.time.TimeService;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.manager.DefaultCacheManager;
-import org.junit.Before;
+import org.infinispan.test.TestingUtil;
+import org.infinispan.util.ControlledTimeService;
+import org.junit.jupiter.api.BeforeEach;
 
 public class InfinispanTestSupport extends CamelTestSupport {
     protected static final String KEY_ONE = "keyOne";
@@ -29,12 +34,15 @@ public class InfinispanTestSupport extends CamelTestSupport {
     protected static final String KEY_TWO = "keyTwo";
     protected static final String VALUE_TWO = "valueTwo";
 
+    @BindToRegistry("cacheContainer")
     protected BasicCacheContainer basicCacheContainer;
+    protected ControlledTimeService ts;
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        basicCacheContainer = new DefaultCacheManager();
+        basicCacheContainer = new DefaultCacheManager(
+                new GlobalConfigurationBuilder().defaultCacheName("default").build(), new ConfigurationBuilder().build());
         basicCacheContainer.start();
         super.setUp();
     }
@@ -45,14 +53,16 @@ public class InfinispanTestSupport extends CamelTestSupport {
         super.tearDown();
     }
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
-        registry.bind("cacheContainer", basicCacheContainer);
-        return registry;
-    }
-
     protected BasicCache<Object, Object> currentCache() {
         return basicCacheContainer.getCache();
+    }
+
+    protected BasicCache<Object, Object> namedCache(String name) {
+        return basicCacheContainer.getCache(name);
+    }
+
+    protected void injectTimeService() {
+        ts = new ControlledTimeService();
+        TestingUtil.replaceComponent((DefaultCacheManager) basicCacheContainer, TimeService.class, ts, true);
     }
 }

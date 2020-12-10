@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,10 +21,8 @@ import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.test.junit4.CamelTestSupport;
+import org.junit.Test;
 
-/**
- * @version 
- */
 public class DebugTest extends CamelTestSupport {
 
     // START SNIPPET: e1
@@ -35,14 +33,16 @@ public class DebugTest extends CamelTestSupport {
     }
 
     @Override
-    protected void debugBefore(Exchange exchange, Processor processor,
-                               ProcessorDefinition<?> definition, String id, String shortName) {
+    protected void debugBefore(
+            Exchange exchange, Processor processor,
+            ProcessorDefinition<?> definition, String id, String shortName) {
         // this method is invoked before we are about to enter the given processor
         // from your Java editor you can just add a breakpoint in the code line below
         log.info("Before " + definition + " with body " + exchange.getIn().getBody());
     }
     // END SNIPPET: e1
 
+    @Test
     public void testDebugger() throws Exception {
         // set mock expectations
         getMockEndpoint("mock:a").expectedMessageCount(1);
@@ -55,6 +55,7 @@ public class DebugTest extends CamelTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testTwo() throws Exception {
         // set mock expectations
         getMockEndpoint("mock:a").expectedMessageCount(2);
@@ -76,9 +77,9 @@ public class DebugTest extends CamelTestSupport {
             public void configure() throws Exception {
                 // this is the route we want to debug
                 from("direct:start")
-                    .to("mock:a")
-                    .transform(body().prepend("Hello "))
-                    .to("mock:b");
+                        .to("mock:a")
+                        .transform(body().prepend("Hello "))
+                        .to("mock:b");
             }
         };
     }

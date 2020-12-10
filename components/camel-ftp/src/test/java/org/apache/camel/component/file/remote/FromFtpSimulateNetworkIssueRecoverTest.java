@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,33 +16,29 @@
  */
 package org.apache.camel.component.file.remote;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Consumer;
 import org.apache.camel.Endpoint;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Simulate network issues by using a custom poll strategy to force exceptions
- * occurring during poll.
- *
- * @version 
+ * Simulate network issues by using a custom poll strategy to force exceptions occurring during poll.
  */
 public class FromFtpSimulateNetworkIssueRecoverTest extends FtpServerTestSupport {
 
     private static int counter;
     private static int rollback;
 
-    private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/recover?password=admin&pollStrategy=#myPoll";
-    }
+    @BindToRegistry("myPoll")
+    private MyPollStrategy strategy = new MyPollStrategy();
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-        jndi.bind("myPoll", new MyPollStrategy());
-        return jndi;
+    private String getFtpUrl() {
+        return "ftp://admin@localhost:{{ftp.server.port}}/recover?password=admin&pollStrategy=#myPoll";
     }
 
     @Test
@@ -57,10 +53,11 @@ public class FromFtpSimulateNetworkIssueRecoverTest extends FtpServerTestSupport
 
         Thread.sleep(2000);
 
-        assertTrue("Should have tried at least 3 times was " + counter, counter >= 3);
+        assertTrue(counter >= 3, "Should have tried at least 3 times was " + counter);
         assertEquals(2, rollback);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {

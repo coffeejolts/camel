@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,15 @@
  */
 package org.apache.camel.dataformat.csv;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * This class provides utility methods
  */
 final class TestUtils {
+
+    protected static final String LS = System.lineSeparator();
 
     private TestUtils() {
         // Prevent instantiation
@@ -31,15 +33,15 @@ final class TestUtils {
     /**
      * Create a map with the given key/value pairs
      *
-     * @param strings key/value pairs
-     * @return Map with the given key/value pairs
+     * @param  strings key/value pairs
+     * @return         Map with the given key/value pairs
      */
     static Map<String, String> asMap(String... strings) {
         if (strings.length % 2 == 1) {
             throw new IllegalArgumentException("Cannot create a map with an add number of strings");
         }
 
-        Map<String, String> map = new HashMap<String, String>(strings.length / 2);
+        Map<String, String> map = new LinkedHashMap<>(strings.length / 2);
         for (int i = 0; i < strings.length; i += 2) {
             map.put(strings[i], strings[i + 1]);
         }

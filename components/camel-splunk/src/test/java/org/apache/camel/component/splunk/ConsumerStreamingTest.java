@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,37 +20,45 @@ import java.io.InputStream;
 import java.util.Map;
 
 import com.splunk.Job;
-import com.splunk.JobArgs;
 import com.splunk.JobCollection;
-import com.splunk.JobResultsArgs;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.splunk.event.SplunkEvent;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ConsumerStreamingTest extends SplunkMockTestSupport {
+
+    @Mock
+    Job jobMock;
+
+    @Mock
+    JobCollection jobCollection;
+
     @Test
     public void testSearch() throws Exception {
         MockEndpoint searchMock = getMockEndpoint("mock:search-result");
         searchMock.expectedMessageCount(3);
-        JobCollection jobCollection = mock(JobCollection.class);
-        Job jobMock = mock(Job.class);
+
         when(service.getJobs()).thenReturn(jobCollection);
-        when(jobCollection.create(anyString(), any(JobArgs.class))).thenReturn(jobMock);
+        when(jobCollection.create(anyString(), any())).thenReturn(jobMock);
         when(jobMock.isDone()).thenReturn(Boolean.TRUE);
         InputStream stream = ConsumerTest.class.getResourceAsStream("/resultsreader_test_data.json");
-        when(jobMock.getResults(any(JobResultsArgs.class))).thenReturn(stream);
+        when(jobMock.getResults(any())).thenReturn(stream);
 
         assertMockEndpointsSatisfied();
-        SplunkEvent recieved = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
-        assertNotNull(recieved);
-        Map<String, String> data = recieved.getEventData();
+        SplunkEvent received = searchMock.getReceivedExchanges().get(0).getIn().getBody(SplunkEvent.class);
+        assertNotNull(received);
+        Map<String, String> data = received.getEventData();
         assertEquals("indexertpool", data.get("name"));
         stream.close();
     }
@@ -59,10 +67,9 @@ public class ConsumerStreamingTest extends SplunkMockTestSupport {
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("splunk://normal?delay=5s&username=foo&password=bar&initEarliestTime=-10s&latestTime=now&search=search index=myindex&sourceType=testSource&streaming=true")
+                from("splunk://normal?delay=5000&username=foo&password=bar&initEarliestTime=-10s&latestTime=now&search=search index=myindex&sourceType=testSource&streaming=true")
                         .to("mock:search-result");
             }
         };
     }
 }
-

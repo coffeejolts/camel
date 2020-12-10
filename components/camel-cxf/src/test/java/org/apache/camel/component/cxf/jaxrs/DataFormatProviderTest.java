@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.cxf.jaxrs;
 
 import java.io.ByteArrayInputStream;
@@ -27,16 +26,20 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.spi.DataFormat;
+import org.apache.camel.support.service.ServiceSupport;
 import org.apache.cxf.helpers.IOUtils;
 import org.apache.cxf.jaxrs.impl.MetadataMap;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class DataFormatProviderTest extends Assert {
-    
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class DataFormatProviderTest {
+
     @Test
     public void testIsReadableWriteableSpecificMatch() {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat("text/plain", new TestDataFormat());
         assertTrue(p.isReadable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
         assertTrue(p.isWriteable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
@@ -44,17 +47,17 @@ public class DataFormatProviderTest extends Assert {
 
     @Test
     public void testIsReadableWriteableComplexSubMatch() {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat("text/plain", new TestDataFormat());
         assertTrue(p.isReadable(Book.class, Book.class, new Annotation[] {},
-                                MediaType.valueOf("text/plain+v2")));
+                MediaType.valueOf("text/plain+v2")));
         assertTrue(p.isWriteable(Book.class, Book.class, new Annotation[] {},
-                                 MediaType.valueOf("text/plain+v2")));
+                MediaType.valueOf("text/plain+v2")));
     }
 
     @Test
     public void testIsReadableWriteableStarMatch() {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat(new TestDataFormat());
         assertTrue(p.isReadable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
         assertTrue(p.isWriteable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
@@ -62,7 +65,7 @@ public class DataFormatProviderTest extends Assert {
 
     @Test
     public void testNotReadableWriteable() {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat("application/json", new TestDataFormat());
         assertFalse(p.isReadable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
         assertFalse(p.isWriteable(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE));
@@ -70,23 +73,23 @@ public class DataFormatProviderTest extends Assert {
 
     @Test
     public void testReadFrom() throws Exception {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat("text/plain", new TestDataFormat());
 
         ByteArrayInputStream bis = new ByteArrayInputStream("dataformat".getBytes());
         Book b = p.readFrom(Book.class, Book.class, new Annotation[] {}, MediaType.TEXT_PLAIN_TYPE,
-                            new MetadataMap<String, String>(), bis);
+                new MetadataMap<String, String>(), bis);
         assertEquals("dataformat", b.getName());
     }
 
     @Test
     public void testWriteTo() throws Exception {
-        DataFormatProvider<Book> p = new DataFormatProvider<Book>();
+        DataFormatProvider<Book> p = new DataFormatProvider<>();
         p.setFormat("text/plain", new TestDataFormat());
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         p.writeTo(new Book("dataformat"), Book.class, Book.class, new Annotation[] {},
-                  MediaType.TEXT_PLAIN_TYPE, new MetadataMap<String, Object>(), bos);
+                MediaType.TEXT_PLAIN_TYPE, new MetadataMap<String, Object>(), bos);
         assertEquals("dataformat", bos.toString());
     }
 
@@ -94,11 +97,10 @@ public class DataFormatProviderTest extends Assert {
         private String name;
 
         @SuppressWarnings("unused")
-        public Book() {
-
+        Book() {
         }
 
-        public Book(String name) {
+        Book(String name) {
             this.name = name;
         }
 
@@ -112,11 +114,11 @@ public class DataFormatProviderTest extends Assert {
         }
     }
 
-    private static class TestDataFormat implements DataFormat {
+    private static class TestDataFormat extends ServiceSupport implements DataFormat {
 
         @Override
         public void marshal(Exchange ex, Object obj, OutputStream os) throws Exception {
-            os.write(((Book)obj).getName().getBytes());
+            os.write(((Book) obj).getName().getBytes());
             os.flush();
         }
 
@@ -125,6 +127,15 @@ public class DataFormatProviderTest extends Assert {
             return new Book(IOUtils.readStringFromStream(is));
         }
 
+        @Override
+        protected void doStart() throws Exception {
+            // noop
+        }
+
+        @Override
+        protected void doStop() throws Exception {
+            // noop
+        }
     }
 
 }

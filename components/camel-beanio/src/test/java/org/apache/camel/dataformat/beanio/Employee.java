@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -96,5 +96,16 @@ public class Employee {
                 && this.getTitle().equals(e.getTitle())
                 && this.getSalary() == e.getSalary()
                 && this.getHireDate().equals(e.getHireDate());
+    }
+
+    @Override
+    public String toString() {
+        return "Employee{"
+               + "firstName='" + firstName + '\''
+               + ", lastName='" + lastName + '\''
+               + ", title='" + title + '\''
+               + ", salary=" + salary
+               + ", hireDate=" + hireDate
+               + '}';
     }
 }

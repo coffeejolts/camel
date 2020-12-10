@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,19 +18,19 @@ package org.apache.camel.component.netty.http;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.DefaultExchange;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.support.DefaultExchange;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class NettyHttpHeaderFilterStrategyTest {
-    
+
     private NettyHttpHeaderFilterStrategy filter;
     private Exchange exchange;
-    
-    @Before
+
+    @BeforeEach
     public void setUp() {
         filter = new NettyHttpHeaderFilterStrategy();
         exchange = new DefaultExchange(new DefaultCamelContext());
@@ -61,8 +61,9 @@ public class NettyHttpHeaderFilterStrategyTest {
         assertFalse(filter.applyFilterToExternalHeaders("warning", "199 Miscellaneous warning", exchange));
         assertFalse(filter.applyFilterToExternalHeaders("Warning", "199 Miscellaneous warning", exchange));
 
-        assertFalse(filter.applyFilterToExternalHeaders("CamelHeader", "test", exchange));
-        assertFalse(filter.applyFilterToExternalHeaders("org.apache.camel.header", "test", exchange));
+        // any Camel header should be filtered
+        assertTrue(filter.applyFilterToExternalHeaders("CamelHeader", "test", exchange));
+        assertTrue(filter.applyFilterToExternalHeaders("org.apache.camel.header", "test", exchange));
 
         assertFalse(filter.applyFilterToExternalHeaders("notFilteredHeader", "test", exchange));
 
@@ -95,6 +96,7 @@ public class NettyHttpHeaderFilterStrategyTest {
         assertTrue(filter.applyFilterToCamelHeaders("warning", "199 Miscellaneous warning", exchange));
         assertTrue(filter.applyFilterToCamelHeaders("Warning", "199 Miscellaneous warning", exchange));
 
+        // any Camel header should be filtered
         assertTrue(filter.applyFilterToCamelHeaders("CamelHeader", "test", exchange));
         assertTrue(filter.applyFilterToCamelHeaders("org.apache.camel.header", "test", exchange));
 

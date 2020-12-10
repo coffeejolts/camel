@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,27 +18,25 @@ package org.apache.camel.component.lucene;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 
 public class LuceneIndexProducer extends DefaultProducer {
     LuceneConfiguration config;
     LuceneIndexer indexer;
-    
+
     public LuceneIndexProducer(Endpoint endpoint, LuceneConfiguration config, LuceneIndexer indexer) throws Exception {
         super(endpoint);
         this.config = config;
         this.indexer = indexer;
     }
-    
-    public void start() throws Exception {
-        super.doStart();
-    }
 
-    public void stop() throws Exception {
+    @Override
+    public void doStop() throws Exception {
         this.indexer.getNiofsDirectory().close();
         super.doStop();
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         indexer.index(exchange);
     }
@@ -57,6 +55,6 @@ public class LuceneIndexProducer extends DefaultProducer {
 
     public void setIndexer(LuceneIndexer indexer) {
         this.indexer = indexer;
-    }   
+    }
 
 }

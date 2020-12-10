@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,13 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 /**
  * Easier transaction configuration as we do not have to setup a transaction error handler
  */
-public class SpringTransactionalClientDataWithRouteScopedOnExceptionAndRollbackUsingTransactedTest extends SpringTransactionalClientDataWithOnExceptionAndRollbackUsingTransactedTest {
+public class SpringTransactionalClientDataWithRouteScopedOnExceptionAndRollbackUsingTransactedTest
+        extends SpringTransactionalClientDataWithOnExceptionAndRollbackUsingTransactedTest {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext(
-            "/org/apache/camel/spring/interceptor/springTransactionalClientDataWithRouteScopedOnExceptionAndRollbackUsingTransacted.xml");
+                "/org/apache/camel/spring/interceptor/springTransactionalClientDataWithRouteScopedOnExceptionAndRollbackUsingTransacted.xml");
     }
 
 }

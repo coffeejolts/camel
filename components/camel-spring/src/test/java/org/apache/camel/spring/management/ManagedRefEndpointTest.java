@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,17 +16,26 @@
  */
 package org.apache.camel.spring.management;
 
-import java.util.Iterator;
 import java.util.Set;
+
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.apache.camel.ServiceStatus;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class ManagedRefEndpointTest extends SpringTestSupport {
+
+    @Override
+    protected boolean useJmx() {
+        return true;
+    }
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
@@ -37,6 +46,7 @@ public class ManagedRefEndpointTest extends SpringTestSupport {
         return context.getManagementStrategy().getManagementAgent().getMBeanServer();
     }
 
+    @Test
     public void testRef() throws Exception {
         // JMX tests dont work well on AIX CI servers (hangs them)
         if (isPlatform("aix")) {
@@ -53,34 +63,29 @@ public class ManagedRefEndpointTest extends SpringTestSupport {
 
         Set<ObjectName> set = mbeanServer.queryNames(new ObjectName("*:type=producers,*"), null);
         assertEquals(2, set.size());
-        Iterator<ObjectName> it = set.iterator();
 
-        for (int i = 0; i < 2; i++) {
-            ObjectName on = it.next();
-
+        for (ObjectName on : set) {
             boolean registered = mbeanServer.isRegistered(on);
-            assertEquals("Should be registered", true, registered);
+            assertEquals(true, registered, "Should be registered");
 
             String uri = (String) mbeanServer.getAttribute(on, "EndpointUri");
-            assertTrue(uri, uri.equals("mock://foo") || uri.equals("mock://result"));
+            assertTrue(uri.equals("mock://foo") || uri.equals("mock://result"), uri);
 
             // should be started
             String state = (String) mbeanServer.getAttribute(on, "State");
-            assertEquals("Should be started", ServiceStatus.Started.name(), state);
+            assertEquals(ServiceStatus.Started.name(), state, "Should be started");
         }
 
         set = mbeanServer.queryNames(new ObjectName("*:type=endpoints,*"), null);
-        assertEquals(3, set.size());
-        it = set.iterator();
+        assertEquals(4, set.size());
 
-        for (int i = 0; i < 3; i++) {
-            ObjectName on = it.next();
-
+        for (ObjectName on : set) {
             boolean registered = mbeanServer.isRegistered(on);
-            assertEquals("Should be registered", true, registered);
+            assertTrue(registered, "Should be registered");
 
             String uri = (String) mbeanServer.getAttribute(on, "EndpointUri");
-            assertTrue(uri, uri.equals("direct://start") || uri.equals("mock://foo") || uri.equals("mock://result"));
+            assertTrue(uri.equals("direct://start") || uri.equals("mock://foo")
+                    || uri.equals("mock://result") || uri.equals("ref://foo"), uri);
         }
     }
 

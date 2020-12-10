@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,32 +20,38 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 import org.apache.camel.util.ObjectHelper;
 
 /**
- * Endpoint for Camel Cometd.
+ * Offers publish/subscribe, peer-to-peer (via a server), and RPC style messaging using the CometD/Bayeux protocol.
+ *
+ * Using this component in combination with the dojo toolkit library it's possible to push Camel messages directly into
+ * the browser using an AJAX based mechanism.
  */
-@UriEndpoint(scheme = "cometd,cometds", title = "CometD", syntax = "cometd:protocol:host:port/channelName", consumerClass = CometdConsumer.class, label = "http,websocket")
+@UriEndpoint(firstVersion = "2.0.0", scheme = "cometd,cometds", title = "CometD", syntax = "cometd:host:port/channelName",
+             category = { Category.WEBSOCKET })
 public class CometdEndpoint extends DefaultEndpoint {
 
     private CometdComponent component;
 
     private URI uri;
-    @UriPath @Metadata(required = "true")
-    private String protocol;
-    @UriPath @Metadata(required = "true")
+    @UriPath(description = "Hostname")
+    @Metadata(required = true)
     private String host;
-    @UriPath @Metadata(required = "true")
+    @UriPath(description = "Host port number")
+    @Metadata(required = true)
     private int port;
-    @UriPath @Metadata(required = "true")
+    @UriPath(description = "The channelName represents a topic that can be subscribed to by the Camel endpoints.")
+    @Metadata(required = true)
     private String channelName;
     @UriParam
     private String baseResource;
@@ -59,25 +65,24 @@ public class CometdEndpoint extends DefaultEndpoint {
     private int multiFrameInterval = 1500;
     @UriParam(defaultValue = "true")
     private boolean jsonCommented = true;
-    @UriParam
+    @UriParam(label = "consumer")
     private boolean sessionHeadersEnabled;
-    @UriParam(defaultValue = "1")
+    @UriParam(defaultValue = "1", enums = "0,1,2")
     private int logLevel = 1;
     @UriParam
     private boolean crossOriginFilterOn;
-    @UriParam
+    @UriParam(defaultValue = "*")
     private String allowedOrigins;
     @UriParam
     private String filterPath;
-    @UriParam(defaultValue = "true")
-    private boolean disconnectLocalSession = true;
+    @UriParam(label = "producer")
+    private boolean disconnectLocalSession;
 
     public CometdEndpoint(CometdComponent component, String uri, String remaining, Map<String, Object> parameters) {
         super(uri, component);
         this.component = component;
         try {
             this.uri = new URI(uri);
-            this.protocol = this.uri.getScheme();
             this.host = this.uri.getHost();
             this.port = this.uri.getPort();
             this.channelName = remaining;
@@ -86,12 +91,14 @@ public class CometdEndpoint extends DefaultEndpoint {
         }
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         ObjectHelper.notNull(component, "component");
         CometdProducer producer = new CometdProducer(this);
         return producer;
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         ObjectHelper.notNull(component, "component");
         CometdConsumer consumer = new CometdConsumer(this, processor);
@@ -107,12 +114,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         component.disconnect(prodcons);
     }
 
+    @Override
     public CometdComponent getComponent() {
         return component;
-    }
-
-    public boolean isSingleton() {
-        return false;
     }
 
     public String getPath() {
@@ -142,6 +146,11 @@ public class CometdEndpoint extends DefaultEndpoint {
         return baseResource;
     }
 
+    /**
+     * The root directory for the web resources or classpath. Use the protocol file: or classpath: depending if you want
+     * that the component loads the resource from file system or classpath. Classpath is required for OSGI deployment
+     * where the resources are packaged in the jar
+     */
     public void setBaseResource(String baseResource) {
         this.baseResource = baseResource;
     }
@@ -150,6 +159,10 @@ public class CometdEndpoint extends DefaultEndpoint {
         return timeout;
     }
 
+    /**
+     * The server side poll timeout in milliseconds. This is how long the server will hold a reconnect request before
+     * responding.
+     */
     public void setTimeout(int timeout) {
         this.timeout = timeout;
     }
@@ -158,6 +171,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return interval;
     }
 
+    /**
+     * The client side poll timeout in milliseconds. How long a client will wait between reconnects
+     */
     public void setInterval(int interval) {
         this.interval = interval;
     }
@@ -166,6 +182,10 @@ public class CometdEndpoint extends DefaultEndpoint {
         return maxInterval;
     }
 
+    /**
+     * The max client side poll timeout in milliseconds. A client will be removed if a connection is not received in
+     * this time.
+     */
     public void setMaxInterval(int maxInterval) {
         this.maxInterval = maxInterval;
     }
@@ -174,6 +194,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return multiFrameInterval;
     }
 
+    /**
+     * The client side poll timeout, if multiple connections are detected from the same browser.
+     */
     public void setMultiFrameInterval(int multiFrameInterval) {
         this.multiFrameInterval = multiFrameInterval;
     }
@@ -182,15 +205,23 @@ public class CometdEndpoint extends DefaultEndpoint {
         return jsonCommented;
     }
 
+    /**
+     * If true, the server will accept JSON wrapped in a comment and will generate JSON wrapped in a comment. This is a
+     * defence against Ajax Hijacking.
+     */
     public void setJsonCommented(boolean commented) {
         jsonCommented = commented;
     }
-    
+
+    /**
+     * Whether to include the server session headers in the Camel message when creating a Camel Message for incoming
+     * requests.
+     */
     public void setSessionHeadersEnabled(boolean enable) {
         this.sessionHeadersEnabled = enable;
     }
 
-    public boolean areSessionHeadersEnabled() {
+    public boolean isSessionHeadersEnabled() {
         return sessionHeadersEnabled;
     }
 
@@ -198,6 +229,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return logLevel;
     }
 
+    /**
+     * Logging level. 0=none, 1=info, 2=debug.
+     */
     public void setLogLevel(int logLevel) {
         this.logLevel = logLevel;
     }
@@ -206,6 +240,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return allowedOrigins;
     }
 
+    /**
+     * The origins domain that support to cross, if the crosssOriginFilterOn is true
+     */
     public void setAllowedOrigins(String allowedOrigins) {
         this.allowedOrigins = allowedOrigins;
     }
@@ -214,6 +251,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return crossOriginFilterOn;
     }
 
+    /**
+     * If true, the server will support for cross-domain filtering
+     */
     public void setCrossOriginFilterOn(boolean crossOriginFilterOn) {
         this.crossOriginFilterOn = crossOriginFilterOn;
     }
@@ -222,6 +262,9 @@ public class CometdEndpoint extends DefaultEndpoint {
         return filterPath;
     }
 
+    /**
+     * The filterPath will be used by the CrossOriginFilter, if the crosssOriginFilterOn is true
+     */
     public void setFilterPath(String filterPath) {
         this.filterPath = filterPath;
     }
@@ -230,6 +273,10 @@ public class CometdEndpoint extends DefaultEndpoint {
         return disconnectLocalSession;
     }
 
+    /**
+     * Whether to disconnect local sessions after publishing a message to its channel. Disconnecting local session is
+     * needed as they are not swept by default by CometD, and therefore you can run out of memory.
+     */
     public void setDisconnectLocalSession(boolean disconnectLocalSession) {
         this.disconnectLocalSession = disconnectLocalSession;
     }

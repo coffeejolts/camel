@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,14 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+
 import javax.net.SocketFactory;
 
-import org.apache.camel.component.file.GenericFileOperationFailedException;
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Test;
+import org.apache.camel.BindToRegistry;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FtpBadLoginInProducerConnectionLeakTest extends FtpServerTestSupport {
 
@@ -35,23 +38,17 @@ public class FtpBadLoginInProducerConnectionLeakTest extends FtpServerTestSuppor
      */
     private Map<Integer, boolean[]> socketAudits = new HashMap<>();
 
+    @BindToRegistry("sf")
+    private SocketFactory sf = new AuditingSocketFactory();
+
     private String getFtpUrl() {
-        return "ftp://dummy@localhost:" + getPort() + "/badlogin?password=cantremeber&maximumReconnectAttempts=3"
-            + "&throwExceptionOnConnectFailed=false&ftpClient.socketFactory=#sf";
-    }
-
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-
-        SocketFactory sf = new AuditingSocketFactory();
-        jndi.bind("sf", sf);
-        return jndi;
+        return "ftp://dummy@localhost:{{ftp.server.port}}/badlogin?password=cantremeber&maximumReconnectAttempts=3"
+               + "&throwExceptionOnConnectFailed=false&ftpClient.socketFactory=#sf";
     }
 
     @Test
     public void testConnectionLeak() throws Exception {
-        for (String filename : new String[] {"claus.txt", "grzegorz.txt"}) {
+        for (String filename : new String[] { "claus.txt", "grzegorz.txt" }) {
             try {
                 sendFile(getFtpUrl(), "Hello World", filename);
             } catch (Exception ignored) {
@@ -59,19 +56,17 @@ public class FtpBadLoginInProducerConnectionLeakTest extends FtpServerTestSuppor
             }
         }
 
-        // maximumReconnectAttempts is related to TCP connects, not to FTP login attempts
-        // but having this parameter > 0 leads to two connection attempts
-        assertEquals("Expected 4 socket connections to be created", 4, socketAudits.size());
+        assertEquals(2, socketAudits.size(), "Expected 2 socket connections to be created");
 
         for (Map.Entry<Integer, boolean[]> socketStats : socketAudits.entrySet()) {
-            assertTrue("Socket should be connected", socketStats.getValue()[0]);
-            assertEquals("Socket should be closed", socketStats.getValue()[0], socketStats.getValue()[1]);
+            assertTrue(socketStats.getValue()[0], "Socket should be connected");
+            assertEquals(socketStats.getValue()[0], socketStats.getValue()[1], "Socket should be closed");
         }
     }
 
     /**
-     * {@link SocketFactory} which creates {@link Socket}s that expose statistics about {@link Socket#connect(SocketAddress)}/{@link Socket#close()}
-     * invocations
+     * {@link SocketFactory} which creates {@link Socket}s that expose statistics about
+     * {@link Socket#connect(SocketAddress)}/{@link Socket#close()} invocations
      */
     private class AuditingSocketFactory extends SocketFactory {
 
@@ -93,7 +88,7 @@ public class FtpBadLoginInProducerConnectionLeakTest extends FtpServerTestSuppor
         @Override
         public Socket createSocket() throws IOException {
             AuditingSocket socket = new AuditingSocket();
-            socketAudits.put(System.identityHashCode(socket), new boolean[] {false, false});
+            socketAudits.put(System.identityHashCode(socket), new boolean[] { false, false });
             return socket;
         }
 

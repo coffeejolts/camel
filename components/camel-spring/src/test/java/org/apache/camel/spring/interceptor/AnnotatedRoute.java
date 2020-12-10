@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,23 +16,17 @@
  */
 package org.apache.camel.spring.interceptor;
 
-import org.apache.camel.spring.SpringRouteBuilder;
+import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
-public class AnnotatedRoute extends SpringRouteBuilder {
+public class AnnotatedRoute extends RouteBuilder {
 
+    @Override
     public void configure() throws Exception {
-        from("direct:okay").
-                transacted().
-                setBody(constant("Tiger in Action")).bean("bookService").
-                setBody(constant("Elephant in Action")).bean("bookService");
+        from("direct:okay").transacted().setBody(constant("Tiger in Action")).bean("bookService")
+                .setBody(constant("Elephant in Action")).bean("bookService");
 
-        from("direct:fail").
-                transacted().
-                setBody(constant("Tiger in Action")).bean("bookService").
-                setBody(constant("Donkey in Action")).bean("bookService");
+        from("direct:fail").transacted().setBody(constant("Tiger in Action")).bean("bookService")
+                .setBody(constant("Donkey in Action")).bean("bookService");
     }
 
 }

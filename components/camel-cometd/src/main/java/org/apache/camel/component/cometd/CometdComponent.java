@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,25 +22,24 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import javax.net.ssl.SSLContext;
+
 import javax.servlet.DispatcherType;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.jsse.SSLContextParameters;
+import org.apache.camel.SSLContextParametersAware;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.jsse.SSLContextParameters;
 import org.cometd.bayeux.server.BayeuxServer;
 import org.cometd.bayeux.server.SecurityPolicy;
 import org.cometd.server.BayeuxServerImpl;
-import org.cometd.server.CometdServlet;
+import org.cometd.server.CometDServlet;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
-import org.eclipse.jetty.server.nio.SelectChannelConnector;
-import org.eclipse.jetty.server.session.HashSessionManager;
 import org.eclipse.jetty.server.session.SessionHandler;
-import org.eclipse.jetty.server.ssl.SslConnector;
-import org.eclipse.jetty.server.ssl.SslSelectChannelConnector;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -53,26 +52,36 @@ import org.slf4j.LoggerFactory;
 /**
  * Component for Jetty Cometd
  */
-public class CometdComponent extends UriEndpointComponent {
+@Component("cometd,cometds")
+public class CometdComponent extends DefaultComponent implements SSLContextParametersAware {
     private static final Logger LOG = LoggerFactory.getLogger(CometdComponent.class);
 
-    private final Map<String, ConnectorRef> connectors = new LinkedHashMap<String, ConnectorRef>();
-   
-    private String sslKeyPassword;
-    private String sslPassword;
-    private String sslKeystore;
-    private SecurityPolicy securityPolicy;
-    private List<BayeuxServer.Extension> extensions;
+    private final Map<String, ConnectorRef> connectors = new LinkedHashMap<>();
+
     private List<BayeuxServer.BayeuxServerListener> serverListeners;
+
+    @Metadata(label = "security", secret = true)
+    private String sslKeyPassword;
+    @Metadata(label = "security", secret = true)
+    private String sslPassword;
+    @Metadata(label = "security", secret = true)
+    private String sslKeystore;
+    @Metadata(label = "security")
+    private SecurityPolicy securityPolicy;
+    @Metadata(label = "advanced")
+    private List<BayeuxServer.Extension> extensions;
+    @Metadata(label = "security")
     private SSLContextParameters sslContextParameters;
+    @Metadata(label = "security", defaultValue = "false")
+    private boolean useGlobalSslContextParameters;
 
     class ConnectorRef {
         Connector connector;
-        CometdServlet servlet;
+        CometDServlet servlet;
         Server server;
         int refCount;
 
-        public ConnectorRef(Connector connector, CometdServlet servlet, Server server) {
+        ConnectorRef(Connector connector, CometDServlet servlet, Server server) {
             this.connector = connector;
             this.servlet = servlet;
             this.server = server;
@@ -89,7 +98,6 @@ public class CometdComponent extends UriEndpointComponent {
     }
 
     public CometdComponent() {
-        super(CometdEndpoint.class);
     }
 
     @Override
@@ -103,6 +111,7 @@ public class CometdComponent extends UriEndpointComponent {
      * Connects the URL specified on the endpoint to the specified processor.
      */
     public void connect(CometdProducerConsumer prodcon) throws Exception {
+        Server server = null;
         // Make sure that there is a connector for the requested endpoint.
         CometdEndpoint endpoint = prodcon.getEndpoint();
         String connectorKey = endpoint.getProtocol() + ":" + endpoint.getUri().getHost() + ":" + endpoint.getPort();
@@ -110,22 +119,23 @@ public class CometdComponent extends UriEndpointComponent {
         synchronized (connectors) {
             ConnectorRef connectorRef = connectors.get(connectorKey);
             if (connectorRef == null) {
-                Connector connector;
+                ServerConnector connector;
+                server = createServer();
                 if ("cometds".equals(endpoint.getProtocol())) {
-                    connector = getSslSocketConnector();
+                    connector = getSslSocketConnector(server);
                 } else {
-                    connector = new SelectChannelConnector();
+                    connector = new ServerConnector(server);
                 }
                 connector.setPort(endpoint.getPort());
                 connector.setHost(endpoint.getUri().getHost());
                 if ("localhost".equalsIgnoreCase(endpoint.getUri().getHost())) {
                     LOG.warn("You use localhost interface! It means that no external connections will be available."
-                            + " Don't you want to use 0.0.0.0 instead (all network interfaces)?");
+                             + " Don't you want to use 0.0.0.0 instead (all network interfaces)?");
                 }
-                Server server = createServer();
+
                 server.addConnector(connector);
 
-                CometdServlet servlet = createServletForConnector(server, connector, endpoint);
+                CometDServlet servlet = createServletForConnector(server, connector, endpoint);
                 connectorRef = new ConnectorRef(connector, servlet, server);
                 server.start();
 
@@ -154,8 +164,7 @@ public class CometdComponent extends UriEndpointComponent {
     }
 
     /**
-     * Disconnects the URL specified on the endpoint from the specified
-     * processor.
+     * Disconnects the URL specified on the endpoint from the specified processor.
      */
     public void disconnect(CometdProducerConsumer prodcon) throws Exception {
         CometdEndpoint endpoint = prodcon.getEndpoint();
@@ -175,11 +184,12 @@ public class CometdComponent extends UriEndpointComponent {
         }
     }
 
-    protected CometdServlet createServletForConnector(Server server, Connector connector, CometdEndpoint endpoint) throws Exception {
-        CometdServlet servlet = new CometdServlet();
+    protected CometDServlet createServletForConnector(Server server, Connector connector, CometdEndpoint endpoint)
+            throws Exception {
+        CometDServlet servlet = new CometDServlet();
 
-        ServletContextHandler context = new ServletContextHandler(server, "/", ServletContextHandler.NO_SECURITY | ServletContextHandler.NO_SESSIONS);
-        context.setConnectorNames(new String[]{connector.getName()});
+        ServletContextHandler context
+                = new ServletContextHandler(server, "/", ServletContextHandler.NO_SECURITY | ServletContextHandler.NO_SESSIONS);
 
         ServletHolder holder = new ServletHolder();
         holder.setServlet(servlet);
@@ -189,9 +199,7 @@ public class CometdComponent extends UriEndpointComponent {
         // pointing to by example classpath:webapp
         if (endpoint.getBaseResource() != null) {
             String[] resources = endpoint.getBaseResource().split(":");
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(">>> Protocol found: " + resources[0] + ", and resource: " + resources[1]);
-            }
+            LOG.debug(">>> Protocol found: {}, and resource: {}", resources[0], resources[1]);
 
             if (resources[0].equals("file")) {
                 context.setBaseResource(Resource.newResource(resources[1]));
@@ -206,7 +214,7 @@ public class CometdComponent extends UriEndpointComponent {
 
         context.addServlet(holder, "/cometd/*");
         context.addServlet("org.eclipse.jetty.servlet.DefaultServlet", "/");
-        context.setSessionHandler(new SessionHandler(new HashSessionManager()));
+        context.setSessionHandler(new SessionHandler());
 
         holder.setInitParameter("timeout", Integer.toString(endpoint.getTimeout()));
         holder.setInitParameter("interval", Integer.toString(endpoint.getInterval()));
@@ -218,29 +226,25 @@ public class CometdComponent extends UriEndpointComponent {
         return servlet;
     }
 
-    protected SslConnector getSslSocketConnector() {
-        SslSelectChannelConnector sslSocketConnector = null;
-        if (sslContextParameters != null) {
-            SslContextFactory sslContextFactory = new CometdComponentSslContextFactory();
-            try {
-                sslContextFactory.setSslContext(sslContextParameters.createSSLContext());
-            } catch (Exception e) {
-                throw new RuntimeCamelException("Error initiating SSLContext.", e);
-            }
-            sslSocketConnector = new SslSelectChannelConnector(sslContextFactory);
-        } else {
-
-            sslSocketConnector = new SslSelectChannelConnector();
-            // with default null values, jetty ssl system properties
-            // and console will be read by jetty implementation
-            sslSocketConnector.getSslContextFactory().setKeyManagerPassword(sslPassword);
-            sslSocketConnector.getSslContextFactory().setKeyStorePassword(sslKeyPassword);
-            if (sslKeystore != null) {
-                sslSocketConnector.getSslContextFactory().setKeyStorePath(sslKeystore);
-            }
-
+    protected ServerConnector getSslSocketConnector(Server server) throws Exception {
+        ServerConnector sslSocketConnector = null;
+        SSLContextParameters sslParams = this.sslContextParameters;
+        if (sslParams == null) {
+            sslParams = retrieveGlobalSslContextParameters();
         }
 
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setEndpointIdentificationAlgorithm(null);
+        if (sslParams != null) {
+            sslContextFactory.setSslContext(sslParams.createSSLContext(getCamelContext()));
+        } else {
+            sslContextFactory.setKeyStorePassword(sslKeyPassword);
+            sslContextFactory.setKeyManagerPassword(sslPassword);
+            if (sslKeystore != null) {
+                sslContextFactory.setKeyStorePath(sslKeystore);
+            }
+        }
+        sslSocketConnector = new ServerConnector(server, sslContextFactory);
         return sslSocketConnector;
     }
 
@@ -256,18 +260,30 @@ public class CometdComponent extends UriEndpointComponent {
         return sslKeystore;
     }
 
+    /**
+     * The password for the keystore when using SSL.
+     */
     public void setSslKeyPassword(String sslKeyPassword) {
         this.sslKeyPassword = sslKeyPassword;
     }
 
+    /**
+     * The password when using SSL.
+     */
     public void setSslPassword(String sslPassword) {
         this.sslPassword = sslPassword;
     }
 
+    /**
+     * The path to the keystore.
+     */
     public void setSslKeystore(String sslKeystore) {
         this.sslKeystore = sslKeystore;
     }
 
+    /**
+     * To use a custom configured SecurityPolicy to control authorization
+     */
     public void setSecurityPolicy(SecurityPolicy securityPolicy) {
         this.securityPolicy = securityPolicy;
     }
@@ -280,30 +296,49 @@ public class CometdComponent extends UriEndpointComponent {
         return extensions;
     }
 
+    /**
+     * To use a list of custom BayeuxServer.Extension that allows modifying incoming and outgoing requests.
+     */
     public void setExtensions(List<BayeuxServer.Extension> extensions) {
         this.extensions = extensions;
     }
 
     public void addExtension(BayeuxServer.Extension extension) {
         if (extensions == null) {
-            extensions = new ArrayList<BayeuxServer.Extension>();
+            extensions = new ArrayList<>();
         }
         extensions.add(extension);
     }
-    
+
     public void addServerListener(BayeuxServer.BayeuxServerListener serverListener) {
         if (serverListeners == null) {
-            serverListeners = new ArrayList<BayeuxServer.BayeuxServerListener>();
+            serverListeners = new ArrayList<>();
         }
         serverListeners.add(serverListener);
     }
-    
+
     public SSLContextParameters getSslContextParameters() {
         return sslContextParameters;
     }
 
+    /**
+     * To configure security using SSLContextParameters
+     */
     public void setSslContextParameters(SSLContextParameters sslContextParameters) {
         this.sslContextParameters = sslContextParameters;
+    }
+
+    @Override
+    public boolean isUseGlobalSslContextParameters() {
+        return this.useGlobalSslContextParameters;
+    }
+
+    /**
+     * Enable usage of global SSL context parameters.
+     */
+    @Override
+    public void setUseGlobalSslContextParameters(boolean useGlobalSslContextParameters) {
+        this.useGlobalSslContextParameters = useGlobalSslContextParameters;
     }
 
     protected Server createServer() throws Exception {
@@ -319,7 +354,7 @@ public class CometdComponent extends UriEndpointComponent {
             connectorRef.connector.stop();
         }
         connectors.clear();
-       
+
         super.doStop();
     }
 
@@ -338,13 +373,4 @@ public class CometdComponent extends UriEndpointComponent {
         }
     }
 
-    /**
-     * Override the key/trust store check method as it does not account for a factory that has
-     * a pre-configured {@link SSLContext}.
-     */
-    private static final class CometdComponentSslContextFactory extends SslContextFactory {
-        @Override
-        public void checkKeyStore() {
-        }
-    }
 }

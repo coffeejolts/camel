@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,37 +24,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.spi.Registry;
+import org.apache.camel.support.SimpleRegistry;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import static org.mockito.Matchers.anyCollection;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@MockitoSettings
 public class RedisHashTest extends RedisTestSupport {
-    private RedisTemplate redisTemplate;
-    private HashOperations hashOperations;
+
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+    @Mock
+    private HashOperations<String, String, String> hashOperations;
 
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+    protected Registry createCamelRegistry() throws Exception {
+        when(redisTemplate.<String, String> opsForHash()).thenReturn(hashOperations);
 
-        JndiRegistry registry = super.createRegistry();
+        Registry registry = new SimpleRegistry();
         registry.bind("redisTemplate", redisTemplate);
         return registry;
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        redisTemplate = mock(RedisTemplate.class);
-        hashOperations = mock(HashOperations.class);
-        super.setUp();
     }
 
     @Test
@@ -96,7 +95,7 @@ public class RedisHashTest extends RedisTestSupport {
 
     @Test
     public void shouldExecuteHKEYS() throws Exception {
-        Set<String> fields = new HashSet<String>(Arrays.asList(new String[] {"field1, field2"}));
+        Set<String> fields = new HashSet<>(Arrays.asList(new String[] { "field1, field2" }));
         when(hashOperations.keys(anyString())).thenReturn(fields);
 
         Object result = sendHeaders(
@@ -107,10 +106,9 @@ public class RedisHashTest extends RedisTestSupport {
         assertEquals(fields, result);
     }
 
-
     @Test
     public void shouldExecuteHMSET() throws Exception {
-        Map<String, String> values = new HashMap<String, String>();
+        Map<String, String> values = new HashMap<>();
         values.put("field1", "value1");
         values.put("field2", "value");
 
@@ -124,7 +122,7 @@ public class RedisHashTest extends RedisTestSupport {
 
     @Test
     public void shouldExecuteHVALS() throws Exception {
-        List<String> values = new ArrayList<String>();
+        List<String> values = new ArrayList<>();
         values.add("val1");
         values.add("val2");
 
@@ -176,7 +174,6 @@ public class RedisHashTest extends RedisTestSupport {
         assertEquals(true, result);
     }
 
-
     @Test
     public void shouldExecuteHGET() throws Exception {
         when(hashOperations.get(anyString(), anyString())).thenReturn("value");
@@ -192,7 +189,7 @@ public class RedisHashTest extends RedisTestSupport {
 
     @Test
     public void shouldExecuteHGETALL() throws Exception {
-        HashMap<String, String> values = new HashMap<String, String>();
+        HashMap<String, String> values = new HashMap<>();
         values.put("field1", "valu1");
         when(hashOperations.entries(anyString())).thenReturn(values);
 
@@ -206,9 +203,9 @@ public class RedisHashTest extends RedisTestSupport {
 
     @Test
     public void shouldExecuteHMGET() throws Exception {
-        List<String> fields = new ArrayList<String>();
+        List<String> fields = new ArrayList<>();
         fields.add("field1");
-        when(hashOperations.multiGet(anyString(), anyCollection())).thenReturn(fields);
+        when(hashOperations.multiGet(anyString(), anyList())).thenReturn(fields);
 
         Object result = sendHeaders(
                 RedisConstants.COMMAND, "HMGET",

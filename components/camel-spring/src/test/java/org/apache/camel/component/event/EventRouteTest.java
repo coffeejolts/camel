@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,18 +19,20 @@ package org.apache.camel.component.event;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class EventRouteTest extends SpringTestSupport {
 
     protected Object expectedBody = "Hello there!";
     protected String uri = "spring-event:foo";
 
+    @Test
     public void testSendingCamelExchangeToEndpointResultsInValidApplicationEventAfterTheRefreshEvent() throws Exception {
         MockEndpoint result = resolveMandatoryEndpoint("mock:result", MockEndpoint.class);
         result.expectedMessageCount(2);
@@ -51,9 +53,10 @@ public class EventRouteTest extends SpringTestSupport {
         log.info("Received body: " + body);
         CamelEvent event = assertIsInstanceOf(CamelEvent.class, body);
         Object actualBody = event.getExchange().getIn().getBody();
-        assertEquals("Received event body", expectedBody, actualBody);
+        assertEquals(expectedBody, actualBody, "Received event body");
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/component/event/camelContext.xml");
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,17 +16,17 @@
  */
 package org.apache.camel.component.netty.http;
 
-import org.jboss.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandler;
 
 /**
  * Factory for setting up Netty {@link ChannelHandler} bound to a given Netty port.
  * <p/>
- * This factory allows for consumers to reuse existing {@link org.jboss.netty.bootstrap.ServerBootstrap} which
- * allows to share the same port for multiple consumers.
+ * This factory allows for consumers to reuse existing {@link io.netty.bootstrap.ServerBootstrap} which allows to share
+ * the same port for multiple consumers.
  *
- * This factory is needed to ensure we can handle the situations when consumers is added and removing in
- * a dynamic environment such as OSGi, where Camel applications can be hot-deployed. And we want these
- * Camel applications to be able to share the same Netty port in a easy way.
+ * This factory is needed to ensure we can handle the situations when consumers is added and removing in a dynamic
+ * environment such as OSGi, where Camel applications can be hot-deployed. And we want these Camel applications to be
+ * able to share the same Netty port in a easy way.
  */
 public interface HttpServerConsumerChannelFactory {
 

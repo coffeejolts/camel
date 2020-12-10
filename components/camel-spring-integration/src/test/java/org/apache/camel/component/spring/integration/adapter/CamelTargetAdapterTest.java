@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,15 +22,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.integration.Message;
-import org.springframework.integration.MessageChannel;
-import org.springframework.integration.MessageHeaders;
 import org.springframework.integration.channel.DirectChannel;
-import org.springframework.integration.core.MessageHandler;
-import org.springframework.integration.message.GenericMessage;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageHandler;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.GenericMessage;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CamelTargetAdapterTest extends CamelSpringTestSupport {
 
@@ -57,8 +60,8 @@ public class CamelTargetAdapterTest extends CamelSpringTestSupport {
         responseChannel.subscribe(new MessageHandler() {
             public void handleMessage(Message<?> message) {
                 latch.countDown();
-                assertEquals("Get the wrong result", MESSAGE_BODY + " is processed",  message.getPayload());
-            }            
+                assertEquals(MESSAGE_BODY + " is processed", message.getPayload(), "Get the wrong result");
+            }
         });
 
         requestChannel.send(message);
@@ -71,14 +74,14 @@ public class CamelTargetAdapterTest extends CamelSpringTestSupport {
         final CountDownLatch latch = new CountDownLatch(1);
         MessageChannel requestChannel = getMandatoryBean(MessageChannel.class, "channelD");
         DirectChannel responseChannel = getMandatoryBean(DirectChannel.class, "channelC");
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put(MessageHeaders.REPLY_CHANNEL, responseChannel);
-        GenericMessage<String> message = new GenericMessage<String>(MESSAGE_BODY, headers);
+        GenericMessage<String> message = new GenericMessage<>(MESSAGE_BODY, headers);
         responseChannel.subscribe(new MessageHandler() {
             public void handleMessage(Message<?> message) {
                 latch.countDown();
-                assertEquals("Get the wrong result", MESSAGE_BODY + " is processed",  message.getPayload());
-            }            
+                assertEquals(MESSAGE_BODY + " is processed", message.getPayload(), "Get the wrong result");
+            }
         });
 
         requestChannel.send(message);

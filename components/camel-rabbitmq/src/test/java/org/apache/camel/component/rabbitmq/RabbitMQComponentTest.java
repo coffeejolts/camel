@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,20 +20,23 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.rabbitmq.client.ConnectionFactory;
-
 import org.apache.camel.CamelContext;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.SimpleRegistry;
-import org.junit.Test;
+import org.apache.camel.support.SimpleRegistry;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
-public class RabbitMQComponentTest {
+public class RabbitMQComponentTest extends CamelTestSupport {
 
-    private CamelContext context = Mockito.mock(CamelContext.class);
+    @Override
+    public boolean isUseRouteBuilder() {
+        return super.isUseRouteBuilder();
+    }
 
     @Test
     public void testDefaultProperties() throws Exception {
@@ -44,6 +47,8 @@ public class RabbitMQComponentTest {
         assertEquals(true, endpoint.isAutoAck());
         assertEquals(true, endpoint.isAutoDelete());
         assertEquals(true, endpoint.isDurable());
+        assertEquals(false, endpoint.isExclusiveConsumer());
+        assertEquals(false, endpoint.isAllowNullHeaders());
         assertEquals("direct", endpoint.getExchangeType());
         assertEquals(ConnectionFactory.DEFAULT_CONNECTION_TIMEOUT, endpoint.getConnectionTimeout());
         assertEquals(ConnectionFactory.DEFAULT_CHANNEL_MAX, endpoint.getRequestedChannelMax());
@@ -54,7 +59,7 @@ public class RabbitMQComponentTest {
 
     @Test
     public void testPropertiesSet() throws Exception {
-        Map<String, Object> params = new HashMap<String, Object>();
+        Map<String, Object> params = new HashMap<>();
         params.put("username", "coldplay");
         params.put("password", "chrism");
         params.put("autoAck", true);
@@ -68,6 +73,8 @@ public class RabbitMQComponentTest {
         params.put("requestedChannelMax", 456);
         params.put("requestedFrameMax", 789);
         params.put("requestedHeartbeat", 321);
+        params.put("exclusiveConsumer", true);
+        params.put("allowNullHeaders", true);
 
         RabbitMQEndpoint endpoint = createEndpoint(params);
 
@@ -86,27 +93,32 @@ public class RabbitMQComponentTest {
         assertEquals(456, endpoint.getRequestedChannelMax());
         assertEquals(789, endpoint.getRequestedFrameMax());
         assertEquals(321, endpoint.getRequestedHeartbeat());
+        assertEquals(true, endpoint.isExclusiveConsumer());
+        assertEquals(true, endpoint.isAllowNullHeaders());
     }
 
     private RabbitMQEndpoint createEndpoint(Map<String, Object> params) throws Exception {
         String uri = "rabbitmq:special.host:14/queuey";
         String remaining = "special.host:14/queuey";
 
-        return new RabbitMQComponent(context).createEndpoint(uri, remaining, params);
+        RabbitMQComponent comp = context.getComponent("rabbitmq", RabbitMQComponent.class);
+        comp.setAutoDetectConnectionFactory(false);
+        return (RabbitMQEndpoint) comp.createEndpoint(uri, params);
     }
 
     @Test
     public void testConnectionFactoryRef() throws Exception {
         SimpleRegistry registry = new SimpleRegistry();
         ConnectionFactory connectionFactoryMock = Mockito.mock(ConnectionFactory.class);
-        registry.put("connectionFactoryMock", connectionFactoryMock);
+        registry.bind("connectionFactoryMock", connectionFactoryMock);
 
         CamelContext defaultContext = new DefaultCamelContext(registry);
 
-        Map<String, Object> params = new HashMap<String, Object>();
+        Map<String, Object> params = new HashMap<>();
         params.put("connectionFactory", "#connectionFactoryMock");
 
-        RabbitMQEndpoint endpoint = new RabbitMQComponent(defaultContext).createEndpoint("rabbitmq:localhost/exchange", "localhost/exchange", params);
+        RabbitMQEndpoint endpoint = new RabbitMQComponent(defaultContext).createEndpoint("rabbitmq:localhost/exchange",
+                "localhost/exchange", params);
 
         assertSame(connectionFactoryMock, endpoint.getConnectionFactory());
 

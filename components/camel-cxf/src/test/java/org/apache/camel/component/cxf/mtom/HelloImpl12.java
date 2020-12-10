@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,14 +23,12 @@ import org.apache.camel.cxf.mtom_feature.Hello;
 
 /**
  * Hello Test Impl class for SOAP 1.2
- * @version 
  */
 
 @WebService(serviceName = "HelloService12")
-@XmlSeeAlso({org.apache.camel.cxf.mtom_feature.types.ObjectFactory.class})
+@XmlSeeAlso({ org.apache.camel.cxf.mtom_feature.types.ObjectFactory.class })
 
-@javax.xml.ws.BindingType(value = javax.xml.ws.soap.SOAPBinding.SOAP12HTTP_MTOM_BINDING)  
+@javax.xml.ws.BindingType(value = javax.xml.ws.soap.SOAPBinding.SOAP12HTTP_MTOM_BINDING)
 public class HelloImpl12 extends HelloImpl implements Hello {
-        
 
 }

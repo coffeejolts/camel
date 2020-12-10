@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,11 +21,10 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 
 /**
  * A simple post processor
- *
- * @version 
  */
 public class MyPostProcessor implements BeanPostProcessor {
-    
+
+    @Override
     public Object postProcessBeforeInitialization(Object bean, String name) throws BeansException {
         if (bean instanceof Cheese) {
             Cheese cheese = (Cheese) bean;
@@ -34,6 +33,7 @@ public class MyPostProcessor implements BeanPostProcessor {
         return bean;
     }
 
+    @Override
     public Object postProcessAfterInitialization(Object bean, String name) throws BeansException {
         if (bean instanceof Cheese) {
             Cheese cheese = (Cheese) bean;

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,15 +19,13 @@ package org.apache.camel.component.properties;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version
- */
 public class SpringPropertiesAfterTransactedDSL2Test extends SpringPropertiesAfterTransactedDSLTest {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         // instead of the propertyPlaceholder here we make use of the bridgePropertyPlaceholder
-        return new ClassPathXmlApplicationContext("org/apache/camel/component/properties/SpringPropertiesAfterTransactedDSL2Test.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/component/properties/SpringPropertiesAfterTransactedDSL2Test.xml");
     }
 
 }

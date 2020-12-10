@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,12 +19,12 @@ package org.apache.camel.component.quartz;
 import java.io.InputStream;
 import java.util.Properties;
 
-import org.junit.Test;
-import org.quartz.SchedulerException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class QuartzPropertiesTest extends BaseQuartzTest {
 
     private QuartzComponent quartz;
@@ -35,6 +35,7 @@ public class QuartzPropertiesTest extends BaseQuartzTest {
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         quartz.stop();
         super.tearDown();
@@ -61,8 +62,8 @@ public class QuartzPropertiesTest extends BaseQuartzTest {
         try {
             quartz.start();
             fail("Should have thrown exception");
-        } catch (SchedulerException e) {
-            assertEquals("Error loading Quartz properties file: doesnotexist.properties", e.getMessage());
+        } catch (Exception e) {
+            assertEquals("Error loading Quartz properties file: doesnotexist.properties", e.getCause().getMessage());
         }
     }
 
@@ -71,7 +72,8 @@ public class QuartzPropertiesTest extends BaseQuartzTest {
         quartz = context.getComponent("quartz", QuartzComponent.class);
 
         Properties prop = new Properties();
-        InputStream is = context.getClassResolver().loadResourceAsStream("org/apache/camel/component/quartz/myquartz.properties");
+        InputStream is
+                = context.getClassResolver().loadResourceAsStream("org/apache/camel/component/quartz/myquartz.properties");
         prop.load(is);
         quartz.setProperties(prop);
 

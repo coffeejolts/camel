@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,20 +21,22 @@ import java.util.concurrent.ScheduledFuture;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Consumer;
+import org.apache.camel.NonManagedService;
 import org.apache.camel.spi.ScheduledPollConsumerScheduler;
 import org.apache.camel.spring.util.CamelThreadPoolTaskScheduler;
-import org.apache.camel.support.ServiceSupport;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.support.service.ServiceSupport;
+import org.apache.camel.util.StringHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
 /**
- * A Spring based {@link ScheduledPollConsumerScheduler} which uses a {@link CronTrigger} to define when the
- * poll should be triggered.
+ * A Spring based {@link ScheduledPollConsumerScheduler} which uses a {@link CronTrigger} to define when the poll should
+ * be triggered.
  */
-public class SpringScheduledPollConsumerScheduler extends ServiceSupport implements ScheduledPollConsumerScheduler {
+public class SpringScheduledPollConsumerScheduler extends ServiceSupport
+        implements ScheduledPollConsumerScheduler, NonManagedService {
 
     private static final Logger LOG = LoggerFactory.getLogger(SpringScheduledPollConsumerScheduler.class);
     private CamelContext camelContext;
@@ -111,12 +113,13 @@ public class SpringScheduledPollConsumerScheduler extends ServiceSupport impleme
 
     @Override
     protected void doStart() throws Exception {
-        ObjectHelper.notEmpty(cron, "cron", this);
+        StringHelper.notEmpty(cron, "cron", this);
 
         trigger = new CronTrigger(getCron(), getTimeZone());
 
         if (taskScheduler == null) {
-            taskScheduler = new CamelThreadPoolTaskScheduler(getCamelContext(), consumer, consumer.getEndpoint().getEndpointUri());
+            taskScheduler
+                    = new CamelThreadPoolTaskScheduler(getCamelContext(), consumer, consumer.getEndpoint().getEndpointUri());
             taskScheduler.afterPropertiesSet();
             destroyTaskScheduler = true;
         }

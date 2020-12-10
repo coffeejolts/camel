@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,11 +21,10 @@ import java.util.List;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MinaUdpUsingTemplateTest extends BaseMinaTest {
 
     private int messageCount = 3;
@@ -43,7 +42,7 @@ public class MinaUdpUsingTemplateTest extends BaseMinaTest {
 
     protected void sendUdpMessages() throws Exception {
         for (int i = 0; i < messageCount; i++) {
-            template.sendBody("mina:udp://127.0.0.1:{{port}}?sync=false", "Hello Message: " + i);
+            template.sendBody(String.format("mina:udp://127.0.0.1:%1$s?sync=false", getPort()), "Hello Message: " + i);
         }
     }
 
@@ -53,14 +52,14 @@ public class MinaUdpUsingTemplateTest extends BaseMinaTest {
         endpoint.expectedMessageCount(1);
 
         byte[] in = "Hello from bytes".getBytes();
-        template.sendBody("mina:udp://127.0.0.1:{{port}}?sync=false", in);
+        template.sendBody(String.format("mina:udp://127.0.0.1:%1$s?sync=false", getPort()), in);
 
         assertMockEndpointsSatisfied();
         List<Exchange> list = endpoint.getReceivedExchanges();
         byte[] out = list.get(0).getIn().getBody(byte[].class);
 
         for (int i = 0; i < in.length; i++) {
-            assertEquals("Thew bytes should be the same", in[i], out[i]);
+            assertEquals(in[i], out[i], "Thew bytes should be the same");
         }
     }
 
@@ -70,18 +69,18 @@ public class MinaUdpUsingTemplateTest extends BaseMinaTest {
         endpoint.expectedMessageCount(1);
 
         String toSend = "ef3e00559f5faf0262f5ff0962d9008daa91001cd46b0fa9330ef0f3030fff250e46f72444d1cc501678c351e04b8004c"
-                + "4000002080000fe850bbe011030000008031b031bfe9251305441593830354720020800050440ff";
+                        + "4000002080000fe850bbe011030000008031b031bfe9251305441593830354720020800050440ff";
         byte[] in = fromHexString(toSend);
-        template.sendBody("mina:udp://127.0.0.1:{{port}}?sync=false", in);
+        template.sendBody(String.format("mina:udp://127.0.0.1:%1$s?sync=false", getPort()), in);
 
         assertMockEndpointsSatisfied();
         List<Exchange> list = endpoint.getReceivedExchanges();
         byte[] out = list.get(0).getIn().getBody(byte[].class);
 
         for (int i = 0; i < in.length; i++) {
-            assertEquals("The bytes should be the same", in[i], out[i]);
+            assertEquals(in[i], out[i], "The bytes should be the same");
         }
-        assertEquals("The strings should be the same", toSend, byteArrayToHex(out));
+        assertEquals(toSend, byteArrayToHex(out), "The strings should be the same");
     }
 
     private String byteArrayToHex(byte[] bytes) {
@@ -97,15 +96,16 @@ public class MinaUdpUsingTemplateTest extends BaseMinaTest {
         int i = 0;
         for (int n = hexstr.length(); i < n; i += 2) {
             data[i / 2] = (Integer.decode("0x" + hexstr.charAt(i)
-                    + hexstr.charAt(i + 1))).byteValue();
+                                          + hexstr.charAt(i + 1))).byteValue();
         }
         return data;
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                from("mina:udp://127.0.0.1:{{port}}?sync=false&minaLogger=true")
+                from(String.format("mina:udp://127.0.0.1:%1$s?sync=false&minaLogger=true", getPort()))
                         .to("mock:result");
             }
         };

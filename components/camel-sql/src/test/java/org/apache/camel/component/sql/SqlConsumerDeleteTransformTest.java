@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,16 @@ package org.apache.camel.component.sql;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -35,17 +37,19 @@ public class SqlConsumerDeleteTransformTest extends CamelTestSupport {
     private EmbeddedDatabase db;
     private JdbcTemplate jdbcTemplate;
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         db = new EmbeddedDatabaseBuilder()
-            .setType(EmbeddedDatabaseType.DERBY).addScript("sql/createAndPopulateDatabase.sql").build();
+                .setType(EmbeddedDatabaseType.DERBY).addScript("sql/createAndPopulateDatabase.sql").build();
 
         jdbcTemplate = new JdbcTemplate(db);
 
         super.setUp();
     }
 
-    @After
+    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
 
@@ -61,14 +65,15 @@ public class SqlConsumerDeleteTransformTest extends CamelTestSupport {
 
         // some servers may be a bit slow for this
         for (int i = 0; i < 5; i++) {
-            // give it a little tine to delete
-            Thread.sleep(1000);
+            // give it a little time to delete
+            Thread.sleep(200);
             int rows = jdbcTemplate.queryForObject("select count(*) from projects", Integer.class);
             if (rows == 0) {
                 break;
             }
         }
-        assertEquals("Should have deleted all 3 rows", new Integer(0), jdbcTemplate.queryForObject("select count(*) from projects", Integer.class));
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject("select count(*) from projects", Integer.class),
+                "Should have deleted all 3 rows");
     }
 
     @Override
@@ -80,9 +85,9 @@ public class SqlConsumerDeleteTransformTest extends CamelTestSupport {
 
                 // even if we transform the exchange we can still do onConsume as we have the original data at
                 // the point when onConsume is executed
-                from("sql:select * from projects order by id?consumer.onConsume=delete from projects where id = :#id")
-                    .transform().simple("The project is ${body[project]}")
-                    .to("mock:result");
+                from("sql:select * from projects order by id?initialDelay=0&delay=50&consumer.onConsume=delete from projects where id = :#id")
+                        .transform().simple("The project is ${body[project]}")
+                        .to("mock:result");
             }
         };
     }

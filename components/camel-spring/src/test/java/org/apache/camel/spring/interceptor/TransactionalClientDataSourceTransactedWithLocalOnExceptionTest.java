@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,30 +22,32 @@ import org.apache.camel.spring.SpringRouteBuilder;
 /**
  * Unit test to demonstrate the transactional client pattern.
  */
-public class TransactionalClientDataSourceTransactedWithLocalOnExceptionTest extends TransactionalClientDataSourceWithOnExceptionTest {
+public class TransactionalClientDataSourceTransactedWithLocalOnExceptionTest
+        extends TransactionalClientDataSourceWithOnExceptionTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
                 from("direct:okay")
-                    // use local on exception
-                    .onException(IllegalArgumentException.class)
+                        // use local on exception
+                        .onException(IllegalArgumentException.class)
                         .handled(false)
                         .to("mock:error")
-                    .end()
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                        .end()
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 from("direct:fail")
-                    // use local on exception
-                    .onException(IllegalArgumentException.class)
+                        // use local on exception
+                        .onException(IllegalArgumentException.class)
                         .handled(false)
                         .to("mock:error")
-                    .end()
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        .end()
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,18 +21,21 @@ import javax.activation.FileDataSource;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.Message;
 import org.apache.camel.Producer;
+import org.apache.camel.attachment.AttachmentMessage;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.commons.io.IOUtils;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 /**
- *  Tests the {@link SplitAttachmentsExpression}.
+ * Tests the {@link SplitAttachmentsExpression}.
  */
 public class MailSplitAttachmentsTest extends CamelTestSupport {
 
@@ -40,105 +43,66 @@ public class MailSplitAttachmentsTest extends CamelTestSupport {
     private SplitAttachmentsExpression splitAttachmentsExpression;
     private Exchange exchange;
 
-    @Before
+    @BeforeEach
     public void clearMailBox() {
         Mailbox.clearAll();
     }
 
-
-    @Before
+    @BeforeEach
     public void setup() {
         // create the exchange with the mail message that is multipart with a file and a Hello World text/plain message.
         endpoint = context.getEndpoint("smtp://james@mymailserver.com?password=secret");
         exchange = endpoint.createExchange();
-        Message in = exchange.getIn();
+        AttachmentMessage in = exchange.getIn(AttachmentMessage.class);
         in.setBody("Hello World");
         in.addAttachment("logo.jpeg", new DataHandler(new FileDataSource("src/test/data/logo.jpeg")));
-        in.addAttachment("license.txt", new DataHandler(new FileDataSource("src/main/resources/META-INF/LICENSE.txt")));
+        in.addAttachment("log4j2.properties", new DataHandler(new FileDataSource("src/test/resources/log4j2.properties")));
     }
-
-    @Test
-    public void testSplitAttachments() throws Exception {
-
-        Producer producer = endpoint.createProducer();
-        producer.start();
-        producer.process(exchange);
-
-        Thread.sleep(2000);
-
-        MockEndpoint mock = getMockEndpoint("mock:split");
-        mock.expectedMessageCount(2);
-
-        mock.assertIsSatisfied();
-
-        Message first = mock.getReceivedExchanges().get(0).getIn();
-        Message second = mock.getReceivedExchanges().get(1).getIn();
-
-        assertEquals(1, first.getAttachments().size());
-        assertEquals(1, second.getAttachments().size());
-
-        String file1 = first.getAttachments().keySet().iterator().next();
-        String file2 = second.getAttachments().keySet().iterator().next();
-
-        boolean logo = file1.equals("logo.jpeg") || file2.equals("logo.jpeg");
-        boolean license = file1.equals("license.txt") || file2.equals("license.txt");
-
-        assertTrue("Should have logo.jpeg file attachment", logo);
-        assertTrue("Should have license.txt file attachment", license);
-    }
-
 
     @Test
     public void testExtractAttachments() throws Exception {
-
-        // set the expression to extract the attachments as byte[]s
-        splitAttachmentsExpression.setExtractAttachments(true);
-
+        MockEndpoint mock = getMockEndpoint("mock:split");
+        mock.expectedMessageCount(2);
 
         Producer producer = endpoint.createProducer();
         producer.start();
         producer.process(exchange);
 
-        Thread.sleep(2000);
-
-        MockEndpoint mock = getMockEndpoint("mock:split");
-        mock.expectedMessageCount(2);
-
         mock.assertIsSatisfied();
 
-        Message first = mock.getReceivedExchanges().get(0).getIn();
-        Message second = mock.getReceivedExchanges().get(1).getIn();
+        AttachmentMessage first = mock.getReceivedExchanges().get(0).getIn(AttachmentMessage.class);
+        AttachmentMessage second = mock.getReceivedExchanges().get(1).getIn(AttachmentMessage.class);
 
         // check it's no longer an attachment, but is the message body
         assertEquals(0, first.getAttachments().size());
         assertEquals(0, second.getAttachments().size());
 
         assertEquals("logo.jpeg", first.getHeader("CamelSplitAttachmentId"));
-        assertEquals("license.txt", second.getHeader("CamelSplitAttachmentId"));
+        assertEquals("log4j2.properties", second.getHeader("CamelSplitAttachmentId"));
 
         byte[] expected1 = IOUtils.toByteArray(new FileDataSource("src/test/data/logo.jpeg").getInputStream());
-        byte[] expected2 = IOUtils.toByteArray(new FileDataSource("src/main/resources/META-INF/LICENSE.txt").getInputStream());
+        byte[] expected2 = IOUtils.toByteArray(new FileDataSource("src/test/resources/log4j2.properties").getInputStream());
 
-        assertArrayEquals(expected1, (byte[]) first.getBody());
-        assertArrayEquals(expected2, (byte[]) second.getBody());
+        assertArrayEquals(expected1, first.getBody(byte[].class));
+        assertArrayEquals(expected2, second.getBody(byte[].class));
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
 
-        splitAttachmentsExpression = new SplitAttachmentsExpression(false);
+        splitAttachmentsExpression = new SplitAttachmentsExpression();
 
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
                 // START SNIPPET: e1
-                from("pop3://james@mymailserver.com?password=secret&consumer.delay=1000")
-                    .to("log:email")
-                    // use the SplitAttachmentsExpression which will split the message per attachment
-                    .split(splitAttachmentsExpression)
+                from("pop3://james@mymailserver.com?password=secret&initialDelay=100&delay=100")
+                        .to("log:email")
+                        // use the SplitAttachmentsExpression which will split the message per attachment
+                        .split(splitAttachmentsExpression)
                         // each message going to this mock has a single attachment
                         .to("mock:split")
-                    .end();
+                        .end();
                 // END SNIPPET: e1
             }
         };

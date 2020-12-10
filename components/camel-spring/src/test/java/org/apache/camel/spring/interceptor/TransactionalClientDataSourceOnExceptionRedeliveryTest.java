@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +17,20 @@
 package org.apache.camel.spring.interceptor;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.ExtendedExchange;
 import org.apache.camel.Processor;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringRouteBuilder;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class TransactionalClientDataSourceOnExceptionRedeliveryTest extends TransactionalClientDataSourceTest {
 
+    @Test
     public void testTransactionRollbackWithExchange() throws Exception {
         Exchange out = template.send("direct:fail", new Processor() {
             public void process(Exchange exchange) throws Exception {
@@ -35,21 +39,22 @@ public class TransactionalClientDataSourceOnExceptionRedeliveryTest extends Tran
         });
 
         int count = jdbc.queryForObject("select count(*) from books", Integer.class);
-        assertEquals("Number of books", 1, count);
+        assertEquals(1, count, "Number of books");
 
         assertNotNull(out);
 
         Exception e = out.getException();
         assertIsInstanceOf(RuntimeCamelException.class, e);
-        assertTrue(e.getCause()instanceof IllegalArgumentException);
+        assertTrue(e.getCause() instanceof IllegalArgumentException);
         assertEquals("We don't have Donkeys, only Camels", e.getCause().getMessage());
 
         assertEquals(true, out.getIn().getHeader(Exchange.REDELIVERED));
         assertEquals(3, out.getIn().getHeader(Exchange.REDELIVERY_COUNTER));
         assertEquals(true, out.getProperty(Exchange.FAILURE_HANDLED));
-        assertEquals(false, out.getProperty(Exchange.ERRORHANDLER_HANDLED));
+        assertEquals(false, out.adapt(ExtendedExchange.class).isErrorHandlerHandled());
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
@@ -57,19 +62,19 @@ public class TransactionalClientDataSourceOnExceptionRedeliveryTest extends Tran
 
                 // START SNIPPET: e1
                 from("direct:okay")
-                    // marks this route as transacted, and we dont pass in any parameters so we
-                    // will auto lookup and use the Policy defined in the spring XML file
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                        // marks this route as transacted, and we dont pass in any parameters so we
+                        // will auto lookup and use the Policy defined in the spring XML file
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 // marks this route as transacted that will use the single policy defined in the registry
                 from("direct:fail")
-                    // marks this route as transacted, and we dont pass in any parameters so we
-                    // will auto lookup and use the Policy defined in the spring XML file
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        // marks this route as transacted, and we dont pass in any parameters so we
+                        // will auto lookup and use the Policy defined in the spring XML file
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
                 // END SNIPPET: e1
             }
         };

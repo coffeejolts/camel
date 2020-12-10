@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,41 +16,42 @@
  */
 package org.apache.camel.component.mina;
 
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Unit test to verify that MINA can be used with an InOut MEP but still use sync to send and receive data
- * from a remote server and using MAC textline delimiter.
+ * Unit test to verify that MINA can be used with an InOut MEP but still use sync to send and receive data from a remote
+ * server and using MAC textline delimiter.
  */
 public class MinaInOutRouteTextLineDelimiterTest extends BaseMinaTest {
 
     @Test
     public void testInOutUsingMina() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
-        mock.expectedBodiesReceived("Bye Claus");
+        mock.expectedBodiesReceived("Bye Chad");
         // we should preserve headers
         mock.setResultWaitTime(5000);
 
-        Object out = template.requestBody("mina:tcp://localhost:{{port}}?sync=true&textline=true&textlineDelimiter=MAC", "Claus");
+        Object out = template.requestBody(
+                String.format("mina:tcp://localhost:%1$s?sync=true&textline=true&textlineDelimiter=MAC", getPort()), "Chad");
 
         assertMockEndpointsSatisfied();
-        assertEquals("Bye Claus", out);
+        assertEquals("Bye Chad", out);
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             public void configure() throws Exception {
-                from("mina:tcp://localhost:{{port}}?sync=true&textline=true&textlineDelimiter=MAC").process(new Processor() {
-                    public void process(Exchange exchange) throws Exception {
-                        String body = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Bye " + body);
-                    }
-                }).to("mock:result");
+                from(String.format("mina:tcp://localhost:%1$s?sync=true&textline=true&textlineDelimiter=MAC", getPort()))
+                        .process(exchange -> {
+                            String body = exchange.getIn().getBody(String.class);
+                            exchange.getMessage().setBody("Bye " + body);
+                        }).to("mock:result");
             }
         };
     }

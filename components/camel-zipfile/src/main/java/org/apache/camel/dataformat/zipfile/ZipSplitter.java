@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,26 +16,27 @@
  */
 package org.apache.camel.dataformat.zipfile;
 
+import java.io.InputStream;
+
 import org.apache.camel.Exchange;
 import org.apache.camel.Expression;
 import org.apache.camel.Message;
 
 /**
- * ZipSplitter the expression builder which can be used after the splitter
- * Based on the thread <a href=
- * "http://camel.465427.n5.nabble.com/zip-file-best-practices-td5713437.html"
- * >zip file best practices</a>
+ * ZipSplitter the expression builder which can be used after the splitter Based on the thread
+ * <a href= "http://camel.465427.n5.nabble.com/zip-file-best-practices-td5713437.html" >zip file best practices</a>
  */
 public class ZipSplitter implements Expression {
 
     public ZipSplitter() {
     }
-    
+
     public Object evaluate(Exchange exchange) {
         Message inputMessage = exchange.getIn();
-        return new ZipIterator(inputMessage);
+        InputStream inputStream = inputMessage.getBody(InputStream.class);
+        return new ZipIterator(exchange, inputStream);
     }
-    
+
     @Override
     public <T> T evaluate(Exchange exchange, Class<T> type) {
         Object result = evaluate(exchange);

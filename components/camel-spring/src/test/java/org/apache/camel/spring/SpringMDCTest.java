@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,13 +19,13 @@ package org.apache.camel.spring;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class SpringMDCTest extends SpringTestSupport {
 
     @Override
@@ -33,6 +33,7 @@ public class SpringMDCTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/SpringMDCTest.xml");
     }
 
+    @Test
     public void testMDC() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World");
@@ -42,6 +43,7 @@ public class SpringMDCTest extends SpringTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testMDCTwoMessages() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World", "Bye World");
@@ -54,6 +56,7 @@ public class SpringMDCTest extends SpringTestSupport {
 
     public static class ProcessorA implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-a", MDC.get("camel.routeId"));
             assertEquals(exchange.getExchangeId(), MDC.get("camel.exchangeId"));
@@ -62,6 +65,7 @@ public class SpringMDCTest extends SpringTestSupport {
 
     public static class ProcessorB implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-b", MDC.get("camel.routeId"));
             assertEquals(exchange.getExchangeId(), MDC.get("camel.exchangeId"));

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,11 +23,13 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Endpoints are stored in a LRU list with a default capacity of 1000. If the list is full,
- * then endpoints are removed and should be recreated.
+ * Endpoints are stored in a LRU list with a default capacity of 1000. If the list is full, then endpoints are removed
+ * and should be recreated.
  * <p/>
  * We simulate this behavior with a capacity of 1 element.
  */
@@ -39,13 +41,13 @@ public class QuartzCronRouteWithSmallCacheTest extends BaseQuartzTest {
     public void testQuartzCronRouteWithSmallCache() throws Exception {
         boolean wait = latch.await(10, TimeUnit.SECONDS);
         assertTrue(wait);
-        assertTrue("Quartz should trigger at least 3 times", latch.getCount() <= 0);
+        assertTrue(latch.getCount() <= 0, "Quartz should trigger at least 3 times");
     }
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext context = super.createCamelContext();
-        context.getProperties().put(Exchange.MAXIMUM_ENDPOINT_CACHE_SIZE, "1");
+        context.getGlobalOptions().put(Exchange.MAXIMUM_ENDPOINT_CACHE_SIZE, "1");
         return context;
     }
 

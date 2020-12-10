@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,7 +19,7 @@ package org.apache.camel.component.ahc;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AhcProduceNoThrowExceptionOnFailureTest extends BaseAhcTest {
 
@@ -27,12 +27,13 @@ public class AhcProduceNoThrowExceptionOnFailureTest extends BaseAhcTest {
     public void testAhcProduce() throws Exception {
         getMockEndpoint("mock:result").expectedBodiesReceived("Does not work");
         getMockEndpoint("mock:result").expectedHeaderReceived(Exchange.HTTP_RESPONSE_CODE, 500);
+        getMockEndpoint("mock:result").expectedHeaderReceived(Exchange.HTTP_RESPONSE_TEXT, "Server Error");
 
         template.sendBody("direct:start", null);
 
         assertMockEndpointsSatisfied();
     }
-    
+
     @Override
     protected String getAhcEndpointUri() {
         return super.getAhcEndpointUri() + "?throwExceptionOnFailure=false";
@@ -44,14 +45,14 @@ public class AhcProduceNoThrowExceptionOnFailureTest extends BaseAhcTest {
             @Override
             public void configure() throws Exception {
                 from("direct:start")
-                    .to(getAhcEndpointUri())
-                    .to("mock:result");
+                        .to(getAhcEndpointUri())
+                        .to("mock:result");
 
                 from(getTestServerEndpointUri())
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
-                                exchange.getOut().setHeader(Exchange.HTTP_RESPONSE_CODE, 500);
-                                exchange.getOut().setBody("Does not work");
+                                exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, 500);
+                                exchange.getMessage().setBody("Does not work");
                             }
                         });
 

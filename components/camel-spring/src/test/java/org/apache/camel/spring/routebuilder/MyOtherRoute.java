@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,26 +18,26 @@ package org.apache.camel.spring.routebuilder;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelContextAware;
-import org.apache.camel.spring.SpringRouteBuilder;
+import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
-public class MyOtherRoute extends SpringRouteBuilder implements CamelContextAware {
+public class MyOtherRoute extends RouteBuilder implements CamelContextAware {
 
     private CamelContext ctx;
 
+    @Override
     public void configure() throws Exception {
         from("direct:b").to("mock:b");
     }
 
+    @Override
     public void setCamelContext(CamelContext context) {
         this.ctx = context;
         if (!"foo".equals(context.getName())) {
             throw new IllegalArgumentException("Should be named foo");
         }
     }
-    
+
+    @Override
     public CamelContext getCamelContext() {
         return ctx;
     }

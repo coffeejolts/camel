@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,28 +26,26 @@ import org.apache.camel.model.RouteDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class XmlConfigTestSupport extends TestSupport {
     protected static final Logger LOG = LoggerFactory.getLogger(CamelContextFactoryBeanTest.class);
 
     protected void assertValidContext(CamelContext context) {
-        assertNotNull("No context found!", context);
+        assertNotNull(context, "No context found!");
 
-        List<RouteDefinition> routes = ((ModelCamelContext)context).getRouteDefinitions();
+        List<RouteDefinition> routes = ((ModelCamelContext) context).getRouteDefinitions();
         LOG.debug("Found routes: " + routes);
 
-        assertEquals("One Route should be found", 1, routes.size());
+        assertEquals(1, routes.size(), "One Route should be found");
 
         for (RouteDefinition route : routes) {
-            List<FromDefinition> inputs = route.getInputs();
-            assertEquals("Number of inputs", 1, inputs.size());
-            FromDefinition fromType = inputs.get(0);
-            assertEquals("from URI", "seda:test.a", fromType.getUri());
+            FromDefinition fromType = route.getInput();
+            assertEquals("seda:test.a", fromType.getUri(), "from URI");
 
             List<?> outputs = route.getOutputs();
-            assertEquals("Number of outputs", 1, outputs.size());
+            assertEquals(1, outputs.size(), "Number of outputs");
         }
     }
 }

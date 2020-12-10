@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,13 +19,10 @@ package org.apache.camel.spring.config;
 import org.apache.camel.ExchangePattern;
 import org.apache.camel.Pattern;
 
-/**
- * @version 
- */
 public interface MyProxySender {
 
     String hello(String name);
-    
+
     @Pattern(value = ExchangePattern.InOnly)
     void greeting(String message);
 

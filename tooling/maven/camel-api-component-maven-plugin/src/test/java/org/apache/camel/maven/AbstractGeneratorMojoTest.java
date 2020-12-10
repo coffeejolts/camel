@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,12 +19,19 @@ package org.apache.camel.maven;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.project.MavenProject;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Base class for Generator MOJO tests.
@@ -42,7 +49,7 @@ public abstract class AbstractGeneratorMojoTest {
     protected static final String SCHEME = "testComponent";
 
     protected void assertExists(File outFile) {
-        assertTrue("Generated file not found " + outFile.getPath(), outFile.exists());
+        assertTrue(outFile.exists(), "Generated file not found " + outFile.getPath());
     }
 
     protected void configureSourceGeneratorMojo(AbstractSourceGeneratorMojo mojo) {
@@ -91,4 +98,60 @@ public abstract class AbstractGeneratorMojoTest {
             }
         };
     }
+
+    protected AbstractSourceGeneratorMojo createGeneratorMojo() {
+        return null;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldAddCompilationRootsByDefault() throws Exception {
+        AbstractSourceGeneratorMojo mojo = createGeneratorMojo();
+        assumeTrue(mojo != null, "Ignored because createGeneratorMojo is not implemented");
+        // Differentiate target folders to simplify assertion
+        mojo.generatedSrcDir = new File(OUT_DIR.replace("-test-", ""));
+        mojo.generatedTestDir = new File(OUT_DIR);
+        mojo.execute();
+
+        assertCompileSourceRoots(mojo.project::getCompileSourceRoots, mojo.generatedSrcDir);
+        assertCompileSourceRoots(mojo.project::getTestCompileSourceRoots, mojo.generatedTestDir);
+    }
+
+    @Test
+    public void shouldAddCompilationRootsByConfiguration() throws Exception {
+        File srcDir = new File(OUT_DIR.replace("-test-", ""));
+        File testDir = new File(OUT_DIR);
+        File[] empty = new File[0];
+        assertCompilationRootsByConfiguration(AbstractSourceGeneratorMojo.CompileRoots.source, srcDir, testDir,
+                new File[] { srcDir, testDir }, empty);
+        assertCompilationRootsByConfiguration(AbstractSourceGeneratorMojo.CompileRoots.test, srcDir, testDir,
+                empty, new File[] { srcDir, testDir });
+        assertCompilationRootsByConfiguration(AbstractSourceGeneratorMojo.CompileRoots.all, srcDir, testDir,
+                new File[] { srcDir }, new File[] { testDir });
+        assertCompilationRootsByConfiguration(AbstractSourceGeneratorMojo.CompileRoots.none, srcDir, testDir,
+                empty, empty);
+    }
+
+    private void assertCompilationRootsByConfiguration(
+            AbstractSourceGeneratorMojo.CompileRoots compileRoots,
+            File srcDir, File testDir,
+            File[] expectedSource, File[] expectedTest)
+            throws Exception {
+        AbstractSourceGeneratorMojo mojo = createGeneratorMojo();
+        assumeTrue(mojo != null, "Ignored because createGeneratorMojo is not implemented");
+        mojo.generatedSrcDir = srcDir;
+        mojo.generatedTestDir = testDir;
+        mojo.addCompileSourceRoots = compileRoots;
+        mojo.execute();
+
+        assertCompileSourceRoots(mojo.project::getCompileSourceRoots, expectedSource);
+        assertCompileSourceRoots(mojo.project::getTestCompileSourceRoots, expectedTest);
+    }
+
+    private void assertCompileSourceRoots(Supplier<List<String>> roots, File... expectedSources) {
+        List<String> compileSourceRoots = roots.get();
+        assertEquals(expectedSources.length, compileSourceRoots.size());
+        assertEquals(Stream.of(expectedSources).map(File::getAbsolutePath).collect(Collectors.toList()), compileSourceRoots);
+    }
+
 }

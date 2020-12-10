@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,18 +22,22 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringRouteBuilder;
 import org.slf4j.MDC;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 /**
  * Easier transaction configuration as we do not have to setup a transaction error handler
  */
 public class TransactionalClientDataSourceMDCTest extends TransactionalClientDataSourceTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
                 context.setUseMDCLogging(true);
 
                 from("direct:okay").routeId("route-a")
-                    .transacted()
+                        .transacted()
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
                                 assertEquals("route-a", MDC.get("camel.routeId"));
@@ -41,14 +45,14 @@ public class TransactionalClientDataSourceMDCTest extends TransactionalClientDat
                                 assertNotNull(MDC.get("camel.transactionKey"));
                             }
                         })
-                    .to("log:foo")
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .to("log:bar")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                        .to("log:foo")
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .to("log:bar")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 // marks this route as transacted that will use the single policy defined in the registry
                 from("direct:fail").routeId("route-b")
-                    .transacted()
+                        .transacted()
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
                                 assertEquals("route-b", MDC.get("camel.routeId"));
@@ -56,10 +60,10 @@ public class TransactionalClientDataSourceMDCTest extends TransactionalClientDat
                                 assertNotNull(MDC.get("camel.transactionKey"));
                             }
                         })
-                    .to("log:foo2")
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .to("log:bar2")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        .to("log:foo2")
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .to("log:bar2")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
             }
         };
     }

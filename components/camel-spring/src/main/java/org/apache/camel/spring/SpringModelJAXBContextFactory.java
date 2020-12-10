@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,16 @@
  */
 package org.apache.camel.spring;
 
-import org.apache.camel.impl.DefaultModelJAXBContextFactory;
-
+import org.apache.camel.xml.jaxb.DefaultModelJAXBContextFactory;
 
 public class SpringModelJAXBContextFactory extends DefaultModelJAXBContextFactory {
 
     public static final String ADDITIONAL_JAXB_CONTEXT_PACKAGES = ":"
-            + "org.apache.camel.core.xml:"
-            + "org.apache.camel.spring:"
-            + "org.apache.camel.util.spring:";
+                                                                  + "org.apache.camel.core.xml:"
+                                                                  + "org.apache.camel.spring:"
+                                                                  + "org.apache.camel.util.spring:";
 
-    protected ClassLoader getClassLoader() {
-        return getClass().getClassLoader();
-    }
-
+    @Override
     protected String getPackages() {
         return super.getPackages() + ADDITIONAL_JAXB_CONTEXT_PACKAGES;
     }

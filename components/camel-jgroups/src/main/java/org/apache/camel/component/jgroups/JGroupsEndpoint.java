@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,24 +18,28 @@ package org.apache.camel.component.jgroups;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
-import org.jgroups.Channel;
+import org.apache.camel.support.DefaultEndpoint;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.jgroups.View;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@UriEndpoint(scheme = "jgroups", title = "JGroups", syntax = "jgroups:clusterName", consumerClass = JGroupsConsumer.class, label = "clustering,messaging")
+/**
+ * Exchange messages with JGroups clusters.
+ */
+@UriEndpoint(firstVersion = "2.13.0", scheme = "jgroups", title = "JGroups", syntax = "jgroups:clusterName",
+             category = { Category.CLUSTERING, Category.MESSAGING })
 public class JGroupsEndpoint extends DefaultEndpoint {
 
     public static final String HEADER_JGROUPS_ORIGINAL_MESSAGE = "JGROUPS_ORIGINAL_MESSAGE";
@@ -44,20 +48,21 @@ public class JGroupsEndpoint extends DefaultEndpoint {
     public static final String HEADER_JGROUPS_CHANNEL_ADDRESS = "JGROUPS_CHANNEL_ADDRESS";
 
     private static final Logger LOG = LoggerFactory.getLogger(JGroupsEndpoint.class);
+    private AtomicInteger connectCount = new AtomicInteger();
 
-    private AtomicInteger connectCount = new AtomicInteger(0);
+    private JChannel channel;
+    private JChannel resolvedChannel;
 
-    private Channel channel;
-    private Channel resolvedChannel;
-
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private String clusterName;
     @UriParam
     private String channelProperties;
     @UriParam(label = "consumer")
     private boolean enableViewMessages;
 
-    public JGroupsEndpoint(String endpointUri, Component component, Channel channel, String clusterName, String channelProperties, boolean enableViewMessages) {
+    public JGroupsEndpoint(String endpointUri, Component component, JChannel channel, String clusterName,
+                           String channelProperties, boolean enableViewMessages) {
         super(endpointUri, component);
         this.channel = channel;
         this.clusterName = clusterName;
@@ -72,12 +77,9 @@ public class JGroupsEndpoint extends DefaultEndpoint {
 
     @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        return new JGroupsConsumer(this, processor, resolvedChannel, clusterName);
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
+        JGroupsConsumer consumer = new JGroupsConsumer(this, processor, resolvedChannel, clusterName);
+        configureConsumer(consumer);
+        return consumer;
     }
 
     public Exchange createExchange(Message message) {
@@ -110,12 +112,14 @@ public class JGroupsEndpoint extends DefaultEndpoint {
 
     @Override
     protected void doStop() throws Exception {
-        LOG.trace("Closing JGroups Channel {}", getEndpointUri());
-        resolvedChannel.close();
+        if (resolvedChannel != null) {
+            LOG.trace("Closing JGroups Channel {}", getEndpointUri());
+            resolvedChannel.close();
+        }
         super.doStop();
     }
 
-    private Channel resolveChannel() throws Exception {
+    private JChannel resolveChannel() throws Exception {
         if (channel != null) {
             return channel;
         }
@@ -127,7 +131,6 @@ public class JGroupsEndpoint extends DefaultEndpoint {
 
     /**
      * Connect shared channel, called by producer and consumer.
-     * @throws Exception
      */
     public void connect() throws Exception {
         connectCount.incrementAndGet();
@@ -145,14 +148,14 @@ public class JGroupsEndpoint extends DefaultEndpoint {
         }
     }
 
-    public Channel getChannel() {
+    public JChannel getChannel() {
         return channel;
     }
 
     /**
      * The channel to use
      */
-    public void setChannel(Channel channel) {
+    public void setChannel(JChannel channel) {
         this.channel = channel;
     }
 
@@ -178,7 +181,7 @@ public class JGroupsEndpoint extends DefaultEndpoint {
         this.channelProperties = channelProperties;
     }
 
-    Channel getResolvedChannel() {
+    JChannel getResolvedChannel() {
         return resolvedChannel;
     }
 
@@ -187,8 +190,8 @@ public class JGroupsEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * If set to true, the consumer endpoint will receive org.jgroups.View messages as well (not only org.jgroups.Message instances).
-     * By default only regular messages are consumed by the endpoint.
+     * If set to true, the consumer endpoint will receive org.jgroups.View messages as well (not only
+     * org.jgroups.Message instances). By default only regular messages are consumed by the endpoint.
      */
     public void setEnableViewMessages(boolean enableViewMessages) {
         this.enableViewMessages = enableViewMessages;

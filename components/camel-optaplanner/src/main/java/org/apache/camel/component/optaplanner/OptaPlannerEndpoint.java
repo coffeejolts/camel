@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,63 +16,116 @@
  */
 package org.apache.camel.component.optaplanner;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.camel.Category;
 import org.apache.camel.Component;
-import org.apache.camel.Exchange;
-import org.apache.camel.ExchangePattern;
-import org.apache.camel.component.ResourceEndpoint;
+import org.apache.camel.Consumer;
+import org.apache.camel.Processor;
+import org.apache.camel.Producer;
 import org.apache.camel.spi.UriEndpoint;
-import org.apache.camel.util.ObjectHelper;
-import org.optaplanner.core.api.domain.solution.Solution;
+import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 import org.optaplanner.core.api.solver.Solver;
 import org.optaplanner.core.api.solver.SolverFactory;
 
 /**
- * OptaPlanner endpoint for Camel
+ * Solve planning problems with OptaPlanner.
  */
-@UriEndpoint(scheme = "optaplanner", title = "OptaPlanner", syntax = "optaplanner:resourceUri", producerOnly = true, label = "engine,planning")
-public class OptaPlannerEndpoint extends ResourceEndpoint {
+@UriEndpoint(firstVersion = "2.13.0", scheme = "optaplanner", title = "OptaPlanner", syntax = "optaplanner:configFile",
+             category = { Category.ENGINE, Category.PLANNING })
+public class OptaPlannerEndpoint extends DefaultEndpoint {
+    private static final Map<String, Solver<Object>> SOLVERS = new HashMap<>();
+    private static final Map<Long, Set<OptaplannerSolutionEventListener>> SOLUTION_LISTENER = new HashMap();
 
-    private SolverFactory solverFactory;
+    private SolverFactory<Object> solverFactory;
 
-    public OptaPlannerEndpoint() {
+    @UriParam
+    private OptaPlannerConfiguration configuration;
+
+    public OptaPlannerEndpoint(String uri, Component component, OptaPlannerConfiguration configuration) {
+        super(uri, component);
+        this.configuration = configuration;
     }
 
-    public OptaPlannerEndpoint(String uri, Component component, String resourceUri) {
-        super(uri, component, resourceUri);
+    public OptaPlannerConfiguration getConfiguration() {
+        return configuration;
     }
 
-    public SolverFactory getSolverFactory() {
-        return solverFactory;
+    protected Solver<Object> getOrCreateSolver(String solverId) {
+        synchronized (SOLVERS) {
+            Solver<Object> solver = SOLVERS.get(solverId);
+            if (solver == null) {
+                solver = createSolver();
+                SOLVERS.put(solverId, solver);
+            }
+            return solver;
+        }
     }
 
-    public void setSolverFactory(SolverFactory solverFactory) {
-        this.solverFactory = solverFactory;
+    protected Solver<Object> createSolver() {
+        ClassLoader classLoader = getCamelContext().getApplicationContextClassLoader();
+        solverFactory = SolverFactory.createFromXmlResource(configuration.getConfigFile(), classLoader);
+        return solverFactory.buildSolver();
+    }
+
+    protected Solver<Object> getSolver(String solverId) {
+        synchronized (SOLVERS) {
+            return SOLVERS.get(solverId);
+        }
     }
 
     @Override
-    public ExchangePattern getExchangePattern() {
-        return ExchangePattern.InOut;
+    public Producer createProducer() {
+        return new OptaPlannerProducer(this, configuration);
     }
 
     @Override
-    protected String createEndpointUri() {
-        return "optaplanner:" + getResourceUri();
+    public Consumer createConsumer(Processor processor) throws Exception {
+        OptaPlannerConsumer consumer = new OptaPlannerConsumer(this, processor, configuration);
+        configureConsumer(consumer);
+        return consumer;
     }
 
     @Override
-    protected void onExchange(Exchange exchange) throws Exception {
-        ObjectHelper.notNull(solverFactory, "solverFactory");
-        Solver solver = solverFactory.buildSolver();
-
-        Solution planningProblem = exchange.getIn().getMandatoryBody(Solution.class);
-
-        solver.solve(planningProblem);
-        Solution bestSolution = solver.getBestSolution();
-
-        exchange.getOut().setBody(bestSolution);
-        // propagate headers and attachments
-        exchange.getOut().setHeaders(exchange.getIn().getHeaders());
-        exchange.getOut().setAttachments(exchange.getIn().getAttachments());
+    protected void doStart() throws Exception {
+        super.doStart();
     }
 
+    @Override
+    protected void doStop() throws Exception {
+        synchronized (SOLVERS) {
+            for (Map.Entry<String, Solver<Object>> solver : SOLVERS.entrySet()) {
+                solver.getValue().terminateEarly();
+                SOLVERS.remove(solver.getKey());
+            }
+        }
+        super.doStop();
+    }
+
+    protected Set<OptaplannerSolutionEventListener> getSolutionEventListeners(Long problemId) {
+        return SOLUTION_LISTENER.get(problemId);
+    }
+
+    protected synchronized void addSolutionEventListener(Long problemId, OptaplannerSolutionEventListener listener) {
+        Set<OptaplannerSolutionEventListener> listeners = SOLUTION_LISTENER.get(problemId);
+        if (listeners == null) {
+            listeners = new HashSet<>();
+            listeners.add(listener);
+            SOLUTION_LISTENER.put(problemId, listeners);
+        } else {
+            listeners.add(listener);
+        }
+    }
+
+    protected synchronized void removeSolutionEventListener(Long problemId, OptaplannerSolutionEventListener listener) {
+        Set<OptaplannerSolutionEventListener> listeners = SOLUTION_LISTENER.get(problemId);
+        listeners.remove(listener);
+        if (listeners.isEmpty()) {
+            SOLUTION_LISTENER.remove(problemId);
+        }
+    }
 }

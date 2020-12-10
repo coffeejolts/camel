@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,7 +27,6 @@ import java.util.NoSuchElementException;
 
 import com.univocity.parsers.common.AbstractParser;
 
-
 /**
  * This class unmarshalls the exchange body using an uniVocity parser.
  *
@@ -51,26 +50,26 @@ final class Unmarshaller<P extends AbstractParser<?>> {
     /**
      * Unmarshal from the given reader.
      *
-     * @param reader             reader to read from
-     * @param parser             uniVocity parser to use
-     * @param headerRowProcessor Row processor that retrieves the header
-     * @return Unmarshalled data
+     * @param  reader             reader to read from
+     * @param  parser             uniVocity parser to use
+     * @param  headerRowProcessor Row processor that retrieves the header
+     * @return                    Unmarshalled data
      */
     public Object unmarshal(Reader reader, P parser, HeaderRowProcessor headerRowProcessor) {
         parser.beginParsing(reader);
-        Iterator<?> iterator = asMap ? new MapRowIterator<P>(parser, headerRowProcessor) : new ListRowIterator<P>(parser);
+        Iterator<?> iterator = asMap ? new MapRowIterator<>(parser, headerRowProcessor) : new ListRowIterator<>(parser);
         return lazyLoad ? iterator : convertToList(iterator);
     }
 
     /**
      * Converts the given iterator into a list.
      *
-     * @param iterator iterator to convert
-     * @param <T>      item class
-     * @return a list that contains all the items of the iterator
+     * @param  iterator iterator to convert
+     * @param  <T>      item class
+     * @return          a list that contains all the items of the iterator
      */
     private static <T> List<T> convertToList(Iterator<T> iterator) {
-        List<T> result = new ArrayList<T>();
+        List<T> result = new ArrayList<>();
         while (iterator.hasNext()) {
             result.add(iterator.next());
         }
@@ -130,8 +129,8 @@ final class Unmarshaller<P extends AbstractParser<?>> {
         /**
          * Converts the rows into the expected object.
          *
-         * @param row row to convert
-         * @return converted row
+         * @param  row row to convert
+         * @return     converted row
          */
         protected abstract E convertRow(String[] row);
     }
@@ -187,7 +186,7 @@ final class Unmarshaller<P extends AbstractParser<?>> {
             String[] headers = headerRowProcessor.getHeaders();
 
             int size = Math.min(row.length, headers.length);
-            Map<String, String> result = new LinkedHashMap<String, String>(size);
+            Map<String, String> result = new LinkedHashMap<>(size);
             for (int i = 0; i < size; i++) {
                 result.put(headers[i], row[i]);
             }

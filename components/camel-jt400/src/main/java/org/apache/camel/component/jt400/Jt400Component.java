@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,18 +20,22 @@ import java.util.Map;
 
 import com.ibm.as400.access.AS400ConnectionPool;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.EndpointHelper;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.EndpointHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link org.apache.camel.Component} to provide integration with AS/400 objects.
+ * {@link org.apache.camel.Component} to provide integration with IBM i objects (IBM i is the replacement for AS/400 and
+ * iSeries servers).
  * 
  * Current implementation supports working with data queues (*DTAQ) and Program calls (*PGM)
  */
-public class Jt400Component extends UriEndpointComponent {
-    
+@Component("jt400")
+public class Jt400Component extends DefaultComponent {
+
     /**
      * Name of the connection pool URI option.
      */
@@ -43,15 +47,14 @@ public class Jt400Component extends UriEndpointComponent {
     private static final Logger LOG = LoggerFactory.getLogger(Jt400Component.class);
 
     /**
-     * Default connection pool used by the component. Note that this pool is
-     * lazily initialized. This is because in a scenario where the user always
-     * provides a pool, it would be wasteful for Camel to initialize and keep an
-     * idle pool.
+     * Default connection pool used by the component. Note that this pool is lazily initialized. This is because in a
+     * scenario where the user always provides a pool, it would be wasteful for Camel to initialize and keep an idle
+     * pool.
      */
+    @Metadata(label = "advanced")
     private AS400ConnectionPool connectionPool;
 
     public Jt400Component() {
-        super(Jt400Endpoint.class);
     }
 
     @Override
@@ -59,18 +62,19 @@ public class Jt400Component extends UriEndpointComponent {
         AS400ConnectionPool connectionPool;
         if (properties.containsKey(CONNECTION_POOL)) {
             LOG.trace("AS400ConnectionPool instance specified in the URI - will look it up.");
-            
+
             // We have chosen to handle the connectionPool option ourselves, so
             // we must remove it from the given parameter list (see
             // http://camel.apache.org/writing-components.html)
             String poolId = properties.remove(CONNECTION_POOL).toString();
-            connectionPool = EndpointHelper.resolveReferenceParameter(getCamelContext(), poolId, AS400ConnectionPool.class, true);
+            connectionPool
+                    = EndpointHelper.resolveReferenceParameter(getCamelContext(), poolId, AS400ConnectionPool.class, true);
         } else {
             LOG.trace("No AS400ConnectionPool instance specified in the URI - one will be provided.");
             connectionPool = getConnectionPool();
         }
 
-        String type = remaining.substring(remaining.lastIndexOf(".") + 1).toUpperCase();
+        String type = remaining.substring(remaining.lastIndexOf('.') + 1).toUpperCase();
         Jt400Endpoint endpoint = new Jt400Endpoint(uri, this, connectionPool);
         setProperties(endpoint, properties);
         endpoint.setType(Jt400Type.valueOf(type));
@@ -98,10 +102,10 @@ public class Jt400Component extends UriEndpointComponent {
     protected void doShutdown() throws Exception {
         super.doShutdown();
         if (connectionPool != null) {
-            LOG.info("Shutting down the default connection pool " + connectionPool + " ...");
+            LOG.info("Shutting down the default connection pool {} ...", connectionPool);
             connectionPool.close();
             connectionPool = null;
         }
     }
-    
+
 }

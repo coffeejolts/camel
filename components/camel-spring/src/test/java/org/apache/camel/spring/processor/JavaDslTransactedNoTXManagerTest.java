@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,28 +17,32 @@
 package org.apache.camel.spring.processor;
 
 import org.apache.camel.ContextTestSupport;
-import org.apache.camel.FailedToCreateRouteException;
 import org.apache.camel.NoSuchBeanException;
 import org.apache.camel.builder.RouteBuilder;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
  */
 public class JavaDslTransactedNoTXManagerTest extends ContextTestSupport {
 
+    @Test
     public void testTransactedNoTXManager() throws Exception {
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
                 from("direct:start")
-                    .transacted()
-                    .to("mock:result");
+                        .transacted()
+                        .to("mock:result");
             }
         });
         try {
             context.start();
             fail("Should have thrown an exception");
-        } catch (FailedToCreateRouteException e) {
+        } catch (Exception e) {
             NoSuchBeanException cause = assertIsInstanceOf(NoSuchBeanException.class, e.getCause());
             assertEquals("No bean could be found in the registry of type: PlatformTransactionManager", cause.getMessage());
         }

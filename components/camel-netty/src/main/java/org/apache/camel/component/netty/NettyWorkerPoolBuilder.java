@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,21 +16,22 @@
  */
 package org.apache.camel.component.netty;
 
-import java.util.concurrent.Executors;
-
-import org.jboss.netty.channel.socket.nio.NioWorkerPool;
-import org.jboss.netty.channel.socket.nio.WorkerPool;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.camel.util.concurrent.CamelThreadFactory;
 
 /**
- * A builder to create Netty {@link WorkerPool} which can be used for sharing worker pools
- * with multiple Netty {@link NettyServerBootstrapFactory} server bootstrap configurations.
+ * A builder to create Netty {@link io.netty.channel.EventLoopGroup} which can be used for sharing worker pools with
+ * multiple Netty {@link NettyServerBootstrapFactory} server bootstrap configurations.
  */
 public final class NettyWorkerPoolBuilder {
 
     private String name = "NettyWorker";
     private String pattern;
     private int workerCount;
-    private volatile WorkerPool workerPool;
+    private boolean nativeTransport;
+    private volatile EventLoopGroup workerPool;
 
     public void setName(String name) {
         this.name = name;
@@ -42,6 +43,10 @@ public final class NettyWorkerPoolBuilder {
 
     public void setWorkerCount(int workerCount) {
         this.workerCount = workerCount;
+    }
+
+    public void setNativeTransport(boolean nativeTransport) {
+        this.nativeTransport = nativeTransport;
     }
 
     public NettyWorkerPoolBuilder withName(String name) {
@@ -59,12 +64,30 @@ public final class NettyWorkerPoolBuilder {
         return this;
     }
 
+    public NettyWorkerPoolBuilder withNativeTransport(boolean nativeTransport) {
+        setNativeTransport(nativeTransport);
+        return this;
+    }
+
     /**
      * Creates a new worker pool.
      */
-    public WorkerPool build() {
-        int count = workerCount > 0 ? workerCount : NettyHelper.DEFAULT_IO_THREADS;
-        workerPool = new NioWorkerPool(Executors.newCachedThreadPool(), count, new CamelNettyThreadNameDeterminer(pattern, name));
+    public EventLoopGroup build() {
+        if (nativeTransport) {
+            workerPool = new EpollEventLoopGroup(workerCount, new CamelThreadFactory(pattern, name, false));
+        } else {
+            workerPool = new NioEventLoopGroup(workerCount, new CamelThreadFactory(pattern, name, false));
+        }
         return workerPool;
+    }
+
+    /**
+     * Shutdown the created worker pool
+     */
+    public void destroy() {
+        if (workerPool != null) {
+            workerPool.shutdownGracefully();
+            workerPool = null;
+        }
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,27 +20,28 @@ import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanServer;
 
-import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.jmx.JmxReporter;
 import com.codahale.metrics.json.MetricsModule;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelContextAware;
+import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.StaticService;
 import org.apache.camel.api.management.ManagedResource;
 import org.apache.camel.component.metrics.MetricsComponent;
 import org.apache.camel.spi.ManagementAgent;
 import org.apache.camel.spi.Registry;
-import org.apache.camel.support.ServiceSupport;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.support.service.ServiceSupport;
 
 /**
  * Service holding the {@link MetricRegistry} which registers all metrics.
  */
 @ManagedResource(description = "MetricsRegistry")
-public final class MetricsRegistryService extends ServiceSupport implements CamelContextAware, StaticService, MetricsRegistryMBean {
+public final class MetricsRegistryService extends ServiceSupport
+        implements CamelContextAware, StaticService, MetricsRegistryMBean {
 
     private CamelContext camelContext;
     private MetricRegistry metricsRegistry;
@@ -61,10 +62,12 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
         this.metricsRegistry = metricsRegistry;
     }
 
+    @Override
     public CamelContext getCamelContext() {
         return camelContext;
     }
 
+    @Override
     public void setCamelContext(CamelContext camelContext) {
         this.camelContext = camelContext;
     }
@@ -108,11 +111,9 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
     public void setDurationUnit(TimeUnit durationUnit) {
         this.durationUnit = durationUnit;
     }
-    
-    
 
     @Override
-    protected void doStart() throws Exception {
+    protected void doInit() throws Exception {
         if (metricsRegistry == null) {
             Registry camelRegistry = getCamelContext().getRegistry();
             metricsRegistry = camelRegistry.lookupByNameAndType(MetricsComponent.METRIC_REGISTRY_NAME, MetricRegistry.class);
@@ -122,6 +123,19 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
             }
         }
 
+        // json mapper
+        this.mapper = new ObjectMapper().registerModule(new MetricsModule(getRateUnit(), getDurationUnit(), false));
+        if (getRateUnit() == TimeUnit.SECONDS && getDurationUnit() == TimeUnit.SECONDS) {
+            // they both use same units so reuse
+            this.secondsMapper = this.mapper;
+        } else {
+            this.secondsMapper
+                    = new ObjectMapper().registerModule(new MetricsModule(TimeUnit.SECONDS, TimeUnit.SECONDS, false));
+        }
+    }
+
+    @Override
+    protected void doStart() throws Exception {
         if (useJmx) {
             ManagementAgent agent = getCamelContext().getManagementStrategy().getManagementAgent();
             if (agent != null) {
@@ -133,15 +147,6 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
             } else {
                 throw new IllegalStateException("CamelContext has not enabled JMX");
             }
-        }
-
-        // json mapper
-        this.mapper = new ObjectMapper().registerModule(new MetricsModule(getRateUnit(), getDurationUnit(), false));
-        if (getRateUnit() == TimeUnit.SECONDS && getDurationUnit() == TimeUnit.SECONDS) {
-            // they both use same units so reuse
-            this.secondsMapper = this.mapper;
-        } else {
-            this.secondsMapper = new ObjectMapper().registerModule(new MetricsModule(TimeUnit.SECONDS, TimeUnit.SECONDS, false));
         }
     }
 
@@ -162,10 +167,11 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
         try {
             return writer.writeValueAsString(getMetricsRegistry());
         } catch (JsonProcessingException e) {
-            throw ObjectHelper.wrapRuntimeCamelException(e);
+            throw RuntimeCamelException.wrapRuntimeCamelException(e);
         }
     }
 
+    @Override
     public String dumpStatisticsAsJsonTimeUnitSeconds() {
         ObjectWriter writer = secondsMapper.writer();
         if (isPrettyPrint()) {
@@ -174,9 +180,8 @@ public final class MetricsRegistryService extends ServiceSupport implements Came
         try {
             return writer.writeValueAsString(getMetricsRegistry());
         } catch (JsonProcessingException e) {
-            throw ObjectHelper.wrapRuntimeCamelException(e);
+            throw RuntimeCamelException.wrapRuntimeCamelException(e);
         }
     }
-    
-   
+
 }

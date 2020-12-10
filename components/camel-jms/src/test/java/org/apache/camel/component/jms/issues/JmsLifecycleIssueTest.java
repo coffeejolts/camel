@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,12 +22,13 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.ServiceStatus;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.CamelJmsTestHelper;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.ServiceStatus.Started;
 import static org.apache.camel.ServiceStatus.Stopped;
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JmsLifecycleIssueTest extends CamelTestSupport {
 
@@ -38,7 +39,7 @@ public class JmsLifecycleIssueTest extends CamelTestSupport {
     public void routeThatIsStoppedAndThenResumedAcceptsMessage() throws Exception {
         assertThatRouteIs(Stopped);
 
-        context.resumeRoute(ROUTE_ID);
+        context.getRouteController().resumeRoute(ROUTE_ID);
 
         assertRouteWorks();
     }
@@ -47,14 +48,14 @@ public class JmsLifecycleIssueTest extends CamelTestSupport {
     public void routeThatIsStoppedSuspendedAndThenResumedAcceptsMessage() throws Exception {
         assertThatRouteIs(Stopped);
 
-        context.suspendRoute(ROUTE_ID);
-        context.resumeRoute(ROUTE_ID);
+        context.getRouteController().resumeRoute(ROUTE_ID);
+        context.getRouteController().resumeRoute(ROUTE_ID);
 
         assertRouteWorks();
     }
 
     private void assertThatRouteIs(ServiceStatus expectedStatus) {
-        assertEquals(expectedStatus, context.getRouteStatus(ROUTE_ID));
+        assertEquals(expectedStatus, context.getRouteController().getRouteStatus(ROUTE_ID));
     }
 
     private void assertRouteWorks() throws Exception {
@@ -67,6 +68,7 @@ public class JmsLifecycleIssueTest extends CamelTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
         ConnectionFactory connectionFactory = CamelJmsTestHelper.createConnectionFactory();
@@ -83,8 +85,8 @@ public class JmsLifecycleIssueTest extends CamelTestSupport {
                     @Override
                     public void configure() throws Exception {
                         from(ENDPOINT_URI).routeId(ROUTE_ID).autoStartup(false)
-                            .to("log:input")
-                            .to("mock:result");
+                                .to("log:input")
+                                .to("mock:result");
                     }
                 });
             }

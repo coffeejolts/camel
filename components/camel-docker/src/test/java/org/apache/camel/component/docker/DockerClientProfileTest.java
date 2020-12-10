@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,9 +16,11 @@
  */
 package org.apache.camel.component.docker;
 
-import org.junit.Test;
+import org.apache.camel.component.docker.exception.DockerException;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Validates the {@link DockerClientProfile}
@@ -26,7 +28,7 @@ import static org.junit.Assert.assertEquals;
 public class DockerClientProfileTest {
 
     @Test
-    public void clientProfileTest() {
+    void clientProfileTest() {
         String host = "host";
         String email = "docker@camel.apache.org";
         String username = "user";
@@ -35,7 +37,7 @@ public class DockerClientProfileTest {
         Integer requestTimeout = 40;
         boolean secure = true;
         String certPath = "/docker/cert/path";
-
+        String cmdExecFactory = DockerConstants.DEFAULT_CMD_EXEC_FACTORY;
 
         DockerClientProfile clientProfile1 = new DockerClientProfile();
         clientProfile1.setHost(host);
@@ -46,6 +48,7 @@ public class DockerClientProfileTest {
         clientProfile1.setRequestTimeout(requestTimeout);
         clientProfile1.setSecure(secure);
         clientProfile1.setCertPath(certPath);
+        clientProfile1.setCmdExecFactory(cmdExecFactory);
 
         DockerClientProfile clientProfile2 = new DockerClientProfile();
         clientProfile2.setHost(host);
@@ -56,8 +59,36 @@ public class DockerClientProfileTest {
         clientProfile2.setRequestTimeout(requestTimeout);
         clientProfile2.setSecure(secure);
         clientProfile2.setCertPath(certPath);
+        clientProfile2.setCmdExecFactory(cmdExecFactory);
 
         assertEquals(clientProfile1, clientProfile2);
     }
 
+    @Test
+    void clientProfileUrlTest() throws DockerException {
+        DockerClientProfile profile = new DockerClientProfile();
+        profile.setHost("localhost");
+        profile.setPort(2375);
+        assertEquals("tcp://localhost:2375", profile.toUrl());
+    }
+
+    @Test
+    void clientProfileNoPortSpecifiedUrlTest() throws DockerException {
+        IllegalArgumentException iaex = assertThrows(IllegalArgumentException.class, () -> {
+            DockerClientProfile profile = new DockerClientProfile();
+            profile.setHost("localhost");
+            profile.toUrl();
+        });
+        assertEquals("port must be specified", iaex.getMessage());
+    }
+
+    @Test
+    void clientProfileWithSocketUrlTest() throws DockerException {
+        DockerClientProfile profile = new DockerClientProfile();
+        profile.setHost("/var/run/docker.sock");
+        // Port should be ignored
+        profile.setPort(2375);
+        profile.setSocket(true);
+        assertEquals("unix:///var/run/docker.sock", profile.toUrl());
+    }
 }

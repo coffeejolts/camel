@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,9 @@
 package org.apache.camel.component.docker;
 
 import java.lang.reflect.Array;
-import java.util.HashMap;
-import java.util.Map;
 
-import com.github.dockerjava.api.DockerClientException;
 import org.apache.camel.Message;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.util.StringHelper;
 import org.apache.commons.lang.BooleanUtils;
 
 /**
@@ -33,58 +30,17 @@ public final class DockerHelper {
     private static final String STRING_DELIMITER = ";";
 
     private DockerHelper() {
-        //Helpser class
+        // Helper class
     }
 
     /**
-     * Validates the URI parameters for a given {@link DockerOperation}
+     * Transforms a Docker Component header value to its analogous URI parameter
      *
-     * @param dockerOperation
-     * @param parameters
-     */
-    public static void validateParameters(DockerOperation dockerOperation, Map<String, Object> parameters) {
-        Map<String, Class<?>> validParamMap = new HashMap<String, Class<?>>();
-        validParamMap.putAll(DockerConstants.DOCKER_DEFAULT_PARAMETERS);
-        validParamMap.putAll(dockerOperation.getParameters());
-
-        for (String key : parameters.keySet()) {
-
-            String transformedKey = DockerHelper.transformToHeaderName(key);
-
-            // Validate URI parameter name
-            if (!validParamMap.containsKey(transformedKey)) {
-                throw new DockerClientException(key + " is not a valid URI parameter");
-            }
-
-
-            try {
-                Class<?> parameterClass = validParamMap.get(transformedKey);
-                Object parameterValue = parameters.get(key);
-
-                if (parameterClass == null || parameterValue == null) {
-                    throw new DockerClientException("Failed to validate parameter type for property " + key);
-                }
-
-                if (Integer.class == parameterClass) {
-                    Integer.parseInt((String) parameterValue);
-                } else if (Boolean.class == parameterClass) {
-                    BooleanUtils.toBooleanObject((String) parameterValue, "true", "false", "null");
-                }
-            } catch (Exception e) {
-                throw new DockerClientException("Failed to validate parameter type for property " + key);
-            }
-        }
-
-    }
-
-    /**
-     * Transforms a Docker Component header value to its' analogous URI parameter
-     *
-     * @param name
+     * @param  name
      * @return
      */
     public static String transformFromHeaderName(String name) {
-        ObjectHelper.notEmpty(name, "name");
+        StringHelper.notEmpty(name, "name");
 
         StringBuilder formattedName = new StringBuilder();
 
@@ -92,40 +48,20 @@ public final class DockerHelper {
 
         if (nameSubstring.length() > 0) {
             formattedName.append(nameSubstring.substring(0, 1).toLowerCase());
-            formattedName.append(nameSubstring.substring(1));
+            formattedName.append(nameSubstring, 1, nameSubstring.length());
         }
 
         return formattedName.toString();
     }
 
     /**
-     * Transforms a Docker Component URI parameter to its' analogous header value
+     * Attempts to locate a given property name within a URI parameter or the message header. A found value in a message
+     * header takes precedence over a URI parameter.
      *
-     * @param name
-     * @return
-     */
-    public static String transformToHeaderName(String name) {
-        ObjectHelper.notEmpty(name, "name");
-
-        StringBuilder formattedName = new StringBuilder(DockerConstants.DOCKER_PREFIX);
-
-
-        if (name.length() > 0) {
-            formattedName.append(name.substring(0, 1).toUpperCase());
-            formattedName.append(name.substring(1));
-        }
-
-        return formattedName.toString();
-    }
-
-    /**
-     * Attempts to locate a given property name within a URI parameter or the message header.
-     * A found value in a message header takes precedence over a URI parameter.
-     *
-     * @param name
-     * @param configuration
-     * @param message
-     * @param clazz
+     * @param  name
+     * @param  configuration
+     * @param  message
+     * @param  clazz
      * @return
      */
     public static <T> T getProperty(String name, DockerConfiguration configuration, Message message, Class<T> clazz) {
@@ -133,20 +69,21 @@ public final class DockerHelper {
     }
 
     /**
-     * Attempts to locate a given property name within a URI parameter or the message header.
-     * A found value in a message header takes precedence over a URI parameter. Returns a
-     * default value if given
+     * Attempts to locate a given property name within a URI parameter or the message header. A found value in a message
+     * header takes precedence over a URI parameter. Returns a default value if given
      *
-     * @param name
-     * @param configuration
-     * @param message
-     * @param clazz
-     * @param defaultValue
+     * @param  name
+     * @param  configuration
+     * @param  message
+     * @param  clazz
+     * @param  defaultValue
      * @return
      */
     @SuppressWarnings("unchecked")
-    public static <T> T getProperty(String name, DockerConfiguration configuration, Message message, Class<T> clazz, T defaultValue) {
-        // First attempt to locate property from Message Header, then fallback to Endpoint property
+    public static <
+            T> T getProperty(String name, DockerConfiguration configuration, Message message, Class<T> clazz, T defaultValue) {
+        // First attempt to locate property from Message Header, then fallback
+        // to Endpoint property
 
         if (message != null) {
             T headerProperty = message.getHeader(name, clazz);
@@ -172,17 +109,15 @@ public final class DockerHelper {
         }
 
         return null;
-
-
     }
 
     /**
-     * Attempts to locate a given property which is an array by name within a URI parameter or the message header.
-     * A found value in a message header takes precedence over a URI parameter.
+     * Attempts to locate a given property which is an array by name within a URI parameter or the message header. A
+     * found value in a message header takes precedence over a URI parameter.
      *
-     * @param name
-     * @param message
-     * @param clazz
+     * @param  name
+     * @param  message
+     * @param  clazz
      * @return
      */
     @SuppressWarnings("unchecked")
@@ -201,7 +136,8 @@ public final class DockerHelper {
                 }
 
                 if (header.getClass().isArray()) {
-                    if (header.getClass().getComponentType().isAssignableFrom(clazz) || header.getClass().getDeclaringClass().isAssignableFrom(clazz)) {
+                    if (header.getClass().getComponentType().isAssignableFrom(clazz)
+                            || header.getClass().getDeclaringClass().isAssignableFrom(clazz)) {
                         return (T[]) header;
                     }
                 }
@@ -210,12 +146,11 @@ public final class DockerHelper {
         }
 
         return null;
-
     }
 
     /**
-     * @param headerName name of the header
-     * @param message    the Camel message
+     * @param  headerName name of the header
+     * @param  message    the Camel message
      * @return
      */
     public static String[] parseDelimitedStringHeader(String headerName, Message message) {
@@ -234,7 +169,6 @@ public final class DockerHelper {
         }
 
         return null;
-
     }
 
 }

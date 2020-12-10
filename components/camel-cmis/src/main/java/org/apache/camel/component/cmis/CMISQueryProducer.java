@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 import org.apache.chemistry.opencmis.client.api.ItemIterable;
 import org.apache.chemistry.opencmis.client.api.QueryResult;
 
@@ -28,17 +28,26 @@ import org.apache.chemistry.opencmis.client.api.QueryResult;
  * The CMIS Query producer.
  */
 public class CMISQueryProducer extends DefaultProducer {
-    private final CMISSessionFacade cmisSessionFacade;
 
-    public CMISQueryProducer(CMISEndpoint endpoint, CMISSessionFacade cmisSessionFacade) {
+    private final CMISSessionFacadeFactory sessionFacadeFactory;
+    private CMISSessionFacade sessionFacade;
+
+    public CMISQueryProducer(CMISEndpoint endpoint, CMISSessionFacadeFactory sessionFacadeFactory) {
         super(endpoint);
-        this.cmisSessionFacade = cmisSessionFacade;
+        this.sessionFacadeFactory = sessionFacadeFactory;
+        this.sessionFacade = null;
     }
 
+    @Override
+    public CMISEndpoint getEndpoint() {
+        return (CMISEndpoint) super.getEndpoint();
+    }
+
+    @Override
     public void process(Exchange exchange) throws Exception {
         List<Map<String, Object>> nodes = executeQuery(exchange);
-        exchange.getOut().setBody(nodes);
-        exchange.getOut().setHeader(CamelCMISConstants.CAMEL_CMIS_RESULT_COUNT, nodes.size());
+        exchange.getMessage().setBody(nodes);
+        exchange.getMessage().setHeader(CamelCMISConstants.CAMEL_CMIS_RESULT_COUNT, nodes.size());
     }
 
     private List<Map<String, Object>> executeQuery(Exchange exchange) throws Exception {
@@ -46,8 +55,8 @@ public class CMISQueryProducer extends DefaultProducer {
         Boolean retrieveContent = getRetrieveContent(exchange);
         Integer readSize = getReadSize(exchange);
 
-        ItemIterable<QueryResult> itemIterable = cmisSessionFacade.executeQuery(query);
-        return cmisSessionFacade.retrieveResult(retrieveContent, readSize, itemIterable);
+        ItemIterable<QueryResult> itemIterable = getSessionFacade().executeQuery(query);
+        return getSessionFacade().retrieveResult(retrieveContent, readSize, itemIterable);
     }
 
     private Integer getReadSize(Exchange exchange) {
@@ -56,5 +65,14 @@ public class CMISQueryProducer extends DefaultProducer {
 
     private Boolean getRetrieveContent(Exchange exchange) {
         return exchange.getIn().getHeader(CamelCMISConstants.CAMEL_CMIS_RETRIEVE_CONTENT, Boolean.class);
+    }
+
+    private CMISSessionFacade getSessionFacade() throws Exception {
+        if (sessionFacade == null) {
+            sessionFacade = sessionFacadeFactory.create(getEndpoint());
+            sessionFacade.initSession();
+        }
+
+        return sessionFacade;
     }
 }

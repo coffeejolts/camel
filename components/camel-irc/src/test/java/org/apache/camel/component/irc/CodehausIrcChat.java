@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,20 +17,14 @@
 package org.apache.camel.component.irc;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.schwering.irc.lib.IRCConnection;
 import org.schwering.irc.lib.IRCEventAdapter;
 import org.schwering.irc.lib.IRCModeParser;
 import org.schwering.irc.lib.IRCUser;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @version 
- */
 public final class CodehausIrcChat {
 
     private static final Logger LOG = LoggerFactory.getLogger(CodehausIrcChat.class);
@@ -96,11 +90,12 @@ public final class CodehausIrcChat {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        List<IrcChannel> channels = new ArrayList<IrcChannel>();
-        channels.add(new IrcChannel("camel-test", null));
-        final IrcConfiguration config = new IrcConfiguration("irc.codehaus.org", "camel-rc", "Camel IRC Component", channels);
+        final IrcConfiguration config
+                = new IrcConfiguration("irc.codehaus.org", "camel-rc", "Camel IRC Component", "camel-test");
 
-        final IRCConnection conn = new IRCConnection(config.getHostname(), config.getPorts(), config.getPassword(), config.getNickname(), config.getUsername(), config.getRealname());
+        final IRCConnection conn = new IRCConnection(
+                config.getHostname(), config.getPorts(), config.getPassword(), config.getNickname(), config.getUsername(),
+                config.getRealname());
 
         conn.addIRCEventListener(new CodehausIRCEventAdapter());
         conn.setEncoding("UTF-8");
@@ -111,18 +106,18 @@ public final class CodehausIrcChat {
         try {
             conn.connect();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.debug("I/O error while connecting: {}", e.getMessage(), e);
         }
         // while (!conn.isConnected()) {
         // Thread.sleep(1000);
-        // LOG.info("Sleeping");
+        // log.info("Sleeping");
         // }
         LOG.info("Connected");
         // conn.send("/JOIN #camel-test");
 
-        // LOG.info("Joining Channel: " + config.getTarget());
+        // log.info("Joining Channel: " + config.getTarget());
 
-        for (IrcChannel channel : config.getChannels()) {
+        for (IrcChannel channel : config.getChannelList()) {
             conn.doJoin(channel.getName());
         }
 

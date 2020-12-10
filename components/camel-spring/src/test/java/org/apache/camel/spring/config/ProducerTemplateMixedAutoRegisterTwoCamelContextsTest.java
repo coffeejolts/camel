@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,14 +20,15 @@ import javax.annotation.Resource;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.ConsumerTemplate;
-import org.apache.camel.impl.DefaultProducerTemplate;
+import org.apache.camel.impl.engine.DefaultProducerTemplate;
 import org.apache.camel.spring.SpringRunWithTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ContextConfiguration;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 @ContextConfiguration
 public class ProducerTemplateMixedAutoRegisterTwoCamelContextsTest extends SpringRunWithTestSupport {
 
@@ -40,26 +41,26 @@ public class ProducerTemplateMixedAutoRegisterTwoCamelContextsTest extends Sprin
     @Test
     public void testHasTemplateCamel1() {
         DefaultProducerTemplate lookup = context1.getRegistry().lookupByNameAndType("template1", DefaultProducerTemplate.class);
-        assertNotNull("Should lookup producer template", lookup);
+        assertNotNull(lookup, "Should lookup producer template");
         assertEquals("camel1", lookup.getCamelContext().getName());
     }
 
     @Test
     public void testHasTemplateCamel2() {
         DefaultProducerTemplate lookup = context1.getRegistry().lookupByNameAndType("template2", DefaultProducerTemplate.class);
-        assertNotNull("Should lookup producer template", lookup);
+        assertNotNull(lookup, "Should lookup producer template");
         assertEquals("camel2", lookup.getCamelContext().getName());
     }
 
     @Test
     public void testHasNoConsumerTemplateCamel1() {
         ConsumerTemplate lookup = context1.getRegistry().lookupByNameAndType("consumerTemplate", ConsumerTemplate.class);
-        assertNull("Should NOT lookup consumer template", lookup);
+        assertNull(lookup, "Should NOT lookup consumer template");
     }
 
     @Test
     public void testHasNoConsumerTemplateCamel2() {
         ConsumerTemplate lookup = context2.getRegistry().lookupByNameAndType("consumerTemplate", ConsumerTemplate.class);
-        assertNull("Should NOT lookup consumer template", lookup);
+        assertNull(lookup, "Should NOT lookup consumer template");
     }
 }

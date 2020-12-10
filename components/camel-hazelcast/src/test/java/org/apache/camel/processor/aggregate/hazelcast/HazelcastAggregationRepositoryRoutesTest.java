@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,7 @@ import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
-
+import org.junit.jupiter.api.Test;
 
 public class HazelcastAggregationRepositoryRoutesTest extends HazelcastAggregationRepositoryCamelTestSupport {
 
@@ -31,23 +30,74 @@ public class HazelcastAggregationRepositoryRoutesTest extends HazelcastAggregati
     private static final String DIRECT_ONE = "direct:one";
     private static final String DIRECT_TWO = "direct:two";
 
-    @EndpointInject(uri = MOCK_GOTCHA)
+    @EndpointInject(MOCK_GOTCHA)
     private MockEndpoint mock;
 
-    @Produce(uri = DIRECT_ONE)
+    @Produce(DIRECT_ONE)
     private ProducerTemplate produceOne;
 
-    @Produce(uri = DIRECT_TWO)
+    @Produce(DIRECT_TWO)
     private ProducerTemplate produceTwo;
-
 
     @Test
     public void checkAggregationFromTwoRoutes() throws Exception {
-        final HazelcastAggregationRepository repoOne =
-                new HazelcastAggregationRepository(REPO_NAME, false, getFirstInstance());
+        final HazelcastAggregationRepository repoOne = new HazelcastAggregationRepository(REPO_NAME, false, getFirstInstance());
 
-        final HazelcastAggregationRepository repoTwo =
-                new HazelcastAggregationRepository(REPO_NAME, false, getSecondInstance());
+        final HazelcastAggregationRepository repoTwo
+                = new HazelcastAggregationRepository(REPO_NAME, false, getSecondInstance());
+
+        final int completionSize = 4;
+        final String correlator = "CORRELATOR";
+        RouteBuilder rbOne = new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+
+                from(DIRECT_ONE).routeId("AggregatingRouteOne")
+                        .aggregate(header(correlator))
+                        .aggregationRepository(repoOne)
+                        .aggregationStrategy(new SumOfIntsAggregationStrategy())
+                        .completionSize(completionSize)
+                        .to(MOCK_GOTCHA);
+            }
+        };
+
+        RouteBuilder rbTwo = new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+
+                from(DIRECT_TWO).routeId("AggregatingRouteTwo")
+                        .aggregate(header(correlator))
+                        .aggregationRepository(repoTwo)
+                        .aggregationStrategy(new SumOfIntsAggregationStrategy())
+                        .completionSize(completionSize)
+                        .to(MOCK_GOTCHA);
+            }
+        };
+
+        context().addRoutes(rbOne);
+        context().addRoutes(rbTwo);
+        context().start();
+
+        mock.expectedMessageCount(1);
+        mock.expectedBodiesReceived(1 + 2 + 3 + 4);
+
+        produceOne.sendBodyAndHeader(1, correlator, correlator);
+        produceTwo.sendBodyAndHeader(2, correlator, correlator);
+        produceOne.sendBodyAndHeader(3, correlator, correlator);
+        produceOne.sendBodyAndHeader(4, correlator, correlator);
+
+        mock.assertIsSatisfied();
+    }
+
+    @Test
+    public void checkAggregationFromTwoRoutesNoRecovery() throws Exception {
+        final HazelcastAggregationRepository repoOne = new HazelcastAggregationRepository(REPO_NAME, false, getFirstInstance());
+
+        final HazelcastAggregationRepository repoTwo
+                = new HazelcastAggregationRepository(REPO_NAME, false, getSecondInstance());
+
+        repoOne.setUseRecovery(false);
+        repoTwo.setUseRecovery(false);
 
         final int completionSize = 4;
         final String correlator = "CORRELATOR";

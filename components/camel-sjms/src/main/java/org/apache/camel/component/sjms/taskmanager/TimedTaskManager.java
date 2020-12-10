@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,8 +22,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * A thread safe task manager that allows you to add and cancel
- * {@link TimerTask} objects.
+ * A thread safe task manager that allows you to add and cancel {@link TimerTask} objects.
  */
 public class TimedTaskManager {
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,19 +26,21 @@ import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class HdfsProducerConsumerTest extends HdfsTestSupport {
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
-        if (!canTest()) {
-            return;
-        }
+        checkTest();
         super.setUp();
     }
-    
+
     @Override
     public boolean isUseRouteBuilder() {
         return false;
@@ -46,22 +48,22 @@ public class HdfsProducerConsumerTest extends HdfsTestSupport {
 
     @Test
     public void testSimpleSplitWriteRead() throws Exception {
-        if (!canTest()) {
-            return;
-        }
+        checkTest();
 
         final Path file = new Path(new File("target/test/test-camel-simple-write-file").getAbsolutePath());
 
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() {
-                from("direct:start").to("hdfs:///" + file.toUri() + "?fileSystemType=LOCAL&splitStrategy=BYTES:5,IDLE:1000");
-                from("hdfs:///" + file.toUri() + "?initialDelay=2000&fileSystemType=LOCAL&chunkSize=5").to("mock:result");
+                from("direct:start")
+                        .to("hdfs:localhost/" + file.toUri() + "?fileSystemType=LOCAL&splitStrategy=BYTES:5,IDLE:1000");
+                from("hdfs:localhost/" + file.toUri() + "?initialDelay=2000&fileSystemType=LOCAL&chunkSize=5")
+                        .to("mock:result");
             }
         });
         context.start();
 
-        List<String> expectedResults = new ArrayList<String>();
+        List<String> expectedResults = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
             template.sendBody("direct:start", "CIAO" + i);
             expectedResults.add("CIAO" + i);
@@ -78,10 +80,9 @@ public class HdfsProducerConsumerTest extends HdfsTestSupport {
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
-        if (!canTest()) {
-            return;
-        }
+        checkTest();
 
         super.tearDown();
         Thread.sleep(100);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,49 +24,55 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import com.lmax.disruptor.InsufficientCapacityException;
+import org.apache.camel.AsyncEndpoint;
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
 import org.apache.camel.MultipleConsumersSupport;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.ServiceStatus;
 import org.apache.camel.WaitForTaskToComplete;
 import org.apache.camel.api.management.ManagedAttribute;
 import org.apache.camel.api.management.ManagedResource;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An implementation of the <a href="https://github.com/sirchia/camel-disruptor">Disruptor component</a>
- * for asynchronous SEDA exchanges on an
- * <a href="https://github.com/LMAX-Exchange/disruptor">LMAX Disruptor</a> within a CamelContext
+ * Provides asynchronous SEDA behavior using LMAX Disruptor.
+ *
+ * This component works much as the standard SEDA Component, but utilizes a Disruptor instead of a BlockingQueue
+ * utilized by the standard SEDA.
  */
 @ManagedResource(description = "Managed Disruptor Endpoint")
-@UriEndpoint(scheme = "disruptor,disruptor-vm", title = "Disruptor,Disruptor VM", syntax = "disruptor:name", consumerClass = DisruptorConsumer.class, label = "endpoint")
-public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsumersSupport {
+@UriEndpoint(firstVersion = "2.12.0", scheme = "disruptor,disruptor-vm", title = "Disruptor,Disruptor VM",
+             syntax = "disruptor:name", category = { Category.ENDPOINT })
+public class DisruptorEndpoint extends DefaultEndpoint implements AsyncEndpoint, MultipleConsumersSupport {
     public static final String DISRUPTOR_IGNORE_EXCHANGE = "disruptor.ignoreExchange";
     private static final Logger LOGGER = LoggerFactory.getLogger(DisruptorEndpoint.class);
 
-    private final Set<DisruptorProducer> producers = new CopyOnWriteArraySet<DisruptorProducer>();
-    private final Set<DisruptorConsumer> consumers = new CopyOnWriteArraySet<DisruptorConsumer>();
+    private final Set<DisruptorProducer> producers = new CopyOnWriteArraySet<>();
+    private final Set<DisruptorConsumer> consumers = new CopyOnWriteArraySet<>();
     private final DisruptorReference disruptorReference;
 
-    @UriPath(description = "Name of queue") @Metadata(required = "true")
+    @UriPath(description = "Name of queue")
+    @Metadata(required = true)
     private String name;
     @UriParam(label = "consumer", defaultValue = "1")
-    private final int concurrentConsumers;
+    private int concurrentConsumers;
     @UriParam(label = "consumer")
-    private final boolean multipleConsumers;
+    private boolean multipleConsumers;
     @UriParam(label = "producer", defaultValue = "IfReplyExpected")
     private WaitForTaskToComplete waitForTaskToComplete = WaitForTaskToComplete.IfReplyExpected;
-    @UriParam(label = "producer", defaultValue = "30000")
+    @UriParam(label = "producer", defaultValue = "30000", javaType = "java.time.Duration")
     private long timeout = 30000;
+    @UriParam(defaultValue = "" + DisruptorComponent.DEFAULT_BUFFER_SIZE)
+    private int size;
     @UriParam(label = "producer")
     private boolean blockWhenFull;
     @UriParam(label = "consumer", defaultValue = "Blocking")
@@ -75,39 +81,10 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
     private DisruptorProducerType producerType;
 
     public DisruptorEndpoint(final String endpointUri, final Component component,
-                             final DisruptorReference disruptorReference, final int concurrentConsumers,
-                             final boolean multipleConsumers, boolean blockWhenFull) throws Exception {
+                             final DisruptorReference disruptorReference) {
         super(endpointUri, component);
         this.disruptorReference = disruptorReference;
         this.name = disruptorReference.getName();
-        this.concurrentConsumers = concurrentConsumers;
-        this.multipleConsumers = multipleConsumers;
-        this.blockWhenFull = blockWhenFull;
-    }
-
-    @ManagedAttribute(description = "Camel ID")
-    public String getCamelId() {
-        return getCamelContext().getName();
-    }
-
-    @ManagedAttribute(description = "Camel ManagementName")
-    public String getCamelManagementName() {
-        return getCamelContext().getManagementName();
-    }
-
-    @ManagedAttribute(description = "Endpoint Uri", mask = true)
-    public String getEndpointUri() {
-        return super.getEndpointUri();
-    }
-
-    @ManagedAttribute(description = "Service State")
-    public String getState() {
-        ServiceStatus status = this.getStatus();
-        // if no status exists then its stopped
-        if (status == null) {
-            status = ServiceStatus.Stopped;
-        }
-        return status.name();
     }
 
     @ManagedAttribute(description = "Queue name")
@@ -130,49 +107,77 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
         return getDisruptor().getPendingExchangeCount();
     }
 
-    /**
-     * Number of concurrent threads processing exchanges.
-     */
     @ManagedAttribute(description = "Number of concurrent consumers")
     public int getConcurrentConsumers() {
         return concurrentConsumers;
     }
 
+    /**
+     * Number of concurrent threads processing exchanges.
+     */
+    public void setConcurrentConsumers(int concurrentConsumers) {
+        this.concurrentConsumers = concurrentConsumers;
+    }
+
+    @ManagedAttribute(description = "Option to specify whether the caller should wait for the async task to complete or not before continuing")
     public WaitForTaskToComplete getWaitForTaskToComplete() {
         return waitForTaskToComplete;
     }
 
     /**
-     * Option to specify whether the caller should wait for the async task to complete or not before continuing.
-     * The following three options are supported: Always, Never or IfReplyExpected. The first two values are self-explanatory.
-     * The last value, IfReplyExpected, will only wait if the message is Request Reply based.
+     * Option to specify whether the caller should wait for the async task to complete or not before continuing. The
+     * following three options are supported: Always, Never or IfReplyExpected. The first two values are
+     * self-explanatory. The last value, IfReplyExpected, will only wait if the message is Request Reply based.
      */
     public void setWaitForTaskToComplete(final WaitForTaskToComplete waitForTaskToComplete) {
         this.waitForTaskToComplete = waitForTaskToComplete;
     }
 
-    @ManagedAttribute
+    @ManagedAttribute(description = "Timeout (in milliseconds) before a producer will stop waiting for an asynchronous task to complete")
     public long getTimeout() {
         return timeout;
     }
 
     /**
-     * Timeout (in milliseconds) before a producer will stop waiting for an asynchronous task to complete.
-     * You can disable timeout by using 0 or a negative value.
+     * Timeout (in milliseconds) before a producer will stop waiting for an asynchronous task to complete. You can
+     * disable timeout by using 0 or a negative value.
      */
     public void setTimeout(final long timeout) {
         this.timeout = timeout;
     }
 
+    @ManagedAttribute(description = "The maximum capacity of the Disruptors ringbuffer")
+    public int getSize() {
+        return size;
+    }
+
     /**
-     * Specifies whether multiple consumers are allowed.
-     * If enabled, you can use Disruptor for Publish-Subscribe messaging.
-     * That is, you can send a message to the queue and have each consumer receive a copy of the message.
-     * When enabled, this option should be specified on every consumer endpoint.
+     * The maximum capacity of the Disruptors ringbuffer Will be effectively increased to the nearest power of two.
+     * Notice: Mind if you use this option, then its the first endpoint being created with the queue name, that
+     * determines the size. To make sure all endpoints use same size, then configure the size option on all of them, or
+     * the first endpoint being created.
      */
-    @ManagedAttribute
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    @Override
+    @ManagedAttribute(description = "Specifies whether multiple consumers are allowed")
+    public boolean isMultipleConsumersSupported() {
+        return isMultipleConsumers();
+    }
+
     public boolean isMultipleConsumers() {
         return multipleConsumers;
+    }
+
+    /**
+     * Specifies whether multiple consumers are allowed. If enabled, you can use Disruptor for Publish-Subscribe
+     * messaging. That is, you can send a message to the queue and have each consumer receive a copy of the message.
+     * When enabled, this option should be specified on every consumer endpoint.
+     */
+    public void setMultipleConsumers(boolean multipleConsumers) {
+        this.multipleConsumers = multipleConsumers;
     }
 
     /**
@@ -189,54 +194,45 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
         return Collections.unmodifiableSet(producers);
     }
 
-    @Override
-    @ManagedAttribute
-    public boolean isMultipleConsumersSupported() {
-        return isMultipleConsumers();
-    }
-
     @ManagedAttribute
     public boolean isBlockWhenFull() {
         return blockWhenFull;
     }
 
     /**
-     * Whether a thread that sends messages to a full Disruptor will block until the ringbuffer's capacity is no longer exhausted.
-     * By default, the calling thread will block and wait until the message can be accepted.
-     * By disabling this option, an exception will be thrown stating that the queue is full.
+     * Whether a thread that sends messages to a full Disruptor will block until the ringbuffer's capacity is no longer
+     * exhausted. By default, the calling thread will block and wait until the message can be accepted. By disabling
+     * this option, an exception will be thrown stating that the queue is full.
      */
     public void setBlockWhenFull(boolean blockWhenFull) {
         this.blockWhenFull = blockWhenFull;
     }
 
+    @ManagedAttribute(description = "Defines the strategy used by consumer threads to wait on new exchanges to be published")
     public DisruptorWaitStrategy getWaitStrategy() {
         return waitStrategy;
     }
 
     /**
-     * Defines the strategy used by consumer threads to wait on new exchanges to be published.
-     * The options allowed are:Blocking, Sleeping, BusySpin and Yielding.
+     * Defines the strategy used by consumer threads to wait on new exchanges to be published. The options allowed
+     * are:Blocking, Sleeping, BusySpin and Yielding.
      */
     public void setWaitStrategy(DisruptorWaitStrategy waitStrategy) {
         this.waitStrategy = waitStrategy;
     }
 
+    @ManagedAttribute(description = " Defines the producers allowed on the Disruptor")
     public DisruptorProducerType getProducerType() {
         return producerType;
     }
 
     /**
-     * Defines the producers allowed on the Disruptor.
-     * The options allowed are: Multi to allow multiple producers and Single to enable certain optimizations only
-     * allowed when one concurrent producer (on one thread or otherwise synchronized) is active.
+     * Defines the producers allowed on the Disruptor. The options allowed are: Multi to allow multiple producers and
+     * Single to enable certain optimizations only allowed when one concurrent producer (on one thread or otherwise
+     * synchronized) is active.
      */
     public void setProducerType(DisruptorProducerType producerType) {
         this.producerType = producerType;
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
     }
 
     @Override
@@ -254,10 +250,10 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
     }
 
     @Override
-    protected void doStart() throws Exception {
+    protected void doInit() throws Exception {
+        super.doInit();
         // notify reference we are shutting down this endpoint
         disruptorReference.addEndpoint(this);
-        super.doStart();
     }
 
     @Override
@@ -279,7 +275,7 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
 
     @Override
     public DisruptorComponent getComponent() {
-        return (DisruptorComponent)super.getComponent();
+        return (DisruptorComponent) super.getComponent();
     }
 
     void onStarted(final DisruptorConsumer consumer) throws Exception {
@@ -293,11 +289,11 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
                 LOGGER.debug("Starting consumer {} on endpoint {}", consumer, getEndpointUri());
                 getDisruptor().reconfigure();
             } else {
-                LOGGER.debug("Tried to start Consumer {} on endpoint {} but it was already started", consumer, getEndpointUri());
+                LOGGER.debug("Tried to start Consumer {} on endpoint {} but it was already started", consumer,
+                        getEndpointUri());
             }
         }
     }
-
 
     void onStopped(final DisruptorConsumer consumer) throws Exception {
         synchronized (this) {
@@ -319,8 +315,7 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
     }
 
     Map<DisruptorConsumer, Collection<LifecycleAwareExchangeEventHandler>> createConsumerEventHandlers() {
-        Map<DisruptorConsumer, Collection<LifecycleAwareExchangeEventHandler>> result =
-                new HashMap<DisruptorConsumer, Collection<LifecycleAwareExchangeEventHandler>>();
+        Map<DisruptorConsumer, Collection<LifecycleAwareExchangeEventHandler>> result = new HashMap<>();
 
         for (final DisruptorConsumer consumer : consumers) {
             result.put(consumer, consumer.createEventHandlers(concurrentConsumers));
@@ -353,9 +348,9 @@ public class DisruptorEndpoint extends DefaultEndpoint implements MultipleConsum
     @Override
     public boolean equals(Object object) {
         boolean result = super.equals(object);
-        return result && getCamelContext().equals(((DisruptorEndpoint)object).getCamelContext());
+        return result && getCamelContext().equals(((DisruptorEndpoint) object).getCamelContext());
     }
-    
+
     @Override
     public int hashCode() {
         return getEndpointUri().hashCode() * 37 + getCamelContext().hashCode();

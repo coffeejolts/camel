@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,15 @@
 package org.apache.camel.converter.crypto;
 
 import java.security.Key;
+import java.security.SecureRandom;
 
 import javax.crypto.KeyGenerator;
+import javax.crypto.spec.GCMParameterSpec;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringCamelContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class SpringCryptoDataFormatTest extends CryptoDataFormatTest {
 
@@ -31,10 +34,11 @@ public class SpringCryptoDataFormatTest extends CryptoDataFormatTest {
     private static Key aeskey;
 
     @Override
-    protected RouteBuilder[] createRouteBuilders() throws Exception {
+    protected RouteBuilder[] createRouteBuilders() {
         return new RouteBuilder[] {};
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         KeyGenerator generator = KeyGenerator.getInstance("DES");
         deskey = generator.generateKey();
@@ -42,23 +46,31 @@ public class SpringCryptoDataFormatTest extends CryptoDataFormatTest {
         desEdekey = generator.generateKey();
         generator = KeyGenerator.getInstance("AES");
         aeskey = generator.generateKey();
-        return SpringCamelContext.springCamelContext("/org/apache/camel/component/crypto/SpringCryptoDataFormatTest.xml");
+        return SpringCamelContext.springCamelContext(
+                new ClassPathXmlApplicationContext("/org/apache/camel/component/crypto/SpringCryptoDataFormatTest.xml"), true);
     }
 
     public static Key getDesKey() {
         return deskey;
     }
-    
+
     public static Key getDesEdeKey() {
         return desEdekey;
     }
-    
+
     public static Key getAESKey() {
         return aeskey;
     }
 
     public static byte[] getIV() {
-        return new byte[] {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07};
+        return new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
     }
 
+    public static GCMParameterSpec getGCMParameterSpec() {
+        byte[] iv = new byte[12];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(iv);
+
+        return new GCMParameterSpec(128, iv);
+    }
 }

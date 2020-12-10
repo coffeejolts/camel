@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,15 @@ import java.net.URI;
 
 import org.apache.camel.component.ahc.AhcComponent;
 import org.apache.camel.component.ahc.AhcEndpoint;
+import org.apache.camel.spi.annotations.Component;
 
 /**
- *  Defines the <a href="http://camel.apache.org/ws.html">WebSocket Client Component</a>
+ * To exchange data with external Websocket servers using <a href="http://github.com/sonatype/async-http-client">Async
+ * Http Client</a>
  */
+@Component("ahc-ws,ahc-wss")
 public class WsComponent extends AhcComponent {
-    
+
     @Override
     protected String createAddressUri(String uri, String remaining) {
         // remove "ahc-"
@@ -34,7 +37,7 @@ public class WsComponent extends AhcComponent {
 
     @Override
     protected AhcEndpoint createAhcEndpoint(String endpointUri, AhcComponent component, URI httpUri) {
-        return new WsEndpoint(endpointUri, (WsComponent)component);
+        return new WsEndpoint(endpointUri, (WsComponent) component);
     }
 
 }

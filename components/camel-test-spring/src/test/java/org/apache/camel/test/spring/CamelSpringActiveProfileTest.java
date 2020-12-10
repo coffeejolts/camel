@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,17 +31,18 @@ import org.springframework.test.context.ContextConfiguration;
 /**
  * Spring style testing with annotations to configure and setup the test.
  * <p/>
- * As we do next extend any base test class, we need to inject our resources
- * for testing such as the {@link CamelContext} and {@link ProducerTemplate}.
+ * As we do next extend any base test class, we need to inject our resources for testing such as the
+ * {@link CamelContext} and {@link ProducerTemplate}.
  */
 @ContextConfiguration
 @ActiveProfiles("test")
-@RunWith(CamelSpringJUnit4ClassRunner.class)
+@RunWith(CamelSpringRunner.class)
 public class CamelSpringActiveProfileTest {
 
     @Autowired
     protected CamelContext camelContext;
-    @Produce(uri = "direct:start", context = "camelContext")
+
+    @Produce(value = "direct:start")
     protected ProducerTemplate start;
 
     @Test

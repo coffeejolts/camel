@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,6 +18,7 @@ package org.apache.camel.spring;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -25,26 +26,32 @@ import javax.xml.bind.annotation.XmlRootElement;
 
 import org.apache.camel.model.IdentifiedType;
 import org.apache.camel.model.RouteDefinition;
+import org.apache.camel.spi.Metadata;
 import org.springframework.beans.factory.FactoryBean;
 
 /**
- * @version 
+ * Configuration of routes using XML
  */
+@Metadata(label = "spring,configuration,routing")
 @XmlRootElement(name = "routeContext")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CamelRouteContextFactoryBean extends IdentifiedType implements FactoryBean<List<RouteDefinition>> {
 
     @XmlElement(name = "route", required = true)
-    private List<RouteDefinition> routes = new ArrayList<RouteDefinition>();
+    @Metadata(description = "Routes")
+    private List<RouteDefinition> routes = new ArrayList<>();
 
+    @Override
     public List<RouteDefinition> getObject() throws Exception {
         return routes;
     }
 
+    @Override
     public Class<?> getObjectType() {
         return routes.getClass();
     }
 
+    @Override
     public boolean isSingleton() {
         return true;
     }
@@ -56,5 +63,5 @@ public class CamelRouteContextFactoryBean extends IdentifiedType implements Fact
     public void setRoutes(List<RouteDefinition> routes) {
         this.routes = routes;
     }
-    
+
 }

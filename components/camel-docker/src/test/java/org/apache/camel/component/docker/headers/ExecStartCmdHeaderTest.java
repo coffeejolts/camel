@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,33 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.ExecStartCmd;
-
+import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Exec Start Request headers are parsed properly
  */
 public class ExecStartCmdHeaderTest extends BaseDockerHeaderTest<ExecStartCmd> {
+    private static final Logger LOG = LoggerFactory.getLogger(ExecStartCmdHeaderTest.class);
 
     @Mock
     private ExecStartCmd mockObject;
 
-    @Ignore
+    @Mock
+    private ExecStartResultCallback callback;
+
     @Test
-    public void execCreateHeaderTest() {
+    void execCreateHeaderTest() {
 
         String id = "1";
         boolean tty = true;
@@ -49,14 +56,20 @@ public class ExecStartCmdHeaderTest extends BaseDockerHeaderTest<ExecStartCmd> {
 
         template.sendBodyAndHeaders("direct:in", "", headers);
 
-        Mockito.verify(dockerClient, Mockito.times(1)).execStartCmd(Matchers.eq(id));
-        Mockito.verify(mockObject, Mockito.times(1)).withTty(Matchers.eq(tty));
+        Mockito.verify(dockerClient, Mockito.times(1)).execStartCmd(eq(id));
+        Mockito.verify(mockObject, Mockito.times(1)).withTty(eq(tty));
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.execStartCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.execStartCmd(anyString())).thenReturn(mockObject);
+        Mockito.when(mockObject.exec(any())).thenReturn(callback);
+        try {
+            Mockito.when(callback.awaitCompletion()).thenReturn(callback);
+        } catch (InterruptedException e) {
+            LOG.warn("Interrupted while setting up mocks", e);
+        }
     }
 
     @Override

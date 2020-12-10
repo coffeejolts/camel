@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,10 +21,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.camel.AsyncCallback;
-import org.apache.camel.AsyncProcessor;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.apache.camel.support.AsyncProcessorSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  *
@@ -32,45 +34,47 @@ import org.junit.Test;
 public class FromFtpAsyncProcessTest extends FtpServerTestSupport {
 
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/async/?password=admin&delete=true";
+        return "ftp://admin@localhost:{{ftp.server.port}}/async/?password=admin&delete=true";
     }
 
     @Test
     public void testFtpAsyncProcess() throws Exception {
-        template.sendBodyAndHeader("file:" + FTP_ROOT_DIR + "/async", "Hello World", Exchange.FILE_NAME, "hello.txt");
-        template.sendBodyAndHeader("file:" + FTP_ROOT_DIR + "/async", "Bye World", Exchange.FILE_NAME, "bye.txt");
+        template.sendBodyAndHeader("file:" + service.getFtpRootDir() + "/async", "Hello World", Exchange.FILE_NAME,
+                "hello.txt");
+        template.sendBodyAndHeader("file:" + service.getFtpRootDir() + "/async", "Bye World", Exchange.FILE_NAME, "bye.txt");
 
         getMockEndpoint("mock:result").expectedMessageCount(2);
         getMockEndpoint("mock:result").expectedHeaderReceived("foo", 123);
 
-        // the log file should log that all the ftp client work is done in the same thread (fully synchronous)
-        // as the ftp client is not thread safe and must process fully synchronous
+        // the log file should log that all the ftp client work is done in the
+        // same thread (fully synchronous)
+        // as the ftp client is not thread safe and must process fully
+        // synchronous
 
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         assertMockEndpointsSatisfied();
 
         // give time for files to be deleted on ftp server
         Thread.sleep(1000);
 
-        File hello = new File(FTP_ROOT_DIR + "/async/hello.txt");
-        assertFalse("File should not exist " + hello, hello.exists());
+        File hello = new File(service.getFtpRootDir() + "/async/hello.txt");
+        assertFalse(hello.exists(), "File should not exist " + hello);
 
-        File bye = new File(FTP_ROOT_DIR + "/async/bye.txt");
-        assertFalse("File should not exist " + bye, bye.exists());
+        File bye = new File(service.getFtpRootDir() + "/async/bye.txt");
+        assertFalse(bye.exists(), "File should not exist " + bye);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from(getFtpUrl()).routeId("foo").noAutoStartup()
-                    .process(new MyAsyncProcessor())
-                    .to("mock:result");
+                from(getFtpUrl()).routeId("foo").noAutoStartup().process(new MyAsyncProcessor()).to("mock:result");
             }
         };
     }
 
-    private class MyAsyncProcessor implements AsyncProcessor {
+    private class MyAsyncProcessor extends AsyncProcessorSupport {
 
         private ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -93,9 +97,5 @@ public class FromFtpAsyncProcessTest extends FtpServerTestSupport {
             return false;
         }
 
-        @Override
-        public void process(Exchange exchange) throws Exception {
-            // noop
-        }
     }
 }

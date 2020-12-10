@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,69 +18,66 @@ package org.apache.camel.component.mongodb;
 
 import com.mongodb.ReadPreference;
 import org.apache.camel.Endpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MongoDbReadPreferenceOptionTest extends AbstractMongoDbTest {
-    
+
     private MongoDbEndpoint endpoint;
 
     @Test
     public void testInvalidReadPreferenceOptionValue() throws Exception {
-        try {
-            createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=foo");
-            fail("Should have thrown exception");
-        } catch (IllegalArgumentException iae) {
-            assertTrue(iae.getMessage(), iae.getMessage().endsWith("No match for read preference of foo"));
-        }
+        endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=foo");
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> endpoint.getReadPreferenceBean());
+
+        assertTrue(ex.getMessage().startsWith("No match for read preference"));
     }
 
     @Test
     public void testNoReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}");
-        assertNull(endpoint.getReadPreference());
-        assertSame(ReadPreference.primary(), endpoint.getMongoConnection().getReadPreference()); // the default is primary
+        assertSame(ReadPreference.primary(), endpoint.getReadPreferenceBean());
+        // the default is primary
     }
 
     @Test
     public void testPrimaryReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=primary");
-        assertSame(ReadPreference.primary(), endpoint.getReadPreference());
-        assertSame(ReadPreference.primary(), endpoint.getMongoConnection().getReadPreference());
+        assertSame(ReadPreference.primary(), endpoint.getReadPreferenceBean());
     }
 
     @Test
     public void testPrimaryPreferredReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=primaryPreferred");
-        assertSame(ReadPreference.primaryPreferred(), endpoint.getReadPreference());
-        assertSame(ReadPreference.primaryPreferred(), endpoint.getMongoConnection().getReadPreference());
+        assertSame(ReadPreference.primaryPreferred(), endpoint.getReadPreferenceBean());
     }
 
     @Test
     public void testSecondaryReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=secondary");
-        assertSame(ReadPreference.secondary(), endpoint.getReadPreference());
-        assertSame(ReadPreference.secondary(), endpoint.getMongoConnection().getReadPreference());
+        assertSame(ReadPreference.secondary(), endpoint.getReadPreferenceBean());
     }
 
     @Test
     public void testSecondaryPreferredReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=secondaryPreferred");
-        assertSame(ReadPreference.secondaryPreferred(), endpoint.getReadPreference());
-        assertSame(ReadPreference.secondaryPreferred(), endpoint.getMongoConnection().getReadPreference());
+        assertSame(ReadPreference.secondaryPreferred(), endpoint.getReadPreferenceBean());
     }
 
     @Test
     public void testNearestReadPreferenceOptionValue() throws Exception {
         endpoint = createMongoDbEndpoint("mongodb:myDb?database={{mongodb.testDb}}&readPreference=nearest");
-        assertSame(ReadPreference.nearest(), endpoint.getReadPreference());
-        assertSame(ReadPreference.nearest(), endpoint.getMongoConnection().getReadPreference());
+        assertSame(ReadPreference.nearest(), endpoint.getReadPreferenceBean());
     }
 
     private MongoDbEndpoint createMongoDbEndpoint(String uri) throws Exception {
-        Endpoint endpoint = context().getComponent("mongodb").createEndpoint(uri);
-        endpoint.start();
-        return (MongoDbEndpoint) endpoint;
-
+        Endpoint mongoEndpoint = context().getComponent("mongodb").createEndpoint(uri);
+        mongoEndpoint.start();
+        return MongoDbEndpoint.class.cast(mongoEndpoint);
     }
-
 }

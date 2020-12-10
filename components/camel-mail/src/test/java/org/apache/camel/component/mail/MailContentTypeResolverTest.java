@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,18 +17,23 @@
 package org.apache.camel.component.mail;
 
 import java.util.Map;
+
 import javax.activation.DataHandler;
 import javax.activation.FileDataSource;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.Message;
 import org.apache.camel.Producer;
+import org.apache.camel.attachment.AttachmentMessage;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for Camel attachments and Mail attachments.
@@ -45,7 +50,7 @@ public class MailContentTypeResolverTest extends CamelTestSupport {
 
         // create the exchange with the mail message that is multipart with a file and a Hello World text/plain message.
         Exchange exchange = endpoint.createExchange();
-        Message in = exchange.getIn();
+        AttachmentMessage in = exchange.getIn(AttachmentMessage.class);
         in.setBody("Hello World");
         in.addAttachment("logo.jpeg", new DataHandler(new FileDataSource("src/test/data/logo.jpeg")));
 
@@ -56,34 +61,32 @@ public class MailContentTypeResolverTest extends CamelTestSupport {
         // and let it go (processes the exchange by sending the email)
         producer.process(exchange);
 
-        // need some time for the mail to arrive on the inbox (consumed and sent to the mock)
-        Thread.sleep(4000);
-
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
-        Exchange out = mock.assertExchangeReceived(0);
         mock.assertIsSatisfied();
+        Exchange out = mock.assertExchangeReceived(0);
 
         // plain text
         assertEquals("Hello World", out.getIn().getBody(String.class));
 
         // attachment
-        Map<String, DataHandler> attachments = out.getIn().getAttachments();
-        assertNotNull("Should have attachments", attachments);
+        Map<String, DataHandler> attachments = out.getIn(AttachmentMessage.class).getAttachments();
+        assertNotNull(attachments, "Should have attachments");
         assertEquals(1, attachments.size());
 
-        DataHandler handler = out.getIn().getAttachment("logo.jpeg");
-        assertNotNull("The logo should be there", handler);
+        DataHandler handler = out.getIn(AttachmentMessage.class).getAttachment("logo.jpeg");
+        assertNotNull(handler, "The logo should be there");
 
         // as we use a custom content type resolver the content type should then be fixed and correct
         // content type should match
         boolean match1 = "image/jpeg; name=logo.jpeg".equals(handler.getContentType());
         boolean match2 = "application/octet-stream; name=logo.jpeg".equals(handler.getContentType());
-        assertTrue("Should match 1 or 2", match1 || match2);
+        assertTrue(match1 || match2, "Should match 1 or 2");
 
         producer.stop();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
@@ -94,7 +97,7 @@ public class MailContentTypeResolverTest extends CamelTestSupport {
                     }
                 });
 
-                from("pop3://james@mymailserver.com?password=secret&consumer.delay=1000").to("mock:result");
+                from("pop3://james@mymailserver.com?password=secret&initialDelay=100&delay=100").to("mock:result");
             }
         };
     }

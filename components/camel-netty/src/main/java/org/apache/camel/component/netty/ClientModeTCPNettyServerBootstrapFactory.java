@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,68 +18,76 @@ package org.apache.camel.component.netty;
 
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoop;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.camel.CamelContext;
-import org.apache.camel.CamelException;
-import org.apache.camel.support.ServiceSupport;
-import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.socket.nio.BossPool;
-import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.jboss.netty.channel.socket.nio.WorkerPool;
-import org.jboss.netty.util.HashedWheelTimer;
+import org.apache.camel.support.service.ServiceSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A {@link org.apache.camel.component.netty.NettyServerBootstrapFactory} which is used by a single consumer (not shared).
+ * A {@link NettyServerBootstrapFactory} which is used by a single consumer (not shared).
  */
 public class ClientModeTCPNettyServerBootstrapFactory extends ServiceSupport implements NettyServerBootstrapFactory {
 
     protected static final Logger LOG = LoggerFactory.getLogger(ClientModeTCPNettyServerBootstrapFactory.class);
+
     private CamelContext camelContext;
     private ThreadFactory threadFactory;
     private NettyServerBootstrapConfiguration configuration;
-    private ChannelPipelineFactory pipelineFactory;
-    private ChannelFactory channelFactory;
-    private ClientBootstrap serverBootstrap;
+    private ChannelInitializer<Channel> pipelineFactory;
+    private Bootstrap clientBootstrap;
     private Channel channel;
-    private BossPool bossPool;
-    private WorkerPool workerPool;
-   
+    private EventLoopGroup workerGroup;
 
-    public void init(CamelContext camelContext, NettyServerBootstrapConfiguration configuration, ChannelPipelineFactory pipelineFactory) {
+    public ClientModeTCPNettyServerBootstrapFactory() {
+    }
+
+    @Override
+    public void init(
+            CamelContext camelContext, NettyServerBootstrapConfiguration configuration,
+            ChannelInitializer<Channel> pipelineFactory) {
         this.camelContext = camelContext;
         this.configuration = configuration;
         this.pipelineFactory = pipelineFactory;
     }
 
-    public void init(ThreadFactory threadFactory, NettyServerBootstrapConfiguration configuration, ChannelPipelineFactory pipelineFactory) {
+    @Override
+    public void init(
+            ThreadFactory threadFactory, NettyServerBootstrapConfiguration configuration,
+            ChannelInitializer<Channel> pipelineFactory) {
         this.threadFactory = threadFactory;
         this.configuration = configuration;
         this.pipelineFactory = pipelineFactory;
     }
 
+    @Override
     public void addChannel(Channel channel) {
         // we don't need to track the channel in client mode
     }
 
+    @Override
     public void removeChannel(Channel channel) {
         // we don't need to track the channel in client mode
     }
 
+    @Override
     public void addConsumer(NettyConsumer consumer) {
         // does not allow sharing
     }
 
+    @Override
     public void removeConsumer(NettyConsumer consumer) {
         // does not allow sharing
     }
@@ -97,131 +105,120 @@ public class ClientModeTCPNettyServerBootstrapFactory extends ServiceSupport imp
         stopServerBootstrap();
     }
 
-    @Override
-    protected void doResume() throws Exception {
-        ChannelFuture connectFuture = serverBootstrap.connect(new InetSocketAddress(configuration.getHost(), configuration.getPort()));
-        channel = openChannel(connectFuture);
-    }
-
-    @Override
-    protected void doSuspend() throws Exception {
-        if (channel != null) {
-            LOG.debug("ServerBootstrap disconnecting from {}:{}", configuration.getHost(), configuration.getPort());
-            channel.disconnect().sync();
-            channel = null;
-        }
-    }
-
-    protected void startServerBootstrap() {
+    protected void startServerBootstrap() throws Exception {
         // prefer using explicit configured thread pools
-        BossPool bp = configuration.getBossPool();
-        WorkerPool wp = configuration.getWorkerPool();
 
-        if (bp == null) {
+        EventLoopGroup wg = configuration.getWorkerGroup();
+
+        if (wg == null) {
             // create new pool which we should shutdown when stopping as its not shared
-            bossPool = new NettyClientBossPoolBuilder()
-                    .withTimer(new HashedWheelTimer())
-                    .withBossCount(configuration.getBossCount())
-                    .withName("NettyClientTCPBoss")
-                    .build();
-            bp = bossPool;
-        }
-        if (wp == null) {
-            // create new pool which we should shutdown when stopping as its not shared
-            workerPool = new NettyWorkerPoolBuilder()
+            workerGroup = new NettyWorkerPoolBuilder()
+                    .withNativeTransport(configuration.isNativeTransport())
                     .withWorkerCount(configuration.getWorkerCount())
                     .withName("NettyServerTCPWorker")
                     .build();
-            wp = workerPool;
+            wg = workerGroup;
         }
 
-        channelFactory = new NioClientSocketChannelFactory(bp, wp);
-
-        serverBootstrap = new ClientBootstrap(channelFactory);
-        serverBootstrap.setOption("keepAlive", configuration.isKeepAlive());
-        serverBootstrap.setOption("tcpNoDelay", configuration.isTcpNoDelay());
-        serverBootstrap.setOption("reuseAddress", configuration.isReuseAddress());
-        serverBootstrap.setOption("connectTimeoutMillis", configuration.getConnectTimeout());
-        if (configuration.getBacklog() > 0) {
-            serverBootstrap.setOption("backlog", configuration.getBacklog());
+        clientBootstrap = new Bootstrap();
+        if (configuration.isNativeTransport()) {
+            clientBootstrap.channel(EpollSocketChannel.class);
+        } else {
+            clientBootstrap.channel(NioSocketChannel.class);
         }
+        clientBootstrap.group(wg);
+        clientBootstrap.option(ChannelOption.SO_KEEPALIVE, configuration.isKeepAlive());
+        clientBootstrap.option(ChannelOption.TCP_NODELAY, configuration.isTcpNoDelay());
+        clientBootstrap.option(ChannelOption.SO_REUSEADDR, configuration.isReuseAddress());
+        clientBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.getConnectTimeout());
 
-        // set any additional netty options
-        if (configuration.getOptions() != null) {
-            for (Map.Entry<String, Object> entry : configuration.getOptions().entrySet()) {
-                serverBootstrap.setOption(entry.getKey(), entry.getValue());
-            }
-        }
-
-        LOG.debug("Created ServerBootstrap {} with options: {}", serverBootstrap, serverBootstrap.getOptions());
-
-        // set the pipeline factory, which creates the pipeline for each newly created channels
-        serverBootstrap.setPipelineFactory(pipelineFactory);
-
-        LOG.info("ServerBootstrap connecting to {}:{}", configuration.getHost(), configuration.getPort());
-        ChannelFuture connectFuture = serverBootstrap.connect(new InetSocketAddress(configuration.getHost(), configuration.getPort()));
-        try {
-            channel = openChannel(connectFuture);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    protected Channel openChannel(ChannelFuture channelFuture) throws Exception {
-        // blocking for channel to be done
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("Waiting for operation to complete {} for {} millis", channelFuture, configuration.getConnectTimeout());
-        }
-        // here we need to wait it in other thread
-        final CountDownLatch channelLatch = new CountDownLatch(1);
-        channelFuture.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture cf) throws Exception {
-                channelLatch.countDown();
-            }
-        });
-
-        try {
-            channelLatch.await(configuration.getConnectTimeout(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ex) {
-            throw new CamelException("Interrupted while waiting for " + "connection to "
-                    + configuration.getAddress());
-        }
-
-        if (!channelFuture.isDone() || !channelFuture.isSuccess()) {
-            ConnectException cause = new ConnectException("Cannot connect to " + configuration.getAddress());
-            if (channelFuture.getCause() != null) {
-                cause.initCause(channelFuture.getCause());
-            }
-            throw cause;
-        }
-        Channel answer = channelFuture.getChannel();
-
+        LOG.debug("Created ClientBootstrap {}", clientBootstrap);
+        clientBootstrap.handler(pipelineFactory);
+        ChannelFuture channelFuture
+                = clientBootstrap.connect(new InetSocketAddress(configuration.getHost(), configuration.getPort()));
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Creating connector to address: {}", configuration.getAddress());
+            LOG.debug("Created new TCP client bootstrap connecting to {}:{} with options: {}",
+                    new Object[] { configuration.getHost(), configuration.getPort(), clientBootstrap });
         }
-        return answer;
+        LOG.info("ClientModeServerBootstrap binding to {}:{}", configuration.getHost(), configuration.getPort());
+        channel = openChannel(channelFuture);
     }
 
     protected void stopServerBootstrap() {
         // close all channels
-        LOG.info("ServerBootstrap disconnecting from {}:{}", configuration.getHost(), configuration.getPort());
+        LOG.info("ClientModeServerBootstrap unbinding from {}:{}", configuration.getHost(), configuration.getPort());
 
-        // close server external resources
-        if (channelFactory != null) {
-            channelFactory.releaseExternalResources();
-            channelFactory = null;
+        if (workerGroup != null) {
+            workerGroup.shutdownGracefully();
+            workerGroup = null;
+        }
+    }
+
+    protected void doReconnectIfNeeded() throws Exception {
+        if (channel == null || !channel.isActive()) {
+            LOG.debug("ClientModeServerBootstrap re-connect to {}:{}", configuration.getHost(), configuration.getPort());
+            ChannelFuture connectFuture
+                    = clientBootstrap.connect(new InetSocketAddress(configuration.getHost(), configuration.getPort()));
+            channel = openChannel(connectFuture);
+        }
+    }
+
+    protected Channel openChannel(final ChannelFuture channelFuture) throws Exception {
+        // blocking for channel to be done
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Waiting for operation to complete {} for {} millis", channelFuture, configuration.getConnectTimeout());
         }
 
-        // and then shutdown the thread pools
-        if (bossPool != null) {
-            bossPool.shutdown();
-            bossPool = null;
+        // wait for the channel to be open (see io.netty.channel.ChannelFuture javadoc for example/recommendation)
+        channelFuture.awaitUninterruptibly();
+
+        if (!channelFuture.isDone() || !channelFuture.isSuccess()) {
+            //check if reconnect is enabled and schedule a reconnect, if from handler then don't schedule a reconnect
+            if (configuration.isReconnect()) {
+                scheduleReconnect(channelFuture);
+                return null;
+            } else {
+                ConnectException cause = new ConnectException("Cannot connect to " + configuration.getAddress());
+                if (channelFuture.cause() != null) {
+                    cause.initCause(channelFuture.cause());
+                }
+                throw cause;
+            }
         }
-        if (workerPool != null) {
-            workerPool.shutdown();
-            workerPool = null;
+        Channel answer = channelFuture.channel();
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Creating connector to address: {}", configuration.getAddress());
         }
+
+        // schedule a reconnect to happen when the channel closes
+        if (configuration.isReconnect()) {
+            answer.closeFuture().addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    scheduleReconnect(channelFuture);
+                }
+            });
+        }
+
+        return answer;
+    }
+
+    private void scheduleReconnect(final ChannelFuture channelFuture) {
+        final EventLoop loop = channelFuture.channel().eventLoop();
+        loop.schedule(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    LOG.trace("Re-connecting to {} if needed", configuration.getAddress());
+                    doReconnectIfNeeded();
+                } catch (Exception e) {
+                    LOG.warn("Error during re-connect to {}. Will attempt again in {} millis. This exception is ignored.",
+                            configuration.getAddress(), configuration.getReconnectInterval(),
+                            e);
+                }
+            }
+        }, configuration.getReconnectInterval(), TimeUnit.MILLISECONDS);
     }
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,23 +19,17 @@ package org.apache.camel.converter.dozer;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import com.github.dozermapper.core.util.DozerClassLoader;
+import com.github.dozermapper.core.util.MappingUtils;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.dozer.util.DozerClassLoader;
-import org.dozer.util.MappingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DozerThreadContextClassLoader implements DozerClassLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(DozerThreadContextClassLoader.class);
-    
-    private final DozerClassLoader delegate;
 
-    public DozerThreadContextClassLoader(DozerClassLoader delegate) {
-        this.delegate = delegate;
-    }
-    
     @Override
     public Class<?> loadClass(String className) {
         LOG.debug("Loading class from classloader: {}.", Thread.currentThread().getContextClassLoader());
@@ -44,11 +38,7 @@ public class DozerThreadContextClassLoader implements DozerClassLoader {
             // try to resolve the class from the thread context classloader
             result = ClassUtils.getClass(Thread.currentThread().getContextClassLoader(), className);
         } catch (ClassNotFoundException e) {
-            // if unresolvable, ask the delegate
-            result = delegate.loadClass(className);
-            if (result == null) {
-                MappingUtils.throwMappingException(e);
-            }
+            MappingUtils.throwMappingException(e);
         }
         return result;
     }
@@ -63,11 +53,6 @@ public class DozerThreadContextClassLoader implements DozerClassLoader {
             answer = cl.getResource(uri);
         }
 
-        // try loading it from the delegate
-        if (answer == null && delegate != null) {
-            answer = delegate.loadResource(uri);
-        }
-        
         // try treating it as a system resource
         if (answer == null) {
             answer = ClassLoader.getSystemResource(uri);

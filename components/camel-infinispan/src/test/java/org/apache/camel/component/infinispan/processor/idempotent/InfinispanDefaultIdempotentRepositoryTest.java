@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,7 +16,11 @@
  */
 package org.apache.camel.component.infinispan.processor.idempotent;
 
-import org.junit.Test;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.global.GlobalConfiguration;
+import org.infinispan.configuration.global.GlobalConfigurationBuilder;
+import org.infinispan.manager.DefaultCacheManager;
+import org.junit.jupiter.api.Test;
 
 import static org.jgroups.util.Util.assertFalse;
 import static org.jgroups.util.Util.assertTrue;
@@ -25,7 +29,10 @@ public class InfinispanDefaultIdempotentRepositoryTest {
 
     @Test
     public void createsRepositoryUsingInternalCache() throws Exception {
-        InfinispanIdempotentRepository repository = InfinispanIdempotentRepository.infinispanIdempotentRepository();
+        GlobalConfiguration global = new GlobalConfigurationBuilder().defaultCacheName("default").build();
+        DefaultCacheManager basicCacheContainer = new DefaultCacheManager(global, new ConfigurationBuilder().build());
+        InfinispanIdempotentRepository repository
+                = InfinispanIdempotentRepository.infinispanIdempotentRepository(basicCacheContainer, "default");
 
         assertFalse(repository.contains("One"));
         assertFalse(repository.remove("One"));
@@ -37,5 +44,22 @@ public class InfinispanDefaultIdempotentRepositoryTest {
 
         assertFalse(repository.contains("One"));
         assertFalse(repository.remove("One"));
+
+        assertTrue(repository.add("One"));
+        assertTrue(repository.add("Two"));
+        assertTrue(repository.add("Three"));
+        assertTrue(repository.add("Four"));
+
+        assertTrue(repository.contains("One"));
+        assertTrue(repository.contains("Two"));
+        assertTrue(repository.contains("Three"));
+        assertTrue(repository.contains("Four"));
+
+        repository.clear();
+
+        assertFalse(repository.contains("One"));
+        assertFalse(repository.contains("Two"));
+        assertFalse(repository.contains("Three"));
+        assertFalse(repository.contains("Four"));
     }
 }

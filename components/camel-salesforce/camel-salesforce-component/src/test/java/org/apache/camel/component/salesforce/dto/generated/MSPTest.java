@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,18 +16,19 @@
  */
 package org.apache.camel.component.salesforce.dto.generated;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
-
 import org.apache.camel.component.salesforce.api.MultiSelectPicklistConverter;
 import org.apache.camel.component.salesforce.api.MultiSelectPicklistDeserializer;
 import org.apache.camel.component.salesforce.api.MultiSelectPicklistSerializer;
 import org.apache.camel.component.salesforce.api.dto.AbstractSObjectBase;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.annotate.JsonValue;
-import org.codehaus.jackson.map.annotate.JsonDeserialize;
-import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 /**
  * Sample POJO for MSP tests.
@@ -36,11 +37,16 @@ import org.codehaus.jackson.map.annotate.JsonSerialize;
 @XStreamAlias("MSPTest")
 public class MSPTest extends AbstractSObjectBase {
 
+    public MSPTest() {
+        getAttributes().setType("MSPTest");
+    }
+
     @XStreamConverter(MultiSelectPicklistConverter.class)
     private MSPEnum[] MspField;
 
     @JsonProperty("MspField")
     @JsonSerialize(using = MultiSelectPicklistSerializer.class)
+    @JsonInclude(value = Include.ALWAYS)
     public MSPEnum[] getMspField() {
         return MspField;
     }
@@ -81,7 +87,6 @@ public class MSPTest extends AbstractSObjectBase {
             }
             throw new IllegalArgumentException(value);
         }
-
     }
 }
 //CHECKSTYLE:ON

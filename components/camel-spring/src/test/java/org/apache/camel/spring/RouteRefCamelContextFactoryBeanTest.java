@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,24 +23,26 @@ import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class RouteRefCamelContextFactoryBeanTest extends RoutingUsingCamelContextFactoryTest {
-    
+
     public static class MyRoutes implements RoutesBuilder {
         private RouteBuilder myRouteBuilder;
-        
+
         public MyRoutes() {
             myRouteBuilder = new RouteBuilder() {
                 @Override
                 public void configure() throws Exception {
-                    from("seda:start").to("mock:result");   
+                    from("seda:start").to("mock:result");
                 }
             };
         }
 
+        @Override
         public void addRoutesToCamelContext(CamelContext camelContext) throws Exception {
             camelContext.addRoutes(myRouteBuilder);
         }
     }
-    
+
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/routeRefCamelContextFactory.xml");
     }

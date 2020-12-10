@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,14 +24,15 @@ import javax.xml.crypto.dsig.Reference;
 import org.apache.camel.component.xmlsecurity.api.DefaultXmlSignature2Message;
 
 /**
- * Removes all references whose URIs contain "propert" from the relevant
- * references for the mapping to the camel message.
+ * Removes all references whose URIs contain "propert" from the relevant references for the mapping to the camel
+ * message.
  */
 public class XmlSignature2Message2MessageWithTimestampProperty extends DefaultXmlSignature2Message {
 
+    @Override
     protected List<Reference> getReferencesForMessageMapping(Input input) throws Exception {
 
-        List<Reference> result = new ArrayList<Reference>(1);
+        List<Reference> result = new ArrayList<>(1);
         for (Reference ref : input.getReferences()) {
             if (ref.getURI() != null && ref.getURI().contains("propert")) {
                 // do not add 

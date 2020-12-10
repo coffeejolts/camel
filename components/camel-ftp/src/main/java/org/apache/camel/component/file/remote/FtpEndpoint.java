@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,34 +19,68 @@ package org.apache.camel.component.file.remote;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.camel.Category;
 import org.apache.camel.FailedToCreateConsumerException;
 import org.apache.camel.FailedToCreateProducerException;
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.Processor;
+import org.apache.camel.api.management.ManagedAttribute;
+import org.apache.camel.api.management.ManagedResource;
 import org.apache.camel.component.file.GenericFileConfiguration;
+import org.apache.camel.component.file.GenericFileProcessStrategy;
 import org.apache.camel.component.file.GenericFileProducer;
 import org.apache.camel.component.file.remote.RemoteFileConfiguration.PathSeparator;
+import org.apache.camel.component.file.remote.strategy.FtpProcessStrategyFactory;
+import org.apache.camel.component.file.strategy.FileMoveExistingStrategy;
+import org.apache.camel.spi.ClassResolver;
+import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.PlatformHelper;
+import org.apache.camel.util.ObjectHelper;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPClientConfig;
 import org.apache.commons.net.ftp.FTPFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * FTP endpoint
+ * Upload and download files to/from FTP servers.
  */
-@UriEndpoint(scheme = "ftp", title = "FTP", syntax = "ftp:host:port/directoryName", consumerClass = FtpConsumer.class, label = "file")
+@UriEndpoint(firstVersion = "1.1.0", scheme = "ftp", extendsScheme = "file", title = "FTP",
+             syntax = "ftp:host:port/directoryName", alternativeSyntax = "ftp:username:password@host:port/directoryName",
+             category = { Category.FILE })
+@Metadata(excludeProperties = "appendChars,readLockIdempotentReleaseAsync,readLockIdempotentReleaseAsyncPoolSize,"
+                              + "readLockIdempotentReleaseDelay,readLockIdempotentReleaseExecutorService,"
+                              + "directoryMustExist,extendedAttributes,probeContentType,startingDirectoryMustExist,"
+                              + "startingDirectoryMustHaveAccess,chmodDirectory,forceWrites,copyAndDeleteOnRenameFail,"
+                              + "renameUsingCopy")
+@ManagedResource(description = "Managed FtpEndpoint")
 public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> {
 
-    protected FTPClient ftpClient;
-    protected FTPClientConfig ftpClientConfig;
-    protected Map<String, Object> ftpClientParameters;
-    protected Map<String, Object> ftpClientConfigParameters;
+    private static final Logger LOG = LoggerFactory.getLogger(FtpEndpoint.class);
+
+    protected int soTimeout;
+    protected int dataTimeout;
+
     @UriParam
     protected FtpConfiguration configuration;
-    @UriParam
-    protected int soTimeout;
-    @UriParam
-    protected int dataTimeout;
+    @UriParam(label = "advanced")
+    protected FTPClientConfig ftpClientConfig;
+    @UriParam(label = "advanced", prefix = "ftpClientConfig.", multiValue = true)
+    protected Map<String, Object> ftpClientConfigParameters;
+    @UriParam(label = "advanced", prefix = "ftpClient.", multiValue = true)
+    protected Map<String, Object> ftpClientParameters;
+    @UriParam(label = "advanced")
+    protected FTPClient ftpClient;
+    @UriParam(label = "common", defaultValue = "DEBUG")
+    protected LoggingLevel transferLoggingLevel = LoggingLevel.DEBUG;
+    @UriParam(label = "common", defaultValue = "5")
+    protected int transferLoggingIntervalSeconds = 5;
+    @UriParam(label = "common")
+    protected boolean transferLoggingVerbose;
+    @UriParam(label = "consumer")
+    protected boolean resumeDownload;
 
     public FtpEndpoint() {
     }
@@ -62,34 +96,68 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
     }
 
     @Override
+    public RemoteFileConsumer<FTPFile> createConsumer(Processor processor) throws Exception {
+        if (isResumeDownload() && ObjectHelper.isEmpty(getLocalWorkDirectory())) {
+            throw new IllegalArgumentException("The option localWorkDirectory must be configured when resumeDownload=true");
+        }
+        if (isResumeDownload() && !getConfiguration().isBinary()) {
+            throw new IllegalArgumentException("The option binary must be enabled when resumeDownload=true");
+        }
+        return super.createConsumer(processor);
+    }
+
+    @Override
     protected RemoteFileConsumer<FTPFile> buildConsumer(Processor processor) {
         try {
-            return new FtpConsumer(this, processor, createRemoteFileOperations());
+            return new FtpConsumer(
+                    this, processor, createRemoteFileOperations(),
+                    processStrategy != null ? processStrategy : createGenericFileStrategy());
         } catch (Exception e) {
             throw new FailedToCreateConsumerException(this, e);
         }
     }
 
+    @Override
     protected GenericFileProducer<FTPFile> buildProducer() {
         try {
-            return new RemoteFileProducer<FTPFile>(this, createRemoteFileOperations());
+            if (this.getMoveExistingFileStrategy() == null) {
+                this.setMoveExistingFileStrategy(createDefaultFtpMoveExistingFileStrategy());
+            }
+            return new RemoteFileProducer<>(this, createRemoteFileOperations());
         } catch (Exception e) {
             throw new FailedToCreateProducerException(this, e);
         }
     }
-    
+
+    /**
+     * Default Existing File Move Strategy
+     *
+     * @return the default implementation for ftp components
+     */
+    private FileMoveExistingStrategy createDefaultFtpMoveExistingFileStrategy() {
+        return new FtpDefaultMoveExistingFileStrategy();
+    }
+
+    @Override
+    protected GenericFileProcessStrategy<FTPFile> createGenericFileStrategy() {
+        return new FtpProcessStrategyFactory().createGenericFileProcessStrategy(getCamelContext(), getParamsAsMap());
+    }
+
+    @Override
     public RemoteFileOperations<FTPFile> createRemoteFileOperations() throws Exception {
         // configure ftp client
         FTPClient client = ftpClient;
-        
+
         if (client == null) {
-            // must use a new client if not explicit configured to use a custom client
+            // must use a new client if not explicit configured to use a custom
+            // client
             client = createFtpClient();
         }
 
-        // use configured buffer size which is larger and therefore faster (as the default is no buffer)
-        if (getConfiguration().getReceiveBufferSize() > 0) {
-            client.setBufferSize(getConfiguration().getReceiveBufferSize());
+        // use configured buffer size which is larger and therefore faster (as
+        // the default is no buffer)
+        if (getBufferSize() > 0) {
+            client.setBufferSize(getBufferSize());
         }
         // set any endpoint configured timeouts
         if (getConfiguration().getConnectTimeout() > -1) {
@@ -100,10 +168,23 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
         }
         dataTimeout = getConfiguration().getTimeout();
 
+        if (getConfiguration().getActivePortRange() != null) {
+            // parse it as min-max
+            String[] parts = getConfiguration().getActivePortRange().split("-");
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("The option activePortRange should have syntax: min-max");
+            }
+            int min = getCamelContext().getTypeConverter().mandatoryConvertTo(int.class, parts[0]);
+            int max = getCamelContext().getTypeConverter().mandatoryConvertTo(int.class, parts[1]);
+            LOG.debug("Using active port range: {}-{}", min, max);
+            client.setActivePortRange(min, max);
+        }
+
         // then lookup ftp client parameters and set those
         if (ftpClientParameters != null) {
-            Map<String, Object> localParameters = new HashMap<String, Object>(ftpClientParameters);
-            // setting soTimeout has to be done later on FTPClient (after it has connected)
+            Map<String, Object> localParameters = new HashMap<>(ftpClientParameters);
+            // setting soTimeout has to be done later on FTPClient (after it has
+            // connected)
             Object timeout = localParameters.remove("soTimeout");
             if (timeout != null) {
                 soTimeout = getCamelContext().getTypeConverter().convertTo(int.class, timeout);
@@ -111,17 +192,18 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
             // and we want to keep data timeout so we can log it later
             timeout = localParameters.remove("dataTimeout");
             if (timeout != null) {
-                dataTimeout = getCamelContext().getTypeConverter().convertTo(int.class, dataTimeout);
+                dataTimeout = getCamelContext().getTypeConverter().convertTo(int.class, timeout);
             }
             setProperties(client, localParameters);
         }
-        
+
         if (ftpClientConfigParameters != null) {
-            // client config is optional so create a new one if we have parameter for it
+            // client config is optional so create a new one if we have
+            // parameter for it
             if (ftpClientConfig == null) {
                 ftpClientConfig = new FTPClientConfig();
             }
-            Map<String, Object> localConfigParameters = new HashMap<String, Object>(ftpClientConfigParameters);
+            Map<String, Object> localConfigParameters = new HashMap<>(ftpClientConfigParameters);
             setProperties(ftpClientConfig, localConfigParameters);
         }
 
@@ -129,11 +211,11 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
             client.setDataTimeout(dataTimeout);
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Created FTPClient [connectTimeout: {}, soTimeout: {}, dataTimeout: {}, bufferSize: {}"
-                            + ", receiveDataSocketBufferSize: {}, sendDataSocketBufferSize: {}]: {}",
-                    new Object[]{client.getConnectTimeout(), getSoTimeout(), dataTimeout, client.getBufferSize(),
-                            client.getReceiveDataSocketBufferSize(), client.getSendDataSocketBufferSize(), client});
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Created FTPClient[connectTimeout: {}, soTimeout: {}, dataTimeout: {}, bufferSize: {}"
+                      + ", receiveDataSocketBufferSize: {}, sendDataSocketBufferSize: {}]: {}",
+                    client.getConnectTimeout(), getSoTimeout(), dataTimeout, client.getBufferSize(),
+                    client.getReceiveDataSocketBufferSize(), client.getSendDataSocketBufferSize(), client);
         }
 
         FtpOperations operations = new FtpOperations(client, getFtpClientConfig());
@@ -142,7 +224,20 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
     }
 
     protected FTPClient createFtpClient() throws Exception {
-        return new FTPClient();
+        FTPClient client = new FTPClient();
+        // If we're in an OSGI environment, set the parser factory to
+        // OsgiParserFactory, because commons-net uses Class.forName in their
+        // default ParserFactory
+        if (isOsgi()) {
+            ClassResolver cr = getCamelContext().getClassResolver();
+            OsgiParserFactory opf = new OsgiParserFactory(cr);
+            client.setParserFactory(opf);
+        }
+        return client;
+    }
+
+    private boolean isOsgi() {
+        return PlatformHelper.isOsgiContext(getCamelContext());
     }
 
     @Override
@@ -167,6 +262,9 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
         return ftpClient;
     }
 
+    /**
+     * To use a custom instance of FTPClient
+     */
     public void setFtpClient(FTPClient ftpClient) {
         this.ftpClient = ftpClient;
     }
@@ -175,8 +273,15 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
         return ftpClientConfig;
     }
 
+    /**
+     * To use a custom instance of FTPClientConfig to configure the FTP client the endpoint should use.
+     */
     public void setFtpClientConfig(FTPClientConfig ftpClientConfig) {
         this.ftpClientConfig = ftpClientConfig;
+    }
+
+    public Map<String, Object> getFtpClientParameters() {
+        return ftpClientParameters;
     }
 
     /**
@@ -186,11 +291,15 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
         this.ftpClientParameters = ftpClientParameters;
     }
 
+    public Map<String, Object> getFtpClientConfigParameters() {
+        return ftpClientConfigParameters;
+    }
+
     /**
      * Used by FtpComponent to provide additional parameters for the FTPClientConfig
      */
     void setFtpClientConfigParameters(Map<String, Object> ftpClientConfigParameters) {
-        this.ftpClientConfigParameters = new HashMap<String, Object>(ftpClientConfigParameters);
+        this.ftpClientConfigParameters = new HashMap<>(ftpClientConfigParameters);
     }
 
     public int getSoTimeout() {
@@ -198,12 +307,83 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
     }
 
     /**
-     * Sets the soTimeout option.
-     * <p/>
-     * Used by FTPClient
+     * Sets the soTimeout on the FTP client.
      */
     public void setSoTimeout(int soTimeout) {
         this.soTimeout = soTimeout;
+    }
+
+    public int getDataTimeout() {
+        return dataTimeout;
+    }
+
+    /**
+     * Sets the data timeout on the FTP client.
+     */
+    public void setDataTimeout(int dataTimeout) {
+        this.dataTimeout = dataTimeout;
+    }
+
+    public LoggingLevel getTransferLoggingLevel() {
+        return transferLoggingLevel;
+    }
+
+    /**
+     * Configure the logging level to use when logging the progress of upload and download operations.
+     */
+    public void setTransferLoggingLevel(LoggingLevel transferLoggingLevel) {
+        this.transferLoggingLevel = transferLoggingLevel;
+    }
+
+    @ManagedAttribute(description = "Logging level to use when logging the progress of upload and download operations")
+    public void setTransferLoggingLevelName(String transferLoggingLevel) {
+        this.transferLoggingLevel = getCamelContext().getTypeConverter().convertTo(LoggingLevel.class, transferLoggingLevel);
+    }
+
+    @ManagedAttribute
+    public String getTransferLoggingLevelName() {
+        return transferLoggingLevel.name();
+    }
+
+    @ManagedAttribute
+    public int getTransferLoggingIntervalSeconds() {
+        return transferLoggingIntervalSeconds;
+    }
+
+    /**
+     * Configures the interval in seconds to use when logging the progress of upload and download operations that are
+     * in-flight. This is used for logging progress when operations takes longer time.
+     */
+    @ManagedAttribute(description = "Interval in seconds to use when logging the progress of upload and download operations that are in-flight")
+    public void setTransferLoggingIntervalSeconds(int transferLoggingIntervalSeconds) {
+        this.transferLoggingIntervalSeconds = transferLoggingIntervalSeconds;
+    }
+
+    @ManagedAttribute
+    public boolean isTransferLoggingVerbose() {
+        return transferLoggingVerbose;
+    }
+
+    /**
+     * Configures whether the perform verbose (fine grained) logging of the progress of upload and download operations.
+     */
+    @ManagedAttribute(description = "Whether the perform verbose (fine grained) logging of the progress of upload and download operations")
+    public void setTransferLoggingVerbose(boolean transferLoggingVerbose) {
+        this.transferLoggingVerbose = transferLoggingVerbose;
+    }
+
+    public boolean isResumeDownload() {
+        return resumeDownload;
+    }
+
+    /**
+     * Configures whether resume download is enabled. This must be supported by the FTP server (almost all FTP servers
+     * support it). In addition the options <tt>localWorkDirectory</tt> must be configured so downloaded files are
+     * stored in a local directory, and the option <tt>binary</tt> must be enabled, which is required to support
+     * resuming of downloads.
+     */
+    public void setResumeDownload(boolean resumeDownload) {
+        this.resumeDownload = resumeDownload;
     }
 
     @Override
@@ -213,12 +393,12 @@ public class FtpEndpoint<T extends FTPFile> extends RemoteFileEndpoint<FTPFile> 
         // and therefore you need to be able to control that
         PathSeparator pathSeparator = getConfiguration().getSeparator();
         switch (pathSeparator) {
-        case Windows:
-            return '\\';
-        case UNIX:
-            return '/';
-        default:
-            return super.getFileSeparator();
+            case Windows:
+                return '\\';
+            case UNIX:
+                return '/';
+            default:
+                return super.getFileSeparator();
         }
     }
 }

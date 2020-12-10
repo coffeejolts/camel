@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,81 +17,70 @@
 package org.apache.camel.component.hbase;
 
 import java.util.Map;
+import java.util.concurrent.Executors;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.component.hbase.model.HBaseCell;
-import org.apache.camel.component.hbase.model.HBaseRow;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.util.PropertiesHelper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.HTablePool;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
 
-/**
- * Represents the component that manages {@link HBaseEndpoint}.
- */
-public class HBaseComponent extends UriEndpointComponent {
+@Component("hbase")
+public class HBaseComponent extends DefaultComponent {
 
+    private Connection connection;
+
+    @Metadata(label = "advanced")
     private Configuration configuration;
-    private HTablePool tablePool;
+    @Metadata(defaultValue = "10")
     private int poolMaxSize = 10;
 
     public HBaseComponent() {
-        super(HBaseEndpoint.class);
+    }
+
+    public HBaseComponent(CamelContext context) {
+        super(context);
     }
 
     @Override
     protected void doStart() throws Exception {
         if (configuration == null) {
             configuration = HBaseConfiguration.create();
+
+            ClassLoader applicationContextClassLoader = getCamelContext().getApplicationContextClassLoader();
+            if (applicationContextClassLoader != null) {
+                configuration.setClassLoader(applicationContextClassLoader);
+                HBaseConfiguration.addHbaseResources(configuration);
+            }
         }
-        tablePool = new HTablePool(configuration, poolMaxSize);
+
+        connection = ConnectionFactory.createConnection(configuration, Executors.newFixedThreadPool(poolMaxSize));
     }
 
     @Override
     protected void doStop() throws Exception {
-        if (tablePool != null) {
-            tablePool.close();
+        if (connection != null) {
+            // this will also shutdown the thread pool
+            connection.close();
         }
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        String tableName = remaining;
-
-        HBaseEndpoint endpoint = new HBaseEndpoint(uri, this, tablePool, tableName);
-        HBaseRow parameterRowModel = createRowModel(parameters);
+        HBaseEndpoint endpoint = new HBaseEndpoint(uri, this, remaining);
+        Map<String, Object> mapping = PropertiesHelper.extractProperties(parameters, "row.");
+        endpoint.setRowMapping(mapping);
         setProperties(endpoint, parameters);
-        if (endpoint.getRowModel() == null) {
-            endpoint.setRowModel(parameterRowModel);
-        }
         return endpoint;
     }
 
-    /**
-     * Creates an {@link HBaseRow} model from the specified endpoint parameters.
-     */
-    public HBaseRow createRowModel(Map<String, Object> parameters) {
-        HBaseRow rowModel = new HBaseRow();
-        if (parameters.containsKey(HbaseAttribute.HBASE_ROW_TYPE.asOption())) {
-            String rowType = String.valueOf(parameters.remove(HbaseAttribute.HBASE_ROW_TYPE.asOption()));
-            if (rowType != null && !rowType.isEmpty()) {
-                rowModel.setRowType(getCamelContext().getClassResolver().resolveClass(rowType));
-            }
-        }
-        for (int i = 1; parameters.get(HbaseAttribute.HBASE_FAMILY.asOption(i)) != null
-                && parameters.get(HbaseAttribute.HBASE_QUALIFIER.asOption(i)) != null; i++) {
-            HBaseCell cellModel = new HBaseCell();
-            cellModel.setFamily(String.valueOf(parameters.remove(HbaseAttribute.HBASE_FAMILY.asOption(i))));
-            cellModel.setQualifier(String.valueOf(parameters.remove(HbaseAttribute.HBASE_QUALIFIER.asOption(i))));
-            cellModel.setValue(String.valueOf(parameters.remove(HbaseAttribute.HBASE_VALUE.asOption(i))));
-            if (parameters.containsKey(HbaseAttribute.HBASE_VALUE_TYPE.asOption(i))) {
-                String valueType = String.valueOf(parameters.remove(HbaseAttribute.HBASE_VALUE_TYPE.asOption(i)));
-                if (valueType != null && !valueType.isEmpty()) {
-                    rowModel.setRowType(getCamelContext().getClassResolver().resolveClass(valueType));
-                }
-            }
-            rowModel.getCells().add(cellModel);
-        }
-        return rowModel;
+    public Connection getConnection() {
+        return connection;
     }
 
     public Configuration getConfiguration() {
@@ -110,8 +99,7 @@ public class HBaseComponent extends UriEndpointComponent {
     }
 
     /**
-     * Maximum number of references to keep for each table in the HTable pool.
-     * The default value is 10.
+     * Maximum number of references to keep for each table in the HTable pool. The default value is 10.
      */
     public void setPoolMaxSize(int poolMaxSize) {
         this.poolMaxSize = poolMaxSize;

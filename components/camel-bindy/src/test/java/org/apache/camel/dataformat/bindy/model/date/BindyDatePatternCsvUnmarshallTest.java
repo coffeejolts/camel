@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +16,10 @@
  */
 package org.apache.camel.dataformat.bindy.model.date;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Date;
 
 import org.apache.camel.EndpointInject;
@@ -23,24 +27,29 @@ import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.apache.camel.dataformat.bindy.Format;
+import org.apache.camel.dataformat.bindy.FormattingOptions;
 import org.apache.camel.dataformat.bindy.annotation.CsvRecord;
 import org.apache.camel.dataformat.bindy.annotation.DataField;
+import org.apache.camel.dataformat.bindy.annotation.FormatFactories;
 import org.apache.camel.dataformat.bindy.csv.BindyCsvDataFormat;
-import org.junit.Test;
+import org.apache.camel.dataformat.bindy.format.factories.AbstractFormatFactory;
+import org.apache.camel.test.spring.junit5.CamelSpringTest;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 
 @ContextConfiguration
-public class BindyDatePatternCsvUnmarshallTest extends AbstractJUnit4SpringContextTests {
+@CamelSpringTest
+public class BindyDatePatternCsvUnmarshallTest {
 
     private static final String URI_MOCK_RESULT = "mock:result";
     private static final String URI_DIRECT_START = "direct:start";
 
-    @Produce(uri = URI_DIRECT_START)
+    @Produce(URI_DIRECT_START)
     private ProducerTemplate template;
 
-    @EndpointInject(uri = URI_MOCK_RESULT)
+    @EndpointInject(URI_MOCK_RESULT)
     private MockEndpoint result;
 
     private String expected;
@@ -48,7 +57,7 @@ public class BindyDatePatternCsvUnmarshallTest extends AbstractJUnit4SpringConte
     @Test
     @DirtiesContext
     public void testUnMarshallMessage() throws Exception {
-        expected = "10,Christian,Mueller,12-24-2013";
+        expected = "10,Christian,Mueller,12-24-2013,12-26-2015,01-06-2016 12:14:49,13:15:01,03-23-2017 11:17:43Z,broken";
 
         result.expectedBodiesReceived(expected + "\r\n");
 
@@ -58,23 +67,25 @@ public class BindyDatePatternCsvUnmarshallTest extends AbstractJUnit4SpringConte
     }
 
     public static class ContextConfig extends RouteBuilder {
-        BindyCsvDataFormat camelDataFormat = new BindyCsvDataFormat("org.apache.camel.dataformat.bindy.model.date");
+        BindyCsvDataFormat camelDataFormat = new BindyCsvDataFormat(Order.class);
 
+        @Override
         public void configure() {
             from(URI_DIRECT_START)
-                .unmarshal(camelDataFormat)
-                .marshal(camelDataFormat)
-                .convertBodyTo(String.class) // because the marshaler will return an OutputStream
-                .to(URI_MOCK_RESULT);
+                    .unmarshal(camelDataFormat)
+                    .marshal(camelDataFormat)
+                    .convertBodyTo(String.class) // because the marshaler will return an OutputStream
+                    .to(URI_MOCK_RESULT);
         }
 
     }
 
     @CsvRecord(separator = ",")
+    @FormatFactories({ OrderNumberFormatFactory.class })
     public static class Order {
 
         @DataField(pos = 1)
-        private int orderNr;
+        private OrderNumber orderNr;
 
         @DataField(pos = 2)
         private String firstName;
@@ -85,11 +96,26 @@ public class BindyDatePatternCsvUnmarshallTest extends AbstractJUnit4SpringConte
         @DataField(pos = 4, pattern = "MM-dd-yyyy")
         private Date orderDate;
 
-        public int getOrderNr() {
+        @DataField(pos = 5, pattern = "MM-dd-yyyy")
+        private LocalDate deliveryDate;
+
+        @DataField(pos = 6, pattern = "MM-dd-yyyy HH:mm:ss")
+        private LocalDateTime returnedDateTime;
+
+        @DataField(pos = 7, pattern = "HH:mm:ss")
+        private LocalTime receivedTime;
+
+        @DataField(pos = 8, pattern = "MM-dd-yyyy HH:mm:ssX")
+        private ZonedDateTime deletedDateTime;
+
+        @DataField(pos = 9)
+        private ReturnReason returnReason;
+
+        public OrderNumber getOrderNr() {
             return orderNr;
         }
 
-        public void setOrderNr(int orderNr) {
+        public void setOrderNr(OrderNumber orderNr) {
             this.orderNr = orderNr;
         }
 
@@ -119,7 +145,85 @@ public class BindyDatePatternCsvUnmarshallTest extends AbstractJUnit4SpringConte
 
         @Override
         public String toString() {
-            return "Model : " + Order.class.getName() + " : " + this.orderNr + ", " + this.firstName + ", " + this.lastName + ", "  + String.valueOf(this.orderDate);
+            return "Model : " + Order.class.getName() + " : " + this.orderNr + ", " + this.firstName + ", " + this.lastName
+                   + ", " + String.valueOf(this.orderDate);
+        }
+
+        public LocalDate getDeliveryDate() {
+            return deliveryDate;
+        }
+
+        public void setDeliveryDate(LocalDate deliveryDate) {
+            this.deliveryDate = deliveryDate;
+        }
+
+        public LocalDateTime getReturnedDateTime() {
+            return returnedDateTime;
+        }
+
+        public void setReturnedDateTime(LocalDateTime returnedDateTime) {
+            this.returnedDateTime = returnedDateTime;
+        }
+
+        public LocalTime getReceivedTime() {
+            return receivedTime;
+        }
+
+        public void setReceivedTime(LocalTime receivedTime) {
+            this.receivedTime = receivedTime;
+        }
+
+        public ZonedDateTime getDeletedDateTime() {
+            return deletedDateTime;
+        }
+
+        public void setDeletedDateTime(ZonedDateTime deletedDateTime) {
+            this.deletedDateTime = deletedDateTime;
+        }
+
+        public ReturnReason getReturnReason() {
+            return returnReason;
+        }
+
+        public void setReturnReason(ReturnReason returnReason) {
+            this.returnReason = returnReason;
+        }
+    }
+
+    public enum ReturnReason {
+        broken,
+        other
+    }
+
+    public static class OrderNumber {
+        private int orderNr;
+
+        public static OrderNumber ofString(String orderNumber) {
+            OrderNumber result = new OrderNumber();
+            result.orderNr = Integer.valueOf(orderNumber);
+            return result;
+        }
+    }
+
+    public static class OrderNumberFormatFactory extends AbstractFormatFactory {
+
+        {
+            supportedClasses.add(OrderNumber.class);
+        }
+
+        @Override
+        public Format<?> build(FormattingOptions formattingOptions) {
+            return new Format<OrderNumber>() {
+                @Override
+                public String format(OrderNumber object) throws Exception {
+                    return String.valueOf(object.orderNr);
+                }
+
+                @Override
+                public OrderNumber parse(String string) throws Exception {
+                    return OrderNumber.ofString(string);
+                }
+            };
         }
     }
 }

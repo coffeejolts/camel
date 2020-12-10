@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,10 +18,14 @@ package org.apache.camel.component.jgroups;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JGroupsComponentTest extends CamelTestSupport {
 
@@ -31,11 +35,11 @@ public class JGroupsComponentTest extends CamelTestSupport {
 
     static final String MESSAGE = "MESSAGE";
 
-    static final String SAMPLE_CHANNEL_PROPERTY = "discard_incompatible_packets=true";
+    static final String SAMPLE_CHANNEL_PROPERTY = "enable_diagnostics=true";
 
     static final String SAMPLE_CHANNEL_PROPERTIES = String.format("UDP(%s)", SAMPLE_CHANNEL_PROPERTY);
 
-    static final String CONFIGURED_ENDPOINT_URI = String.format("jgroups:%s?channelProperties=%s", CLUSTER_NAME, SAMPLE_CHANNEL_PROPERTIES);
+    static final String CONFIGURED_ENDPOINT_URI = String.format("jgroups:%s", CLUSTER_NAME);
 
     // Fixtures
 
@@ -47,13 +51,13 @@ public class JGroupsComponentTest extends CamelTestSupport {
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
-        JGroupsComponent defaultComponent = new JGroupsComponent();
-        defaultComponent.setChannel(defaultComponentChannel);
-        context().addComponent("my-default-jgroups", defaultComponent);
-
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
+                JGroupsComponent defaultComponent = new JGroupsComponent();
+                defaultComponent.setChannel(defaultComponentChannel);
+                context().addComponent("my-default-jgroups", defaultComponent);
+
                 from("my-default-jgroups:" + CLUSTER_NAME).to("mock:default");
                 from(CONFIGURED_ENDPOINT_URI).to("mock:configured");
             }
@@ -72,6 +76,7 @@ public class JGroupsComponentTest extends CamelTestSupport {
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         clientChannel.close();
         super.tearDown();
@@ -85,7 +90,9 @@ public class JGroupsComponentTest extends CamelTestSupport {
         mockEndpoint.expectedBodiesReceived(MESSAGE);
 
         // When
-        clientChannel.send(new Message(null, null, MESSAGE));
+        Message message = new Message(null, MESSAGE);
+        message.setSrc(null);
+        clientChannel.send(message);
 
         // Then
         mockEndpoint.assertIsSatisfied();
@@ -104,7 +111,7 @@ public class JGroupsComponentTest extends CamelTestSupport {
     public void shouldCreateChannel() throws Exception {
         // When
         JGroupsEndpoint endpoint = getMandatoryEndpoint("my-default-jgroups:" + CLUSTER_NAME, JGroupsEndpoint.class);
-        JGroupsComponent component = (JGroupsComponent)endpoint.getComponent();
+        JGroupsComponent component = (JGroupsComponent) endpoint.getComponent();
 
         // Then
         assertNotNull(component.getChannel());

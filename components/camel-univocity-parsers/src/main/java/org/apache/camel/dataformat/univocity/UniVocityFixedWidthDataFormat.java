@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,29 @@ package org.apache.camel.dataformat.univocity;
 import java.io.Writer;
 import java.util.LinkedHashMap;
 
-import com.univocity.parsers.fixed.FixedWidthFieldLengths;
+import com.univocity.parsers.fixed.FixedWidthFields;
 import com.univocity.parsers.fixed.FixedWidthFormat;
 import com.univocity.parsers.fixed.FixedWidthParser;
 import com.univocity.parsers.fixed.FixedWidthParserSettings;
 import com.univocity.parsers.fixed.FixedWidthWriter;
 import com.univocity.parsers.fixed.FixedWidthWriterSettings;
+import org.apache.camel.spi.annotations.Dataformat;
 
 /**
  * This class is the data format that uses the fixed-width uniVocity parser.
  */
-public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<FixedWidthFormat, FixedWidthWriterSettings,
-        FixedWidthWriter, FixedWidthParserSettings, FixedWidthParser, UniVocityFixedWidthDataFormat> {
+@Dataformat("univocity-fixed")
+public class UniVocityFixedWidthDataFormat
+        extends
+        AbstractUniVocityDataFormat<FixedWidthFormat, FixedWidthWriterSettings, FixedWidthWriter, FixedWidthParserSettings, FixedWidthParser, UniVocityFixedWidthDataFormat> {
     protected int[] fieldLengths;
     protected Boolean skipTrailingCharsUntilNewline;
     protected Boolean recordEndsOnNewline;
     protected Character padding;
 
     /**
-     * Gets the field lengths.
-     * It's used to construct uniVocity {@link com.univocity.parsers.fixed.FixedWidthFieldLengths} instance.
+     * Gets the field lengths. It's used to construct uniVocity {@link com.univocity.parsers.fixed.FixedWidthFields}
+     * instance.
      *
      * @return the field lengths
      */
@@ -47,15 +50,14 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
     }
 
     /**
-     * Sets the field lengths
-     * It's used to construct uniVocity {@link com.univocity.parsers.fixed.FixedWidthFieldLengths} instance.
+     * Sets the field lengths It's used to construct uniVocity {@link com.univocity.parsers.fixed.FixedWidthFields}
+     * instance.
      *
-     * @param fieldLengths the field length
-     * @return current data format instance, fluent API
+     * @param  fieldLengths the field length
+     * @return              current data format instance, fluent API
      */
     public UniVocityFixedWidthDataFormat setFieldLengths(int[] fieldLengths) {
         this.fieldLengths = fieldLengths;
-        reset();
         return this;
     }
 
@@ -63,7 +65,7 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
      * Gets whether or not trailing characters until new line must be ignored.
      *
      * @return whether or not trailing characters until new line must be ignored
-     * @see com.univocity.parsers.fixed.FixedWidthParserSettings#getSkipTrailingCharsUntilNewline()
+     * @see    com.univocity.parsers.fixed.FixedWidthParserSettings#getSkipTrailingCharsUntilNewline()
      */
     public Boolean getSkipTrailingCharsUntilNewline() {
         return skipTrailingCharsUntilNewline;
@@ -72,13 +74,12 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
     /**
      * Sets whether or not trailing characters until new line must be ignored.
      *
-     * @param skipTrailingCharsUntilNewline whether or not trailing characters until new line must be ignored
-     * @return current data format instance, fluent API
-     * @see com.univocity.parsers.fixed.FixedWidthParserSettings#setSkipTrailingCharsUntilNewline(boolean)
+     * @param  skipTrailingCharsUntilNewline whether or not trailing characters until new line must be ignored
+     * @return                               current data format instance, fluent API
+     * @see                                  com.univocity.parsers.fixed.FixedWidthParserSettings#setSkipTrailingCharsUntilNewline(boolean)
      */
     public UniVocityFixedWidthDataFormat setSkipTrailingCharsUntilNewline(Boolean skipTrailingCharsUntilNewline) {
         this.skipTrailingCharsUntilNewline = skipTrailingCharsUntilNewline;
-        reset();
         return this;
     }
 
@@ -86,7 +87,7 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
      * Gets whether or not the record ends on new line.
      *
      * @return whether or not the record ends on new line
-     * @see com.univocity.parsers.fixed.FixedWidthParserSettings#getRecordEndsOnNewline()
+     * @see    com.univocity.parsers.fixed.FixedWidthParserSettings#getRecordEndsOnNewline()
      */
     public Boolean getRecordEndsOnNewline() {
         return recordEndsOnNewline;
@@ -95,38 +96,34 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
     /**
      * Sets whether or not the record ends on new line
      *
-     * @param recordEndsOnNewline whether or not the record ends on new line
-     * @return current data format instance, fluent API
-     * @see com.univocity.parsers.fixed.FixedWidthParserSettings#setRecordEndsOnNewline(boolean)
+     * @param  recordEndsOnNewline whether or not the record ends on new line
+     * @return                     current data format instance, fluent API
+     * @see                        com.univocity.parsers.fixed.FixedWidthParserSettings#setRecordEndsOnNewline(boolean)
      */
     public UniVocityFixedWidthDataFormat setRecordEndsOnNewline(Boolean recordEndsOnNewline) {
         this.recordEndsOnNewline = recordEndsOnNewline;
-        reset();
         return this;
     }
 
     /**
-     * Gets the padding symbol.
-     * If {@code null} then the default format value is used.
+     * Gets the padding symbol. If {@code null} then the default format value is used.
      *
      * @return the padding symbol
-     * @see com.univocity.parsers.fixed.FixedWidthFormat#getPadding()
+     * @see    com.univocity.parsers.fixed.FixedWidthFormat#getPadding()
      */
     public Character getPadding() {
         return padding;
     }
 
     /**
-     * Sets the padding symbol.
-     * If {@code null} then the default format value is used.
+     * Sets the padding symbol. If {@code null} then the default format value is used.
      *
-     * @param padding the padding symbol
-     * @return current data format instance, fluent API
-     * @see com.univocity.parsers.fixed.FixedWidthFormat#setPadding(char)
+     * @param  padding the padding symbol
+     * @return         current data format instance, fluent API
+     * @see            com.univocity.parsers.fixed.FixedWidthFormat#setPadding(char)
      */
     public UniVocityFixedWidthDataFormat setPadding(Character padding) {
         this.padding = padding;
-        reset();
         return this;
     }
 
@@ -135,7 +132,7 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
      */
     @Override
     protected FixedWidthWriterSettings createWriterSettings() {
-        return new FixedWidthWriterSettings(createFixedWidthFieldLengths());
+        return new FixedWidthWriterSettings(createFixedWidthFields());
     }
 
     /**
@@ -151,7 +148,7 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
      */
     @Override
     protected FixedWidthParserSettings createParserSettings() {
-        return new FixedWidthParserSettings(createFixedWidthFieldLengths());
+        return new FixedWidthParserSettings(createFixedWidthFields());
     }
 
     @Override
@@ -187,33 +184,39 @@ public class UniVocityFixedWidthDataFormat extends AbstractUniVocityDataFormat<F
     }
 
     /**
-     * Creates the {@link com.univocity.parsers.fixed.FixedWidthFieldLengths} instance based on the headers and field
-     * lengths.
+     * Creates the {@link com.univocity.parsers.fixed.FixedWidthFields} instance based on the headers and field lengths.
      *
-     * @return new {@code FixedWidthFieldLengths} based on the header and field lengthsl
+     * @return new {@code FixedWidthFields} based on the header and field lengths.
      */
-    private FixedWidthFieldLengths createFixedWidthFieldLengths() {
+    private FixedWidthFields createFixedWidthFields() {
         // Ensure that the field lengths have been defined.
         if (fieldLengths == null) {
-            throw new IllegalArgumentException("The fieldLengths must have been defined in order to use the fixed-width format.");
+            throw new IllegalArgumentException(
+                    "The fieldLengths must have been defined in order to use the fixed-width format.");
         }
 
         // If there's no header then we only use their length
         if (headers == null) {
-            return new FixedWidthFieldLengths(fieldLengths);
+            return new FixedWidthFields(fieldLengths);
         }
 
         // Use both headers and field lengths (same size and no duplicate headers)
         if (fieldLengths.length != headers.length) {
-            throw new IllegalArgumentException("The headers and fieldLengths must have the same number of element in order to use the fixed-width format.");
+            throw new IllegalArgumentException(
+                    "The headers and fieldLengths must have the same number of element in order to use the fixed-width format.");
         }
-        LinkedHashMap<String, Integer> fields = new LinkedHashMap<String, Integer>();
+        LinkedHashMap<String, Integer> fields = new LinkedHashMap<>();
         for (int i = 0; i < headers.length; i++) {
             fields.put(headers[i], fieldLengths[i]);
         }
         if (fields.size() != headers.length) {
             throw new IllegalArgumentException("The headers cannot have duplicates in order to use the fixed-width format.");
         }
-        return new FixedWidthFieldLengths(fields);
+        return new FixedWidthFields(fields);
+    }
+
+    @Override
+    public String getDataFormatName() {
+        return "univocity-fixed";
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,10 @@ package org.apache.camel.component.file.remote;
  */
 public class FtpChangedReadLockFastExistCheckTest extends FtpChangedReadLockTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/changed?password=admin&readLock=changed&readLockCheckInterval=1000&delete=true&fastExistsCheck=true";
+        return "ftp://admin@localhost:{{ftp.server.port}}"
+               + "/changed?password=admin&readLock=changed&readLockCheckInterval=1000&delete=true&fastExistsCheck=true";
     }
 
 }

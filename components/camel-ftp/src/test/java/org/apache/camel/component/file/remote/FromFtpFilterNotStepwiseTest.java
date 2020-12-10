@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,8 @@ package org.apache.camel.component.file.remote;
  */
 public class FromFtpFilterNotStepwiseTest extends FromFtpFilterTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/filter?password=admin&binary=false&filter=#myFilter&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/filter?password=admin&binary=false&filter=#myFilter&stepwise=false";
     }
 }

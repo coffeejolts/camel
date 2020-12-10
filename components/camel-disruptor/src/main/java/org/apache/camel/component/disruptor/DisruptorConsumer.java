@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.disruptor;
 
 import java.util.HashSet;
@@ -24,23 +23,24 @@ import org.apache.camel.AsyncCallback;
 import org.apache.camel.AsyncProcessor;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
+import org.apache.camel.ExtendedExchange;
 import org.apache.camel.Processor;
 import org.apache.camel.ShutdownRunningTask;
-import org.apache.camel.SuspendableService;
+import org.apache.camel.Suspendable;
 import org.apache.camel.spi.ExceptionHandler;
 import org.apache.camel.spi.ShutdownAware;
 import org.apache.camel.spi.Synchronization;
+import org.apache.camel.support.AsyncProcessorConverterHelper;
+import org.apache.camel.support.ExchangeHelper;
 import org.apache.camel.support.LoggingExceptionHandler;
-import org.apache.camel.support.ServiceSupport;
-import org.apache.camel.util.AsyncProcessorConverterHelper;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.support.service.ServiceSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A Consumer for the Disruptor component.
  */
-public class DisruptorConsumer extends ServiceSupport implements Consumer, SuspendableService, ShutdownAware {
+public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspendable, ShutdownAware {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DisruptorConsumer.class);
 
@@ -58,6 +58,11 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
     public DisruptorConsumer(final DisruptorEndpoint endpoint, final Processor processor) {
         this.endpoint = endpoint;
         this.processor = AsyncProcessorConverterHelper.convert(processor);
+    }
+
+    @Override
+    public AsyncProcessor getProcessor() {
+        return processor;
     }
 
     public ExceptionHandler getExceptionHandler() {
@@ -97,7 +102,7 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
     }
 
     Set<LifecycleAwareExchangeEventHandler> createEventHandlers(final int concurrentConsumers) {
-        final Set<LifecycleAwareExchangeEventHandler> eventHandlers = new HashSet<LifecycleAwareExchangeEventHandler>();
+        final Set<LifecycleAwareExchangeEventHandler> eventHandlers = new HashSet<>();
 
         for (int i = 0; i < concurrentConsumers; ++i) {
             eventHandlers.add(new ConsumerEventHandler(i, concurrentConsumers));
@@ -114,7 +119,7 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
     }
 
     @Override
-    public void prepareShutdown(final boolean forced) {
+    public void prepareShutdown(boolean suspendOnly, boolean forced) {
         // nothing
     }
 
@@ -134,7 +139,7 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
         final Exchange newExchange = ExchangeHelper
                 .copyExchangeAndSetCamelContext(exchange, endpoint.getCamelContext(), false);
         // set the from endpoint
-        newExchange.setFromEndpoint(endpoint);
+        newExchange.adapt(ExtendedExchange.class).setFromEndpoint(endpoint);
         return newExchange;
     }
 
@@ -159,7 +164,7 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
             // (see org.apache.camel.processor.CamelInternalProcessor.InternalCallback#done).
             // To solve this problem, a new synchronization is set on the exchange that is to be
             // processed
-            result.addOnCompletion(new Synchronization() {
+            result.adapt(ExtendedExchange.class).addOnCompletion(new Synchronization() {
                 @Override
                 public void onComplete(Exchange exchange) {
                     synchronizedExchange.consumed(result);
@@ -197,7 +202,7 @@ public class DisruptorConsumer extends ServiceSupport implements Consumer, Suspe
 
         private final int concurrentConsumers;
 
-        public ConsumerEventHandler(final int ordinal, final int concurrentConsumers) {
+        ConsumerEventHandler(final int ordinal, final int concurrentConsumers) {
             this.ordinal = ordinal;
             this.concurrentConsumers = concurrentConsumers;
         }

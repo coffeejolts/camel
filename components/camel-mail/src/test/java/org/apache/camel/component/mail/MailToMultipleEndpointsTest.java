@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,13 +19,12 @@ package org.apache.camel.component.mail;
 import javax.mail.Message;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MailToMultipleEndpointsTest extends CamelTestSupport {
 
     @Test
@@ -62,11 +61,12 @@ public class MailToMultipleEndpointsTest extends CamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("direct:a").to("smtp://localhost?username=james2&password=secret&To=a@a.com&From=me@me.com");
+                from("direct:a").to("smtp://localhost?username=james2&password=secret&to=a@a.com&from=me@me.com");
 
-                from("direct:b").to("smtp://localhost?username=james&password=secret&To=b@b.com&From=you@you.com");
+                from("direct:b").to("smtp://localhost?username=james&password=secret&to=b@b.com&from=you@you.com");
 
-                from("direct:c").to("smtp://localhost?username=admin&password=secret&To=c@c.com&From=me@me.com&CC=you@you.com,them@them.com");
+                from("direct:c").to(
+                        "smtp://localhost?username=admin&password=secret&to=c@c.com&from=me@me.com&cc=you@you.com,them@them.com");
             }
         };
     }

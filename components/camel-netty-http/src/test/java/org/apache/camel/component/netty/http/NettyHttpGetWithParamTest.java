@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,10 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class NettyHttpGetWithParamTest extends BaseNettyTest {
 
@@ -41,7 +43,6 @@ public class NettyHttpGetWithParamTest extends BaseNettyTest {
     }
 
     @Test
-    @Ignore("HTTP_QUERY not supported")
     public void testHttpGetWithParamsViaHeader() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Bye World");
@@ -53,6 +54,7 @@ public class NettyHttpGetWithParamTest extends BaseNettyTest {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
@@ -62,16 +64,17 @@ public class NettyHttpGetWithParamTest extends BaseNettyTest {
     }
 
     private static class MyParamsProcessor implements Processor {
+        @Override
         public void process(Exchange exchange) throws Exception {
             NettyHttpMessage message = exchange.getIn(NettyHttpMessage.class);
             assertNotNull(message.getHttpRequest());
 
-            String uri = message.getHttpRequest().getUri();
+            String uri = message.getHttpRequest().uri();
             assertTrue(uri.endsWith("one=uno&two=dos"));
 
-            exchange.getOut().setBody("Bye World");
-            exchange.getOut().setHeader("one", "eins");
-            exchange.getOut().setHeader("two", "zwei");
+            exchange.getMessage().setBody("Bye World");
+            exchange.getMessage().setHeader("one", "eins");
+            exchange.getMessage().setHeader("two", "zwei");
         }
     }
 

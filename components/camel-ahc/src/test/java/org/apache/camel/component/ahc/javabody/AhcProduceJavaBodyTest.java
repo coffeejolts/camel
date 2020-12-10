@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,9 +19,18 @@ package org.apache.camel.component.ahc.javabody;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.ahc.AhcComponent;
 import org.apache.camel.component.ahc.AhcConstants;
 import org.apache.camel.component.ahc.BaseAhcTest;
-import org.junit.Test;
+import org.apache.camel.component.jetty.JettyHttpComponent;
+import org.apache.camel.http.common.HttpCommonComponent;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -35,6 +44,12 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
 
     @Test
     public void testHttpSendJavaBodyAndReceiveString() throws Exception {
+        HttpCommonComponent jetty = context.getComponent("jetty", HttpCommonComponent.class);
+        jetty.setAllowJavaSerializedObject(true);
+
+        AhcComponent ahc = context.getComponent("ahc", AhcComponent.class);
+        ahc.setAllowJavaSerializedObject(true);
+
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
@@ -48,8 +63,8 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
                                 assertEquals("Camel", cool.getName());
 
                                 // we send back plain test
-                                exchange.getOut().setHeader(Exchange.CONTENT_TYPE, "text/plain");
-                                exchange.getOut().setBody("OK");
+                                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE, "text/plain");
+                                exchange.getMessage().setBody("OK");
                             }
                         });
             }
@@ -66,6 +81,12 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
 
     @Test
     public void testHttpSendJavaBodyAndReceiveJavaBody() throws Exception {
+        HttpCommonComponent jetty = context.getComponent("jetty", HttpCommonComponent.class);
+        jetty.setAllowJavaSerializedObject(true);
+
+        AhcComponent ahc = context.getComponent("ahc", AhcComponent.class);
+        ahc.setAllowJavaSerializedObject(true);
+
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
@@ -79,8 +100,9 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
                                 assertEquals("Camel", cool.getName());
 
                                 MyCoolBean reply = new MyCoolBean(456, "Camel rocks");
-                                exchange.getOut().setBody(reply);
-                                exchange.getOut().setHeader(Exchange.CONTENT_TYPE, AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
+                                exchange.getMessage().setBody(reply);
+                                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE,
+                                        AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
                             }
                         });
             }
@@ -98,6 +120,12 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
 
     @Test
     public void testHttpSendStringAndReceiveJavaBody() throws Exception {
+        HttpCommonComponent jetty = context.getComponent("jetty", HttpCommonComponent.class);
+        jetty.setAllowJavaSerializedObject(true);
+
+        AhcComponent ahc = context.getComponent("ahc", AhcComponent.class);
+        ahc.setAllowJavaSerializedObject(true);
+
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
@@ -109,8 +137,9 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
                                 assertEquals("Hello World", body);
 
                                 MyCoolBean reply = new MyCoolBean(456, "Camel rocks");
-                                exchange.getOut().setBody(reply);
-                                exchange.getOut().setHeader(Exchange.CONTENT_TYPE, AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
+                                exchange.getMessage().setBody(reply);
+                                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE,
+                                        AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
                             }
                         });
             }
@@ -121,6 +150,79 @@ public class AhcProduceJavaBodyTest extends BaseAhcTest {
 
         assertEquals(456, reply.getId());
         assertEquals("Camel rocks", reply.getName());
+    }
+
+    @Test
+    public void testNotAllowedReceive() throws Exception {
+        HttpCommonComponent jetty = context.getComponent("jetty", HttpCommonComponent.class);
+        jetty.setAllowJavaSerializedObject(true);
+
+        AhcComponent ahc = context.getComponent("ahc", AhcComponent.class);
+        ahc.setAllowJavaSerializedObject(false);
+
+        context.addRoutes(new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+                from(getTestServerEndpointUri())
+                        .process(new Processor() {
+                            public void process(Exchange exchange) throws Exception {
+                                String body = exchange.getIn().getBody(String.class);
+                                assertNotNull(body);
+                                assertEquals("Hello World", body);
+
+                                MyCoolBean reply = new MyCoolBean(456, "Camel rocks");
+                                exchange.getMessage().setBody(reply);
+                                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE,
+                                        AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
+                            }
+                        });
+            }
+        });
+        context.start();
+
+        Object reply = template.requestBody(getAhcEndpointUri(), "Hello World", Object.class);
+        MyCoolBean bean = context.getTypeConverter().convertTo(MyCoolBean.class, reply);
+        assertNull(bean);
+    }
+
+    @Test
+    public void testNotAllowed() throws Exception {
+        JettyHttpComponent jetty = context.getComponent("jetty", JettyHttpComponent.class);
+        jetty.setAllowJavaSerializedObject(false);
+
+        AhcComponent ahc = context.getComponent("ahc", AhcComponent.class);
+        ahc.setAllowJavaSerializedObject(false);
+
+        context.addRoutes(new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+                from(getTestServerEndpointUri())
+                        .process(new Processor() {
+                            public void process(Exchange exchange) throws Exception {
+                                String body = exchange.getIn().getBody(String.class);
+                                assertNotNull(body);
+                                assertEquals("Hello World", body);
+
+                                MyCoolBean reply = new MyCoolBean(456, "Camel rocks");
+                                exchange.getMessage().setBody(reply);
+                                exchange.getMessage().setHeader(Exchange.CONTENT_TYPE,
+                                        AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT);
+                            }
+                        });
+            }
+        });
+        context.start();
+
+        MyCoolBean cool = new MyCoolBean(123, "Camel");
+
+        try {
+            template.requestBodyAndHeader(getAhcEndpointUri(), cool,
+                    Exchange.CONTENT_TYPE, AhcConstants.CONTENT_TYPE_JAVA_SERIALIZED_OBJECT, MyCoolBean.class);
+            fail("Should fail");
+        } catch (Exception e) {
+            assertTrue(
+                    e.getCause().getMessage().startsWith("Content-type application/x-java-serialized-object is not allowed"));
+        }
     }
 
 }

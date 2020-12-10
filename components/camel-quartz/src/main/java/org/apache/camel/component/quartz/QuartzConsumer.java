@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,17 @@
  */
 package org.apache.camel.component.quartz;
 
+import org.apache.camel.Endpoint;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
+import org.apache.camel.support.DefaultConsumer;
 
 /**
- * @version 
+ * This consumer process QuartzMessage when scheduler job is executed per scheduled time. When the job runs, it will
+ * call this consumer's processor to process a new exchange with QuartzMessage.
  */
 public class QuartzConsumer extends DefaultConsumer {
 
-    public QuartzConsumer(QuartzEndpoint endpoint, Processor processor) {
+    public QuartzConsumer(Endpoint endpoint, Processor processor) {
         super(endpoint, processor);
     }
 
@@ -36,24 +38,13 @@ public class QuartzConsumer extends DefaultConsumer {
     @Override
     protected void doStart() throws Exception {
         super.doStart();
-        getEndpoint().consumerStarted(this);
-    }
-
-    @Override
-    protected void doResume() throws Exception {
-        super.doResume();
-        getEndpoint().consumerStarted(this);
+        getEndpoint().onConsumerStart(this);
     }
 
     @Override
     protected void doStop() throws Exception {
-        getEndpoint().consumerStopped(this);
+        getEndpoint().onConsumerStop(this);
         super.doStop();
     }
 
-    @Override
-    protected void doSuspend() throws Exception {
-        getEndpoint().consumerStopped(this);
-        super.doSuspend();
-    }
 }

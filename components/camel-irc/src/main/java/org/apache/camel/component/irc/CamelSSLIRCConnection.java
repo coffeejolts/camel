@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,8 +24,9 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.util.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.SSLContextParameters;
 import org.schwering.irc.lib.ssl.SSLIRCConnection;
 import org.schwering.irc.lib.ssl.SSLNotSupportedException;
 
@@ -34,10 +35,11 @@ import org.schwering.irc.lib.ssl.SSLNotSupportedException;
  * for JSSE configuration.
  */
 public class CamelSSLIRCConnection extends SSLIRCConnection {
-    
-    private SSLContextParameters sslContextParameters;
 
-    public CamelSSLIRCConnection(String host, int portMin, int portMax, String pass, 
+    private SSLContextParameters sslContextParameters;
+    private CamelContext camelContext;
+
+    public CamelSSLIRCConnection(String host, int portMin, int portMax, String pass,
                                  String nick, String username, String realname,
                                  SSLContextParameters sslContextParameters) {
         super(host, portMin, portMax, pass, nick, username, realname);
@@ -46,37 +48,38 @@ public class CamelSSLIRCConnection extends SSLIRCConnection {
 
     public CamelSSLIRCConnection(String host, int[] ports, String pass,
                                  String nick, String username, String realname,
-                                 SSLContextParameters sslContextParameters) {
+                                 SSLContextParameters sslContextParameters, CamelContext camelContext) {
         super(host, ports, pass, nick, username, realname);
         this.sslContextParameters = sslContextParameters;
+        this.camelContext = camelContext;
     }
 
     @Override
     public void connect() throws IOException {
-        
+
         if (sslContextParameters == null) {
             super.connect();
         } else {
             if (level != 0) {
                 throw new SocketException("Socket closed or already open (" + level + ")");
             }
-            
+
             IOException exception = null;
-            
+
             final SSLContext sslContext;
             try {
-                sslContext = sslContextParameters.createSSLContext();
+                sslContext = sslContextParameters.createSSLContext(camelContext);
             } catch (GeneralSecurityException e) {
                 throw new RuntimeCamelException("Error in SSLContextParameters configuration or instantiation.", e);
             }
-            
+
             final SSLSocketFactory sf = sslContext.getSocketFactory();
-            
+
             SSLSocket s = null;
-            
+
             for (int i = 0; i < ports.length && s == null; i++) {
                 try {
-                    s = (SSLSocket)sf.createSocket(host, ports[i]);
+                    s = (SSLSocket) sf.createSocket(host, ports[i]);
                     s.startHandshake();
                     exception = null;
                 } catch (SSLNotSupportedException exc) {
@@ -90,15 +93,15 @@ public class CamelSSLIRCConnection extends SSLIRCConnection {
                         s.close();
                     }
                     s = null;
-                    exception = exc; 
+                    exception = exc;
                 }
             }
             if (exception != null) {
                 throw exception; // connection wasn't successful at any port
             }
-            
+
             prepare(s);
-        }        
+        }
     }
 
     public SSLContextParameters getSslContextParameters() {

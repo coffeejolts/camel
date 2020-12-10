@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,19 @@
  */
 package org.apache.camel.component.netty.http;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.DefaultHeaderFilterStrategy;
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Test;
+import org.apache.camel.support.DefaultHeaderFilterStrategy;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class NettyHttpEndpointUriCustomHeaderFilterStrategyTest extends BaseNettyTest {
+
+    @BindToRegistry("customHeaderFilterStrategy")
+    private CustomHeaderFilterStrategy customHeaderFilterStrategy = new CustomHeaderFilterStrategy();
 
     @Test
     public void testEndpointUriWithCustomHeaderStrategy() throws Exception {
@@ -35,14 +40,8 @@ public class NettyHttpEndpointUriCustomHeaderFilterStrategyTest extends BaseNett
 
         assertMockEndpointsSatisfied();
 
-        String date = out.getOut().getHeader("sub-date", String.class);
+        String date = out.getMessage().getHeader("sub-date", String.class);
         assertNull(date);
-    }
-
-    @Override protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
-        registry.bind("customHeaderFilterStrategy", new CustomHeaderFilterStrategy());
-        return registry;
     }
 
     @Override
@@ -50,21 +49,20 @@ public class NettyHttpEndpointUriCustomHeaderFilterStrategyTest extends BaseNett
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("direct:request")
-                    .setHeader("Date", constant("31-03-2014"))
-                    .to("netty-http:http://localhost:{{port}}/myapp/mytest?headerFilterStrategy=#customHeaderFilterStrategy");
+                from("direct:request").setHeader("Date", constant("31-03-2014"))
+                        .to("netty-http:http://localhost:{{port}}/myapp/mytest?headerFilterStrategy=#customHeaderFilterStrategy");
 
-                from("netty-http:http://localhost:{{port}}/myapp/mytest")
-                    .to("mock:outbound")
-                    .setHeader("sub-date", constant("31-05-2014"));
+                from("netty-http:http://localhost:{{port}}/myapp/mytest").to("mock:outbound").setHeader("sub-date",
+                        constant("31-05-2014"));
             }
         };
     }
 
     private class CustomHeaderFilterStrategy extends DefaultHeaderFilterStrategy {
-        public CustomHeaderFilterStrategy() {
-            // allow all outbound headers to pass through but only filter out below inbound header 
+        CustomHeaderFilterStrategy() {
+            // allow all outbound headers to pass through but only filter out
+            // below inbound header
             getInFilter().add("sub-date");
-        }   
+        }
     }
 }

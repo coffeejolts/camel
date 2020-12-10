@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,14 +23,12 @@ import java.io.ObjectInputStream;
 
 import org.apache.camel.Converter;
 import org.apache.camel.Exchange;
-import org.apache.mina.common.ByteBuffer;
+import org.apache.mina.core.buffer.IoBuffer;
 
 /**
  * A set of converter methods for working with MINA types
- *
- * @version 
  */
-@Converter
+@Converter(generateLoader = true)
 public final class MinaConverter {
 
     private MinaConverter() {
@@ -38,38 +36,34 @@ public final class MinaConverter {
     }
 
     @Converter
-    public static byte[] toByteArray(ByteBuffer buffer) {
-        buffer.mark();
-        try {
-            byte[] answer = new byte[buffer.remaining()];
-            buffer.get(answer);
-            return answer;
-        } finally {
-            buffer.reset();
-        }
+    public static byte[] toByteArray(IoBuffer buffer) {
+        byte[] answer = new byte[buffer.remaining()];
+        buffer.get(answer);
+        return answer;
+        // we should not mark and reset the buffer with mina
     }
 
     @Converter
-    public static String toString(ByteBuffer buffer, Exchange exchange) {
+    public static String toString(IoBuffer buffer, Exchange exchange) {
         byte[] bytes = toByteArray(buffer);
         // use type converter as it can handle encoding set on the Exchange
         return exchange.getContext().getTypeConverter().convertTo(String.class, exchange, bytes);
     }
 
     @Converter
-    public static InputStream toInputStream(ByteBuffer buffer) {
+    public static InputStream toInputStream(IoBuffer buffer) {
         return buffer.asInputStream();
     }
 
     @Converter
-    public static ObjectInput toObjectInput(ByteBuffer buffer) throws IOException {
+    public static ObjectInput toObjectInput(IoBuffer buffer) throws IOException {
         InputStream is = toInputStream(buffer);
         return new ObjectInputStream(is);
     }
 
     @Converter
-    public static ByteBuffer toByteBuffer(byte[] bytes) {
-        ByteBuffer buf = ByteBuffer.allocate(bytes.length);
+    public static IoBuffer toIoBuffer(byte[] bytes) {
+        IoBuffer buf = IoBuffer.allocate(bytes.length);
         buf.put(bytes);
         return buf;
     }

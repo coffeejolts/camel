@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +16,8 @@
  */
 package org.apache.camel.component.jms;
 
+import java.util.Set;
+
 import javax.jms.ConnectionFactory;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -23,10 +25,12 @@ import javax.management.ObjectName;
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -38,6 +42,7 @@ public class ManagedJmsEndpointTopicTest extends CamelTestSupport {
         return true;
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext context = new DefaultCamelContext();
 
@@ -55,12 +60,16 @@ public class ManagedJmsEndpointTopicTest extends CamelTestSupport {
     public void testJmsEndpoint() throws Exception {
         MBeanServer mbeanServer = getMBeanServer();
 
-        ObjectName name = ObjectName.getInstance("org.apache.camel:context=camel-1,type=endpoints,name=\"activemq://topic:start\"");
+        Set<ObjectName> objectNames = mbeanServer.queryNames(
+                new ObjectName("org.apache.camel:context=camel-*,type=endpoints,name=\"activemq://topic:start\""), null);
+        assertEquals(1, objectNames.size());
+        ObjectName name = objectNames.iterator().next();
+
         String uri = (String) mbeanServer.getAttribute(name, "EndpointUri");
         assertEquals("activemq://topic:start", uri);
 
         Boolean singleton = (Boolean) mbeanServer.getAttribute(name, "Singleton");
-        assertTrue(singleton.booleanValue());
+        assertTrue(singleton);
 
         Integer running = (Integer) mbeanServer.getAttribute(name, "RunningMessageListeners");
         assertEquals(2, running.intValue());
@@ -83,6 +92,5 @@ public class ManagedJmsEndpointTopicTest extends CamelTestSupport {
             }
         };
     }
-
 
 }

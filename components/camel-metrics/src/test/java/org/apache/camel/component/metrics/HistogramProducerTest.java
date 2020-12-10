@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,21 +20,22 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.apache.camel.component.metrics.MetricsConstants.HEADER_HISTOGRAM_VALUE;
-import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class HistogramProducerTest {
 
     private static final String METRICS_NAME = "metrics.name";
@@ -59,13 +60,12 @@ public class HistogramProducerTest {
 
     private InOrder inOrder;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         producer = new HistogramProducer(endpoint);
         inOrder = Mockito.inOrder(endpoint, registry, histogram, exchange, in);
-        when(endpoint.getRegistry()).thenReturn(registry);
-        when(registry.histogram(METRICS_NAME)).thenReturn(histogram);
-        when(exchange.getIn()).thenReturn(in);
+        lenient().when(registry.histogram(METRICS_NAME)).thenReturn(histogram);
+        lenient().when(exchange.getIn()).thenReturn(in);
     }
 
     @Test
@@ -88,13 +88,13 @@ public class HistogramProducerTest {
 
     @Test
     public void testProcessValueNotSet() throws Exception {
+        Object action = null;
         when(endpoint.getValue()).thenReturn(null);
-        when(in.getHeader(HEADER_HISTOGRAM_VALUE, null, Long.class)).thenReturn(null);
         producer.doProcess(exchange, endpoint, registry, METRICS_NAME);
         inOrder.verify(exchange, times(1)).getIn();
         inOrder.verify(registry, times(1)).histogram(METRICS_NAME);
         inOrder.verify(endpoint, times(1)).getValue();
-        inOrder.verify(in, times(1)).getHeader(HEADER_HISTOGRAM_VALUE, null, Long.class);
+        inOrder.verify(in, times(1)).getHeader(HEADER_HISTOGRAM_VALUE, action, Long.class);
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -111,16 +111,4 @@ public class HistogramProducerTest {
         inOrder.verifyNoMoreInteractions();
     }
 
-    @Test
-    public void testProcessOverrideUriValueNotSet() throws Exception {
-        when(endpoint.getValue()).thenReturn(null);
-        when(in.getHeader(HEADER_HISTOGRAM_VALUE, null, Long.class)).thenReturn(VALUE + 2);
-        producer.doProcess(exchange, endpoint, registry, METRICS_NAME);
-        inOrder.verify(exchange, times(1)).getIn();
-        inOrder.verify(registry, times(1)).histogram(METRICS_NAME);
-        inOrder.verify(endpoint, times(1)).getValue();
-        inOrder.verify(in, times(1)).getHeader(HEADER_HISTOGRAM_VALUE, null, Long.class);
-        inOrder.verify(histogram, times(1)).update(VALUE + 2);
-        inOrder.verifyNoMoreInteractions();
-    }
 }

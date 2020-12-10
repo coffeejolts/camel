@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,10 +18,9 @@ package org.apache.camel.spring.spi;
 
 import java.util.Properties;
 
-import org.apache.camel.CamelContext;
-import org.apache.camel.component.properties.AugmentedPropertyNameAwarePropertiesParser;
+import org.apache.camel.component.properties.PropertiesLookup;
 import org.apache.camel.component.properties.PropertiesParser;
-import org.apache.camel.component.properties.PropertiesResolver;
+import org.apache.camel.spi.PropertiesSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
@@ -29,45 +28,34 @@ import org.springframework.core.Constants;
 import org.springframework.util.PropertyPlaceholderHelper;
 
 /**
- * A {@link PropertyPlaceholderConfigurer} that bridges Camel's <a href="http://camel.apache.org/using-propertyplaceholder.html">
- * property placeholder</a> with the Spring property placeholder mechanism.
+ * A {@link PropertyPlaceholderConfigurer} that bridges Camel's
+ * <a href="http://camel.apache.org/using-propertyplaceholder.html"> property placeholder</a> with the Spring property
+ * placeholder mechanism.
  */
-public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer implements PropertiesResolver, AugmentedPropertyNameAwarePropertiesParser {
+public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer
+        implements PropertiesParser, PropertiesSource {
 
     // NOTE: this class must be in the spi package as if its in the root package, then Spring fails to parse the XML
     // files due some weird spring issue. But that is okay as having this class in the spi package is fine anyway.
 
     private final Properties properties = new Properties();
-    private PropertiesResolver resolver;
     private PropertiesParser parser;
-    private String id;
     private PropertyPlaceholderHelper helper;
-
-    // to support both Spring 3.0 / 3.1+ we need to keep track of these as they have private modified in Spring 3.0
-    private String configuredPlaceholderPrefix;
-    private String configuredPlaceholderSuffix;
-    private String configuredValueSeparator;
-    private Boolean configuredIgnoreUnresolvablePlaceholders;
     private int systemPropertiesMode = SYSTEM_PROPERTIES_MODE_FALLBACK;
-    private Boolean ignoreResourceNotFound;
 
     @Override
-    protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess, Properties props) throws BeansException {
+    protected void processProperties(ConfigurableListableBeanFactory beanFactoryToProcess, Properties props)
+            throws BeansException {
         super.processProperties(beanFactoryToProcess, props);
         // store all the spring properties so we can refer to them later
         properties.putAll(props);
         // create helper
         helper = new PropertyPlaceholderHelper(
-                configuredPlaceholderPrefix != null ? configuredPlaceholderPrefix : DEFAULT_PLACEHOLDER_PREFIX,
-                configuredPlaceholderSuffix != null ? configuredPlaceholderSuffix : DEFAULT_PLACEHOLDER_SUFFIX,
-                configuredValueSeparator != null ? configuredValueSeparator : DEFAULT_VALUE_SEPARATOR,
-                configuredIgnoreUnresolvablePlaceholders != null ? configuredIgnoreUnresolvablePlaceholders : false);
+                placeholderPrefix, placeholderSuffix, valueSeparator, ignoreUnresolvablePlaceholders);
     }
 
-    @Override
-    public void setBeanName(String beanName) {
-        this.id = beanName;
-        super.setBeanName(beanName);
+    public int getSystemPropertiesMode() {
+        return systemPropertiesMode;
     }
 
     @Override
@@ -84,82 +72,20 @@ public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConf
     }
 
     @Override
-    public void setPlaceholderPrefix(String placeholderPrefix) {
-        super.setPlaceholderPrefix(placeholderPrefix);
-        this.configuredPlaceholderPrefix = placeholderPrefix;
-    }
-
-    @Override
-    public void setPlaceholderSuffix(String placeholderSuffix) {
-        super.setPlaceholderSuffix(placeholderSuffix);
-        this.configuredPlaceholderSuffix = placeholderSuffix;
-    }
-
-    @Override
-    public void setValueSeparator(String valueSeparator) {
-        super.setValueSeparator(valueSeparator);
-        this.configuredValueSeparator = valueSeparator;
-    }
-
-    @Override
-    public void setIgnoreUnresolvablePlaceholders(boolean ignoreUnresolvablePlaceholders) {
-        super.setIgnoreUnresolvablePlaceholders(ignoreUnresolvablePlaceholders);
-        this.configuredIgnoreUnresolvablePlaceholders = ignoreUnresolvablePlaceholders;
-    }
-    
-    @Override
-    public void setIgnoreResourceNotFound(boolean ignoreResourceNotFound) {
-        super.setIgnoreResourceNotFound(ignoreResourceNotFound);
-        this.ignoreResourceNotFound = ignoreResourceNotFound;
-    }
-    
-    @Override
     protected String resolvePlaceholder(String placeholder, Properties props) {
         String value = props.getProperty(placeholder);
         if (parser != null) {
             // Just apply the parser to the place holder value to avoid configuring the other placeholder configure twice for the inside and outside camel context
-            return parser.parseProperty(placeholder, value, props);
+            return parser.parseProperty(placeholder, value, props::getProperty);
         } else {
             return value;
         }
     }
 
     @Override
-    public Properties resolveProperties(CamelContext context, boolean ignoreMissingLocation, String... uri) throws Exception {
-        // return the spring properties, if it
-        Properties answer = new Properties();
-        for (String u : uri) {
-            String ref = "ref:" + id;
-            if (ref.equals(u)) {
-                answer.putAll(properties);
-            } else if (resolver != null) {
-                boolean flag = ignoreMissingLocation;
-                // Override the setting by using ignoreResourceNotFound
-                if (ignoreResourceNotFound != null) {
-                    flag = ignoreResourceNotFound;
-                }
-                Properties p = resolver.resolveProperties(context, flag, u);
-                if (p != null) {
-                    answer.putAll(p);
-                }
-            }
-        }
-        // must not return null
-        return answer;
-    }
-
-    @Override
-    public String parseUri(String text, Properties properties, String prefixToken, String suffixToken,
-                           String propertyPrefix, String propertySuffix, boolean fallbackToUnaugmentedProperty) throws IllegalArgumentException {
-
+    public String parseUri(String text, PropertiesLookup properties, boolean fallback) throws IllegalArgumentException {
         // first let Camel parse the text as it may contain Camel placeholders
-        String answer;
-        if (parser instanceof AugmentedPropertyNameAwarePropertiesParser) {
-            answer = ((AugmentedPropertyNameAwarePropertiesParser) parser).parseUri(text, properties, prefixToken, suffixToken,
-                    propertyPrefix, propertySuffix, fallbackToUnaugmentedProperty);
-        } else {
-            answer = parser.parseUri(text, properties, prefixToken, suffixToken);
-        }
+        String answer = parser.parseUri(text, properties, fallback);
 
         // then let Spring parse it to resolve any Spring placeholders
         if (answer != null) {
@@ -171,18 +97,7 @@ public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConf
     }
 
     @Override
-    public String parseUri(String text, Properties properties, String prefixToken, String suffixToken) throws IllegalArgumentException {
-        String answer = parser.parseUri(text, properties, prefixToken, suffixToken);
-        if (answer != null) {
-            answer = springResolvePlaceholders(answer, properties);
-        } else {
-            answer = springResolvePlaceholders(text, properties);
-        }
-        return answer;
-    }
-
-    @Override
-    public String parseProperty(String key, String value, Properties properties) {
+    public String parseProperty(String key, String value, PropertiesLookup properties) {
         String answer = parser.parseProperty(key, value, properties);
         if (answer != null) {
             answer = springResolvePlaceholders(answer, properties);
@@ -195,16 +110,12 @@ public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConf
     /**
      * Resolves the placeholders using Spring's property placeholder functionality.
      *
-     * @param text   the text which may contain spring placeholders
-     * @param properties the properties
-     * @return the parsed text with replaced placeholders, or the original text as is
+     * @param  text       the text which may contain spring placeholders
+     * @param  properties the properties
+     * @return            the parsed text with replaced placeholders, or the original text as is
      */
-    protected String springResolvePlaceholders(String text, Properties properties) {
+    protected String springResolvePlaceholders(String text, PropertiesLookup properties) {
         return helper.replacePlaceholders(text, new BridgePropertyPlaceholderResolver(properties));
-    }
-
-    public void setResolver(PropertiesResolver resolver) {
-        this.resolver = resolver;
     }
 
     public void setParser(PropertiesParser parser) {
@@ -216,21 +127,32 @@ public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConf
         }
     }
 
+    @Override
+    public String getName() {
+        return "BridgePropertyPlaceholderConfigurer";
+    }
+
+    @Override
+    public String getProperty(String name) {
+        return properties.getProperty(name);
+    }
+
     private class BridgePropertyPlaceholderResolver implements PropertyPlaceholderHelper.PlaceholderResolver {
 
-        private final Properties properties;
+        private final PropertiesLookup properties;
 
-        public BridgePropertyPlaceholderResolver(Properties properties) {
+        BridgePropertyPlaceholderResolver(PropertiesLookup properties) {
             this.properties = properties;
         }
 
+        @Override
         public String resolvePlaceholder(String placeholderName) {
             String propVal = null;
-            if (systemPropertiesMode  == SYSTEM_PROPERTIES_MODE_OVERRIDE) {
+            if (systemPropertiesMode == SYSTEM_PROPERTIES_MODE_OVERRIDE) {
                 propVal = resolveSystemProperty(placeholderName);
             }
             if (propVal == null) {
-                propVal = (String) properties.get(placeholderName);
+                propVal = properties.lookup(placeholderName);
             }
             if (propVal == null && systemPropertiesMode == SYSTEM_PROPERTIES_MODE_FALLBACK) {
                 propVal = resolveSystemProperty(placeholderName);
@@ -250,19 +172,19 @@ public class BridgePropertyPlaceholderConfigurer extends PropertyPlaceholderConf
         }
 
         @Override
-        public String parseUri(String text, Properties properties, String prefixToken, String suffixToken) throws IllegalArgumentException {
+        public String parseUri(String text, PropertiesLookup properties, boolean fallback) throws IllegalArgumentException {
             String answer = null;
             if (delegate != null) {
-                answer = delegate.parseUri(text, properties, prefixToken, suffixToken);
+                answer = delegate.parseUri(text, properties, fallback);
             }
             if (answer != null) {
                 text = answer;
             }
-            return parser.parseUri(text, properties, prefixToken, suffixToken);
+            return parser.parseUri(text, properties, fallback);
         }
 
         @Override
-        public String parseProperty(String key, String value, Properties properties) {
+        public String parseProperty(String key, String value, PropertiesLookup properties) {
             String answer = null;
             if (delegate != null) {
                 answer = delegate.parseProperty(key, value, properties);

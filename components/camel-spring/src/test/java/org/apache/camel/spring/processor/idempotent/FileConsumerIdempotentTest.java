@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,27 +24,32 @@ import org.apache.camel.Exchange;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spi.IdempotentRepository;
 import org.apache.camel.util.FileUtil;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FileConsumerIdempotentTest extends ContextTestSupport {
 
-    private IdempotentRepository<String> repo;
+    private IdempotentRepository repo;
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/idempotent/fileConsumerIdempotentTest.xml");
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         deleteDirectory("target/fileidempotent");
 
         super.setUp();
         repo = context.getRegistry().lookupByNameAndType("fileStore", IdempotentRepository.class);
     }
 
-
+    @Test
     public void testIdempotent() throws Exception {
         // send a file
         template.sendBodyAndHeader("file://target/fileidempotent/", "Hello World", Exchange.FILE_NAME, "report.txt");
@@ -58,21 +63,19 @@ public class FileConsumerIdempotentTest extends ContextTestSupport {
         // reset mock and set new expectations
         mock.reset();
         mock.expectedMessageCount(0);
+        // sleep to let the consumer try to poll the file
+        mock.setResultMinimumWaitTime(50);
 
         // move file back
         File file = new File("target/fileidempotent/done/report.txt");
         File renamed = new File("target/fileidempotent/report.txt");
         file.renameTo(renamed);
 
-        // sleep to let the consumer try to poll the file
-        Thread.sleep(2000);
-
         // should NOT consume the file again, let 2 secs pass to let the consumer try to consume it but it should not
         assertMockEndpointsSatisfied();
 
         String name = FileUtil.normalizePath(new File("target/fileidempotent/report.txt").getAbsolutePath());
-        assertTrue("Should contain file: " + name, repo.contains(name));
+        assertTrue(repo.contains(name), "Should contain file: " + name);
     }
 
 }
-

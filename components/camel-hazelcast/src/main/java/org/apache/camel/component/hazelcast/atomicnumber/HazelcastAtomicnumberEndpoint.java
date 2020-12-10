@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,22 +17,34 @@
 package org.apache.camel.component.hazelcast.atomicnumber;
 
 import com.hazelcast.core.HazelcastInstance;
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
+import org.apache.camel.component.hazelcast.HazelcastCommand;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
+import org.apache.camel.spi.UriEndpoint;
 
+/**
+ * Increment, decrement, set, etc. Hazelcast atomic number (a grid wide number).
+ */
+@UriEndpoint(firstVersion = "2.7.0", scheme = "hazelcast-atomicvalue", title = "Hazelcast Atomic Number",
+             syntax = "hazelcast-atomicvalue:cacheName", producerOnly = true, category = { Category.CACHE, Category.DATAGRID })
 public class HazelcastAtomicnumberEndpoint extends HazelcastDefaultEndpoint {
 
-    public HazelcastAtomicnumberEndpoint(HazelcastInstance hazelcastInstance, String uri, Component component, final String cacheName) {
+    public HazelcastAtomicnumberEndpoint(HazelcastInstance hazelcastInstance, String uri, Component component,
+                                         final String cacheName) {
         super(hazelcastInstance, uri, component, cacheName);
+        setCommand(HazelcastCommand.atomicvalue);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         throw new UnsupportedOperationException("You cannot send messages to this endpoint: " + getEndpointUri());
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new HazelcastAtomicnumberProducer(hazelcastInstance, this, cacheName);
     }

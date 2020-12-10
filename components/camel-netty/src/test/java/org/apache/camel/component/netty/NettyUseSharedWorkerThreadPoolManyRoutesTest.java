@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,24 @@
  */
 package org.apache.camel.component.netty;
 
+import io.netty.channel.EventLoopGroup;
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.impl.JndiRegistry;
-import org.jboss.netty.channel.socket.nio.BossPool;
-import org.jboss.netty.channel.socket.nio.WorkerPool;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class NettyUseSharedWorkerThreadPoolManyRoutesTest extends BaseNettyTest {
 
-    private JndiRegistry jndi;
-    private BossPool sharedBoos;
-    private WorkerPool sharedWorker;
+    private static final Logger LOG = LoggerFactory.getLogger(NettyUseSharedWorkerThreadPoolManyRoutesTest.class);
+
+    @BindToRegistry("sharedWorker")
+    private EventLoopGroup sharedBoosGroup = new NettyWorkerPoolBuilder().withWorkerCount(10).build();
+    @BindToRegistry("sharedBoss")
+    private EventLoopGroup sharedWorkerGroup = new NettyServerBossPoolBuilder().withBossCount(20).build();
     private int before;
 
     @Override
@@ -38,26 +42,21 @@ public class NettyUseSharedWorkerThreadPoolManyRoutesTest extends BaseNettyTest 
     }
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         before = Thread.activeCount();
         super.setUp();
-    }
-
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        jndi = super.createRegistry();
-        return jndi;
     }
 
     @Test
     public void testSharedThreadPool() throws Exception {
         int delta = Thread.activeCount() - before;
 
-        log.info("Created threads {}", delta);
-        assertTrue("There should not be created so many threads: " + delta, delta < 50);
+        LOG.info("Created threads {}", delta);
+        assertTrue(delta < 50, "There should not be created so many threads: " + delta);
 
-        sharedWorker.shutdown();
-        sharedBoos.shutdown();
+        sharedBoosGroup.shutdownGracefully().awaitUninterruptibly();
+        sharedWorkerGroup.shutdownGracefully().awaitUninterruptibly();
     }
 
     @Override
@@ -65,18 +64,12 @@ public class NettyUseSharedWorkerThreadPoolManyRoutesTest extends BaseNettyTest 
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                sharedWorker = new NettyWorkerPoolBuilder().withWorkerCount(10).build();
-                jndi.bind("sharedWorker", sharedWorker);
-                sharedBoos = new NettyServerBossPoolBuilder().withBossCount(20).build();
-                jndi.bind("sharedBoss", sharedBoos);
 
-                for (int i = 0; i < 100; i++) {
-                    from("netty:tcp://localhost:" + getNextPort() + "?textline=true&sync=true&orderedThreadPoolExecutor=false"
-                            + "&bossPool=#sharedBoss&workerPool=#sharedWorker")
-                        .validate(body().isInstanceOf(String.class))
-                        .to("log:result")
-                        .to("mock:result")
-                        .transform(body().regexReplaceAll("Hello", "Bye"));
+                for (int i = 0; i < 60; i++) {
+                    from("netty:tcp://localhost:" + getNextPort() + "?textline=true&sync=true&usingExecutorService=false"
+                         + "&bossGroup=#sharedBoss&workerGroup=#sharedWorker")
+                                 .validate(body().isInstanceOf(String.class)).to("log:result").to("mock:result")
+                                 .transform(body().regexReplaceAll("Hello", "Bye"));
                 }
             }
         };

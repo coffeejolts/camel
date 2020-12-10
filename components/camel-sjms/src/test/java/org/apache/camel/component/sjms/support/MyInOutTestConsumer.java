@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -49,6 +49,7 @@ public class MyInOutTestConsumer implements MessageListener {
         clientQueueName = "client.messages";
         ackMode = Session.AUTO_ACKNOWLEDGE;
     }
+
     public MyInOutTestConsumer(ConnectionFactory connectionFactory) {
         Connection connection;
         try {
@@ -97,6 +98,7 @@ public class MyInOutTestConsumer implements MessageListener {
         return Long.toHexString(randomLong);
     }
 
+    @Override
     public void onMessage(Message message) {
         String messageText = null;
         try {
@@ -109,5 +111,5 @@ public class MyInOutTestConsumer implements MessageListener {
             //Handle the exception appropriately
         }
     }
-    
+
 }

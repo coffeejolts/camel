@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,31 +20,29 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 
-import org.apache.camel.CamelContext;
 import org.apache.camel.CamelException;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Component that creates {@link ZooKeeperEndpoint}s for interacting with a ZooKeeper cluster.
  */
-public class ZooKeeperComponent extends UriEndpointComponent {
+@Component("zookeeper")
+public class ZooKeeperComponent extends DefaultComponent {
 
-    private ZooKeeperConfiguration configuration;
+    @Metadata(label = "advanced")
+    private ZooKeeperConfiguration configuration = new ZooKeeperConfiguration();
 
     public ZooKeeperComponent() {
-        super(ZooKeeperEndpoint.class);
-    }
-
-    public ZooKeeperComponent(CamelContext context) {
-        super(context, ZooKeeperEndpoint.class);
     }
 
     public ZooKeeperComponent(ZooKeeperConfiguration configuration) {
-        super(ZooKeeperEndpoint.class);
         this.configuration = configuration;
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         if (getCamelContext() == null) {
             throw new CamelException("No Camel context has been provided to this zookeeper component");
@@ -52,9 +50,10 @@ public class ZooKeeperComponent extends UriEndpointComponent {
 
         ZooKeeperConfiguration config = getConfiguration().copy();
         extractConfigFromUri(uri, config);
-        setProperties(config, parameters);
 
-        return new ZooKeeperEndpoint(uri, this, config);
+        Endpoint endpoint = new ZooKeeperEndpoint(uri, this, config);
+        setProperties(endpoint, parameters);
+        return endpoint;
     }
 
     private void extractConfigFromUri(String remaining, ZooKeeperConfiguration config) throws URISyntaxException {
@@ -67,9 +66,6 @@ public class ZooKeeperComponent extends UriEndpointComponent {
     }
 
     public ZooKeeperConfiguration getConfiguration() {
-        if (configuration == null) {
-            configuration = new ZooKeeperConfiguration();
-        }
         return configuration;
     }
 

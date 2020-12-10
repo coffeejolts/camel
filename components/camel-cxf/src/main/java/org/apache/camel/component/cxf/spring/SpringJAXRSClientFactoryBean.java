@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,6 +18,7 @@ package org.apache.camel.component.cxf.spring;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.camel.component.cxf.NullFaultListener;
 import org.apache.camel.component.cxf.jaxrs.BeanIdAware;
@@ -30,14 +31,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 public class SpringJAXRSClientFactoryBean extends JAXRSClientFactoryBean
-    implements ApplicationContextAware, BeanIdAware {
+        implements ApplicationContextAware, BeanIdAware {
     private String beanId;
     private int loggingSizeLimit;
     private LoggingFeature loggingFeature;
 
     public SpringJAXRSClientFactoryBean() {
     }
-    
+
     public boolean isLoggingFeatureEnabled() {
         return loggingFeature != null;
     }
@@ -55,7 +56,7 @@ public class SpringJAXRSClientFactoryBean extends JAXRSClientFactoryBean
             }
             getFeatures().add(loggingFeature);
         }
-        
+
     }
 
     public int getLoggingSizeLimit() {
@@ -75,8 +76,6 @@ public class SpringJAXRSClientFactoryBean extends JAXRSClientFactoryBean
         }
     }
 
-    
-    
     @Override
     public void setApplicationContext(ApplicationContext ctx) throws BeansException {
         if (bus == null) {
@@ -84,25 +83,36 @@ public class SpringJAXRSClientFactoryBean extends JAXRSClientFactoryBean
         }
     }
 
-    public String getBeanId() {            
+    @Override
+    public String getBeanId() {
         return beanId;
     }
 
-    public void setBeanId(String id) {            
-        beanId = id;            
+    @Override
+    public void setBeanId(String id) {
+        beanId = id;
     }
-    
+
     // add this method for testing
     List<String> getSchemaLocations() {
         return schemaLocations;
     }
-   
+
     public void setSkipFaultLogging(boolean skipFaultLogging) {
         if (skipFaultLogging) {
             if (this.getProperties() == null) {
                 this.setProperties(new HashMap<String, Object>());
             }
             this.getProperties().put(FaultListener.class.getName(), new NullFaultListener());
+        }
+    }
+
+    @Override
+    public void setProperties(Map<String, Object> properties) {
+        if (this.getProperties() != null && properties != null) {
+            this.getProperties().putAll(properties);
+        } else {
+            super.setProperties(properties);
         }
     }
 }

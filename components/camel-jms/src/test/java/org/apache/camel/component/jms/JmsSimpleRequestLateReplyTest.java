@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,21 +20,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+
 import javax.jms.ConnectionFactory;
 import javax.jms.Destination;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.Exchange;
 import org.apache.camel.ExchangePattern;
 import org.apache.camel.Message;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * A simple request / late reply test.
@@ -47,12 +47,12 @@ public class JmsSimpleRequestLateReplyTest extends CamelTestSupport {
     protected String expectedBody = "Late Reply";
     protected JmsComponent activeMQComponent;
     private final CountDownLatch latch = new CountDownLatch(1);
-    
+
     @Test
     public void testRequestLateReplyUsingCustomDestinationHeaderForReply() throws Exception {
         doTest(new SendLateReply());
     }
-    
+
     protected void doTest(Runnable runnable) throws InterruptedException {
         // use another thread to send the late reply to simulate that we do it later, not
         // from the original route anyway
@@ -69,6 +69,7 @@ public class JmsSimpleRequestLateReplyTest extends CamelTestSupport {
 
     private class SendLateReply implements Runnable {
 
+        @Override
         public void run() {
             try {
                 LOG.info("Waiting for latch");
@@ -82,13 +83,14 @@ public class JmsSimpleRequestLateReplyTest extends CamelTestSupport {
 
             LOG.info("Sending late reply");
             // use some dummy queue as we override this with the property: JmsConstants.JMS_DESTINATION
-            Map<String, Object> headers = new HashMap<String, Object>();
+            Map<String, Object> headers = new HashMap<>();
             headers.put(JmsConstants.JMS_DESTINATION, replyDestination);
             headers.put("JMSCorrelationID", cid);
             template.sendBodyAndHeaders("activemq:dummy", expectedBody, headers);
         }
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 
@@ -101,31 +103,30 @@ public class JmsSimpleRequestLateReplyTest extends CamelTestSupport {
         return camelContext;
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 from(getQueueEndpointName())
-                    .process(new Processor() {
-                        public void process(Exchange exchange) throws Exception {
+                        .process(exchange -> {
                             // set the MEP to InOnly as we are not able to send a reply right now but will do it later
                             // from that other thread
                             exchange.setPattern(ExchangePattern.InOnly);
 
                             Message in = exchange.getIn();
                             assertEquals("Hello World", in.getBody());
-    
+
                             replyDestination = in.getHeader("JMSReplyTo", Destination.class);
                             cid = in.getHeader("JMSCorrelationID", String.class);
-    
+
                             LOG.info("ReplyDestination: " + replyDestination);
                             LOG.info("JMSCorrelationID: " + cid);
-    
+
                             LOG.info("Ahh I cannot send a reply. Someone else must do it.");
                             // signal to the other thread to send back the reply message
                             latch.countDown();
-                        }
-                    })
-                    .to("mock:result");
+                        })
+                        .to("mock:result");
             }
         };
     }

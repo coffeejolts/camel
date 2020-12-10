@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,12 +19,16 @@ package org.apache.camel.dataformat.zipfile;
 import java.io.File;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
 
 public class ZipSplitterRouteIssueTest extends CamelTestSupport {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         deleteDirectory("target/zip");
         super.setUp();
@@ -32,22 +36,22 @@ public class ZipSplitterRouteIssueTest extends CamelTestSupport {
 
     @Test
     public void testSplitter() throws Exception {
-        getMockEndpoint("mock:entry").expectedMessageCount(3);
+        getMockEndpoint("mock:entry").expectedMessageCount(2);
 
-        template.sendBody("seda:decompressFiles", new File("src/test/resources/data.zip"));
+        template.sendBody("direct:decompressFiles", new File("src/test/resources/data.zip"));
 
         assertMockEndpointsSatisfied();
     }
-    
+
     @Test
     public void testSplitterWithWrongFile() throws Exception {
         getMockEndpoint("mock:entry").expectedMessageCount(0);
         getMockEndpoint("mock:errors").expectedMessageCount(1);
+
         //Send a file which is not exit
-        template.sendBody("seda:decompressFiles", new File("src/test/resources/data"));
-        
+        template.sendBody("direct:decompressFiles", new File("src/test/resources/data"));
+
         assertMockEndpointsSatisfied();
-        
     }
 
     @Override
@@ -56,12 +60,11 @@ public class ZipSplitterRouteIssueTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
                 errorHandler(deadLetterChannel("mock:errors"));
-                
-                from("seda:decompressFiles")
-                    .split(new ZipSplitter()).streaming().shareUnitOfWork()
-                        .log("we are splitting")
+
+                from("direct:decompressFiles")
+                        .split(new ZipSplitter()).streaming().shareUnitOfWork()
+                        .to("log:entry")
                         .to("mock:entry");
-                        //.to("file:target/zip/?fileName=decompressed.txt&fileExist=Append");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,6 +20,11 @@ import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringRouteBuilder;
 import org.apache.camel.spring.spi.SpringTransactionPolicy;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Unit test to demonstrate the transactional client pattern.
@@ -27,15 +32,17 @@ import org.apache.camel.spring.spi.SpringTransactionPolicy;
 public class TransactionalClientDataSourceTest extends TransactionClientDataSourceSupport {
 
     // START SNIPPET: e3
+    @Test
     public void testTransactionSuccess() throws Exception {
         template.sendBody("direct:okay", "Hello World");
 
         int count = jdbc.queryForObject("select count(*) from books", Integer.class);
-        assertEquals("Number of books", 3, count);
+        assertEquals(3, count, "Number of books");
     }
     // END SNIPPET: e3
 
     // START SNIPPET: e4
+    @Test
     public void testTransactionRollback() throws Exception {
         try {
             template.sendBody("direct:fail", "Hello World");
@@ -48,10 +55,11 @@ public class TransactionalClientDataSourceTest extends TransactionClientDataSour
         }
 
         int count = jdbc.queryForObject("select count(*) from books", Integer.class);
-        assertEquals("Number of books", 1, count);
+        assertEquals(1, count, "Number of books");
     }
     // END SNIPPET: e4
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         // START SNIPPET: e1
         // Notice that we use the SpringRouteBuilder that has a few more features than
@@ -75,14 +83,12 @@ public class TransactionalClientDataSourceTest extends TransactionClientDataSour
 
                 // START SNIPPET: e2
                 // set the required policy for this route
-                from("direct:okay").policy(required).
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Elephant in Action")).bean("bookService");
+                from("direct:okay").policy(required).setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 // set the required policy for this route
-                from("direct:fail").policy(required).
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Donkey in Action")).bean("bookService");
+                from("direct:fail").policy(required).setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
                 // END SNIPPET: e2
             }
         };

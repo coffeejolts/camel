@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,50 +16,89 @@
  */
 package org.apache.camel.component.mina;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.charset.Charset;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.CamelExchangeException;
 import org.apache.camel.Exchange;
 import org.apache.camel.ExchangeTimedOutException;
-import org.apache.camel.ServicePoolAware;
-import org.apache.camel.impl.DefaultProducer;
-import org.apache.camel.util.CamelLogger;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.spi.CamelLogger;
+import org.apache.camel.support.DefaultProducer;
+import org.apache.camel.support.ExchangeHelper;
 import org.apache.camel.util.IOHelper;
-import org.apache.mina.common.ConnectFuture;
-import org.apache.mina.common.IoConnector;
-import org.apache.mina.common.IoHandler;
-import org.apache.mina.common.IoHandlerAdapter;
-import org.apache.mina.common.IoSession;
-import org.apache.mina.transport.socket.nio.SocketConnector;
+import org.apache.mina.core.filterchain.DefaultIoFilterChainBuilder;
+import org.apache.mina.core.filterchain.IoFilter;
+import org.apache.mina.core.future.CloseFuture;
+import org.apache.mina.core.future.ConnectFuture;
+import org.apache.mina.core.service.IoConnector;
+import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.service.IoService;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.core.session.IoSessionConfig;
+import org.apache.mina.filter.codec.ProtocolCodecFactory;
+import org.apache.mina.filter.codec.ProtocolCodecFilter;
+import org.apache.mina.filter.codec.serialization.ObjectSerializationCodecFactory;
+import org.apache.mina.filter.codec.textline.LineDelimiter;
+import org.apache.mina.filter.executor.ExecutorFilter;
+import org.apache.mina.filter.executor.OrderedThreadPoolExecutor;
+import org.apache.mina.filter.executor.UnorderedThreadPoolExecutor;
+import org.apache.mina.filter.logging.LoggingFilter;
+import org.apache.mina.filter.ssl.SslFilter;
+import org.apache.mina.transport.socket.nio.NioDatagramConnector;
+import org.apache.mina.transport.socket.nio.NioSocketConnector;
+import org.apache.mina.transport.vmpipe.VmPipeAddress;
+import org.apache.mina.transport.vmpipe.VmPipeConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A {@link org.apache.camel.Producer} implementation for MINA
- *
- * @version 
  */
-public class MinaProducer extends DefaultProducer implements ServicePoolAware {
+public class MinaProducer extends DefaultProducer {
+
     private static final Logger LOG = LoggerFactory.getLogger(MinaProducer.class);
+    private final ResponseHandler handler;
     private IoSession session;
-    private CountDownLatch latch;
+    private CountDownLatch responseLatch;
+    private CountDownLatch closeLatch;
     private boolean lazySessionCreation;
+    private long writeTimeout;
     private long timeout;
+    private SocketAddress address;
     private IoConnector connector;
     private boolean sync;
     private CamelLogger noReplyLogger;
+    private MinaConfiguration configuration;
+    private IoSessionConfig connectorConfig;
+    private ExecutorService workerPool;
 
-    public MinaProducer(MinaEndpoint endpoint) {
+    public MinaProducer(MinaEndpoint endpoint) throws Exception {
         super(endpoint);
-        this.lazySessionCreation = endpoint.getConfiguration().isLazySessionCreation();
-        this.timeout = endpoint.getConfiguration().getTimeout();
-        this.sync = endpoint.getConfiguration().isSync();
-        this.noReplyLogger = new CamelLogger(LOG, endpoint.getConfiguration().getNoReplyLogLevel());
+        this.configuration = endpoint.getConfiguration();
+        this.lazySessionCreation = configuration.isLazySessionCreation();
+        this.writeTimeout = configuration.getWriteTimeout();
+        this.timeout = configuration.getTimeout();
+        this.sync = configuration.isSync();
+        this.noReplyLogger = new CamelLogger(LOG, configuration.getNoReplyLogLevel());
+
+        String protocol = configuration.getProtocol();
+        if (protocol.equals("tcp")) {
+            setupSocketProtocol(protocol);
+        } else if (configuration.isDatagramProtocol()) {
+            setupDatagramProtocol(protocol);
+        } else if (protocol.equals("vm")) {
+            setupVmProtocol(protocol);
+        }
+        handler = new ResponseHandler();
+        connector.setHandler(handler);
     }
-    
+
     @Override
     public MinaEndpoint getEndpoint() {
         return (MinaEndpoint) super.getEndpoint();
@@ -69,9 +108,10 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
     public boolean isSingleton() {
         // the producer should not be singleton otherwise cannot use concurrent producers and safely
         // use request/reply with correct correlation
-        return false;
+        return !sync;
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         try {
             doProcess(exchange);
@@ -91,7 +131,8 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
 
         // set the exchange encoding property
         if (getEndpoint().getConfiguration().getCharsetName() != null) {
-            exchange.setProperty(Exchange.CHARSET_NAME, IOHelper.normalizeCharset(getEndpoint().getConfiguration().getCharsetName()));
+            exchange.setProperty(Exchange.CHARSET_NAME,
+                    IOHelper.normalizeCharset(getEndpoint().getConfiguration().getCharsetName()));
         }
 
         Object body = MinaPayloadHelper.getIn(getEndpoint(), exchange);
@@ -107,10 +148,9 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
 
         // if sync is true then we should also wait for a response (synchronous mode)
         if (sync) {
-            // only initialize latch if we should get a response
-            latch = new CountDownLatch(1);
+            // only initialize responseLatch if we should get a response
+            responseLatch = new CountDownLatch(1);
             // reset handler if we expect a response
-            ResponseHandler handler = (ResponseHandler) session.getHandler();
             handler.reset();
         }
 
@@ -121,26 +161,25 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
                 // byte arrays is not readable so convert to string
                 out = exchange.getContext().getTypeConverter().convertTo(String.class, body);
             }
-            LOG.debug("Writing body : {}", out);
+            LOG.debug("Writing body: {}", out);
         }
         // write the body
-        MinaHelper.writeBody(session, body, exchange);
+        MinaHelper.writeBody(session, body, exchange, writeTimeout);
 
         if (sync) {
             // wait for response, consider timeout
             LOG.debug("Waiting for response using timeout {} millis.", timeout);
-            boolean done = latch.await(timeout, TimeUnit.MILLISECONDS);
+            boolean done = responseLatch.await(timeout, TimeUnit.MILLISECONDS);
             if (!done) {
                 throw new ExchangeTimedOutException(exchange, timeout);
             }
 
             // did we get a response
-            ResponseHandler handler = (ResponseHandler) session.getHandler();
             if (handler.getCause() != null) {
                 throw new CamelExchangeException("Error occurred in ResponseHandler", exchange, handler.getCause());
             } else if (!handler.isMessageReceived()) {
                 // no message received
-                throw new CamelExchangeException("No response received from remote server: " + getEndpoint().getEndpointUri(), exchange);
+                throw new ExchangeTimedOutException(exchange, timeout);
             } else {
                 // set the result on either IN or OUT on the original exchange depending on its pattern
                 if (ExchangeHelper.isOutCapable(exchange)) {
@@ -152,7 +191,7 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
         }
     }
 
-    protected void maybeDisconnectOnDone(Exchange exchange) {
+    protected void maybeDisconnectOnDone(Exchange exchange) throws InterruptedException {
         if (session == null) {
             return;
         }
@@ -171,11 +210,22 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
             disconnect = close;
         }
         if (disconnect) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Closing session when complete at address: {}", getEndpoint().getAddress());
-            }
-            session.close();
+            LOG.debug("Closing session when complete at address: {}", address);
+            closeSessionIfNeededAndAwaitCloseInHandler(session);
         }
+    }
+
+    private void closeSessionIfNeededAndAwaitCloseInHandler(IoSession sessionToBeClosed) throws InterruptedException {
+        closeLatch = new CountDownLatch(1);
+        if (!sessionToBeClosed.isClosing()) {
+            CloseFuture closeFuture = sessionToBeClosed.closeNow();
+            closeFuture.await(timeout, TimeUnit.MILLISECONDS);
+            closeLatch.await(timeout, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public DefaultIoFilterChainBuilder getFilterChain() {
+        return connector.getFilterChain();
     }
 
     @Override
@@ -189,51 +239,237 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
     @Override
     protected void doStop() throws Exception {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Stopping connector: {} at address: {}", connector, getEndpoint().getAddress());
+            LOG.debug("Stopping connector: {} at address: {}", connector, address);
         }
         closeConnection();
         super.doStop();
     }
 
-    private void closeConnection() {
-        if (connector instanceof SocketConnector) {
-            // Change the worker timeout to 0 second to make the I/O thread quit soon when there's no connection to manage.
-            // Default worker timeout is 60 sec and therefore the client using MinaProducer cannot terminate the JVM
-            // asap but must wait for the timeout to happen, so to speed this up we set the timeout to 0.
-            LOG.trace("Setting SocketConnector WorkerTimeout=0 to force MINA stopping its resources faster");
-            ((SocketConnector) connector).setWorkerTimeout(0);
+    @Override
+    protected void doShutdown() throws Exception {
+        if (workerPool != null) {
+            workerPool.shutdown();
+        }
+        super.doShutdown();
+    }
+
+    private void closeConnection() throws InterruptedException {
+        if (session != null) {
+            closeSessionIfNeededAndAwaitCloseInHandler(session);
         }
 
-        if (session != null) {
-            session.close();
-        }
+        connector.dispose(true);
     }
 
     private void openConnection() {
-        SocketAddress address = getEndpoint().getAddress();
-        connector = getEndpoint().getConnector();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Creating connector to address: {} using connector: {} timeout: {} millis.", new Object[]{address, connector, timeout});
+        if (this.address == null || !this.configuration.isCachedAddress()) {
+            setSocketAddress(this.configuration.getProtocol());
         }
-        IoHandler ioHandler = new ResponseHandler(getEndpoint());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Creating connector to address: {} using connector: {} timeout: {} millis.", address, connector, timeout);
+        }
         // connect and wait until the connection is established
-        ConnectFuture future = connector.connect(address, ioHandler, getEndpoint().getConnectorConfig());
-        future.join();
+        if (connectorConfig != null) {
+            connector.getSessionConfig().setAll(connectorConfig);
+        }
+
+        ConnectFuture future = connector.connect(address);
+        future.awaitUninterruptibly();
         session = future.getSession();
+    }
+
+    // Implementation methods
+    //-------------------------------------------------------------------------
+    protected void setupVmProtocol(String uri) {
+        boolean minaLogger = configuration.isMinaLogger();
+        List<IoFilter> filters = configuration.getFilters();
+
+        address = new VmPipeAddress(configuration.getPort());
+        connector = new VmPipeConnector();
+
+        // connector config
+        if (minaLogger) {
+            connector.getFilterChain().addLast("logger", new LoggingFilter());
+        }
+        appendIoFiltersToChain(filters, connector.getFilterChain());
+        if (configuration.getSslContextParameters() != null) {
+            LOG.warn("Using vm protocol"
+                     + ", but an SSLContextParameters instance was provided.  SSLContextParameters is only supported on the TCP protocol.");
+        }
+        configureCodecFactory("MinaProducer", connector);
+    }
+
+    protected void setupSocketProtocol(String uri) throws Exception {
+        boolean minaLogger = configuration.isMinaLogger();
+        long timeout = configuration.getTimeout();
+        List<IoFilter> filters = configuration.getFilters();
+
+        address = new InetSocketAddress(configuration.getHost(), configuration.getPort());
+
+        final int processorCount = Runtime.getRuntime().availableProcessors() + 1;
+        connector = new NioSocketConnector(processorCount);
+
+        // connector config
+        connectorConfig = connector.getSessionConfig();
+
+        if (configuration.isOrderedThreadPoolExecutor()) {
+            workerPool = new OrderedThreadPoolExecutor(configuration.getMaximumPoolSize());
+        } else {
+            workerPool = new UnorderedThreadPoolExecutor(configuration.getMaximumPoolSize());
+        }
+        connector.getFilterChain().addLast("threadPool", new ExecutorFilter(workerPool));
+        if (minaLogger) {
+            connector.getFilterChain().addLast("logger", new LoggingFilter());
+        }
+        appendIoFiltersToChain(filters, connector.getFilterChain());
+        if (configuration.getSslContextParameters() != null) {
+            SslFilter filter = new SslFilter(
+                    configuration.getSslContextParameters().createSSLContext(getEndpoint().getCamelContext()),
+                    configuration.isAutoStartTls());
+            filter.setUseClientMode(true);
+            connector.getFilterChain().addFirst("sslFilter", filter);
+        }
+        configureCodecFactory("MinaProducer", connector);
+        connector.setConnectTimeoutMillis(timeout);
+    }
+
+    protected void configureCodecFactory(String type, IoService service) {
+        if (configuration.getCodec() != null) {
+            addCodecFactory(service, configuration.getCodec());
+        } else if (configuration.isAllowDefaultCodec()) {
+            configureDefaultCodecFactory(type, service);
+        }
+    }
+
+    protected void configureDefaultCodecFactory(String type, IoService service) {
+        if (configuration.isTextline()) {
+            Charset charset = getEncodingParameter(type, configuration);
+            LineDelimiter delimiter = getLineDelimiterParameter(configuration.getTextlineDelimiter());
+            MinaTextLineCodecFactory codecFactory = new MinaTextLineCodecFactory(charset, delimiter);
+            if (configuration.getEncoderMaxLineLength() > 0) {
+                codecFactory.setEncoderMaxLineLength(configuration.getEncoderMaxLineLength());
+            }
+            if (configuration.getDecoderMaxLineLength() > 0) {
+                codecFactory.setDecoderMaxLineLength(configuration.getDecoderMaxLineLength());
+            }
+            addCodecFactory(service, codecFactory);
+            LOG.debug("{}: Using TextLineCodecFactory: {} using encoding: {} line delimiter: {}({})",
+                    type, codecFactory, charset, configuration.getTextlineDelimiter(), delimiter);
+            LOG.debug("Encoder maximum line length: {}. Decoder maximum line length: {}",
+                    codecFactory.getEncoderMaxLineLength(), codecFactory.getDecoderMaxLineLength());
+        } else {
+            ObjectSerializationCodecFactory codecFactory = new ObjectSerializationCodecFactory();
+            addCodecFactory(service, codecFactory);
+            LOG.debug("{}: Using ObjectSerializationCodecFactory: {}", type, codecFactory);
+        }
+    }
+
+    protected void setupDatagramProtocol(String uri) {
+        boolean minaLogger = configuration.isMinaLogger();
+        boolean transferExchange = configuration.isTransferExchange();
+        List<IoFilter> filters = configuration.getFilters();
+
+        if (transferExchange) {
+            throw new IllegalArgumentException("transferExchange=true is not supported for datagram protocol");
+        }
+
+        address = new InetSocketAddress(configuration.getHost(), configuration.getPort());
+        final int processorCount = Runtime.getRuntime().availableProcessors() + 1;
+        connector = new NioDatagramConnector(processorCount);
+
+        if (configuration.isOrderedThreadPoolExecutor()) {
+            workerPool = new OrderedThreadPoolExecutor(configuration.getMaximumPoolSize());
+        } else {
+            workerPool = new UnorderedThreadPoolExecutor(configuration.getMaximumPoolSize());
+        }
+        connectorConfig = connector.getSessionConfig();
+        connector.getFilterChain().addLast("threadPool", new ExecutorFilter(workerPool));
+        if (minaLogger) {
+            connector.getFilterChain().addLast("logger", new LoggingFilter());
+        }
+        appendIoFiltersToChain(filters, connector.getFilterChain());
+        if (configuration.getSslContextParameters() != null) {
+            LOG.warn("Using datagram protocol, {}, but an SSLContextParameters instance was provided. "
+                     + "SSLContextParameters is only supported on the TCP protocol.",
+                    configuration.getProtocol());
+        }
+        configureDataGramCodecFactory("MinaProducer", connector, configuration);
+        // set connect timeout to mina in seconds
+        connector.setConnectTimeoutMillis(timeout);
+    }
+
+    /**
+     * For datagrams the entire message is available as a single IoBuffer so lets just pass those around by default and
+     * try converting whatever they payload is into IoBuffer unless some custom converter is specified
+     */
+    protected void configureDataGramCodecFactory(
+            final String type, final IoService service, final MinaConfiguration configuration) {
+        ProtocolCodecFactory codecFactory = configuration.getCodec();
+        if (codecFactory == null) {
+            codecFactory = new MinaUdpProtocolCodecFactory(this.getEndpoint().getCamelContext());
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("{}: Using CodecFactory: {}", type, codecFactory);
+            }
+        }
+
+        addCodecFactory(service, codecFactory);
+    }
+
+    private void addCodecFactory(IoService service, ProtocolCodecFactory codecFactory) {
+        LOG.debug("addCodecFactory name: {}", codecFactory.getClass().getName());
+
+        service.getFilterChain().addLast("codec", new ProtocolCodecFilter(codecFactory));
+    }
+
+    private static LineDelimiter getLineDelimiterParameter(MinaTextLineDelimiter delimiter) {
+        if (delimiter == null) {
+            return LineDelimiter.DEFAULT;
+        }
+        return delimiter.getLineDelimiter();
+    }
+
+    private Charset getEncodingParameter(String type, MinaConfiguration configuration) {
+        String encoding = configuration.getEncoding();
+        if (encoding == null) {
+            encoding = Charset.defaultCharset().name();
+            // set in on configuration so its updated
+            configuration.setEncoding(encoding);
+            LOG.debug("{}: No encoding parameter using default charset: {}", type, encoding);
+        }
+        if (!Charset.isSupported(encoding)) {
+            throw new IllegalArgumentException("The encoding: " + encoding + " is not supported");
+        }
+
+        return Charset.forName(encoding);
+    }
+
+    private void appendIoFiltersToChain(List<IoFilter> filters, DefaultIoFilterChainBuilder filterChain) {
+        if (filters != null && !filters.isEmpty()) {
+            for (IoFilter ioFilter : filters) {
+                filterChain.addLast(ioFilter.getClass().getCanonicalName(), ioFilter);
+            }
+        }
+    }
+
+    private void setSocketAddress(String protocol) {
+        if (protocol.equals("tcp")) {
+            this.address = new InetSocketAddress(configuration.getHost(), configuration.getPort());
+        } else if (configuration.isDatagramProtocol()) {
+            this.address = new InetSocketAddress(configuration.getHost(), configuration.getPort());
+        } else if (protocol.equals("vm")) {
+            this.address = new VmPipeAddress(configuration.getPort());
+        }
     }
 
     /**
      * Handles response from session writes
      */
     private final class ResponseHandler extends IoHandlerAdapter {
-        private MinaEndpoint endpoint;
+
         private Object message;
         private Throwable cause;
         private boolean messageReceived;
-
-        private ResponseHandler(MinaEndpoint endpoint) {
-            this.endpoint = endpoint;
-        }
 
         public void reset() {
             this.message = null;
@@ -247,11 +483,11 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
             this.message = message;
             messageReceived = true;
             cause = null;
-            countDown();
+            notifyResultAvailable();
         }
 
-        protected void countDown() {
-            CountDownLatch downLatch = latch;
+        protected void notifyResultAvailable() {
+            CountDownLatch downLatch = responseLatch;
             if (downLatch != null) {
                 downLatch.countDown();
             }
@@ -261,25 +497,33 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
         public void sessionClosed(IoSession session) throws Exception {
             if (sync && !messageReceived) {
                 // sync=true (InOut mode) so we expected a message as reply but did not get one before the session is closed
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Session closed but no message received from address: {}", this.endpoint.getAddress());
-                }
+                LOG.debug("Session closed but no message received from address: {}", address);
                 // session was closed but no message received. This could be because the remote server had an internal error
                 // and could not return a response. We should count down to stop waiting for a response
-                countDown();
+                notifyResultAvailable();
+            }
+            notifySessionClosed();
+        }
+
+        private void notifySessionClosed() {
+            if (closeLatch != null) {
+                closeLatch.countDown();
             }
         }
 
         @Override
         public void exceptionCaught(IoSession ioSession, Throwable cause) {
-            LOG.error("Exception on receiving message from address: " + this.endpoint.getAddress()
-                    + " using connector: " + this.endpoint.getConnector(), cause);
             this.message = null;
             this.messageReceived = false;
             this.cause = cause;
-            if (ioSession != null) {
-                ioSession.close();
+            if (ioSession != null && !closedByMina(cause)) {
+                CloseFuture closeFuture = ioSession.closeNow();
+                closeFuture.awaitUninterruptibly(timeout, TimeUnit.MILLISECONDS);
             }
+        }
+
+        private boolean closedByMina(Throwable cause) {
+            return cause instanceof IOException;
         }
 
         public Throwable getCause() {
@@ -294,5 +538,4 @@ public class MinaProducer extends DefaultProducer implements ServicePoolAware {
             return messageReceived;
         }
     }
-
 }

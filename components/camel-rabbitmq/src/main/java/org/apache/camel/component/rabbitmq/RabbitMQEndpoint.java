@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,14 +17,12 @@
 package org.apache.camel.component.rabbitmq;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
+
 import javax.net.ssl.TrustManager;
 
 import com.rabbitmq.client.AMQP;
@@ -33,74 +31,102 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Envelope;
-import com.rabbitmq.client.LongString;
+import com.rabbitmq.client.ExceptionHandler;
+import org.apache.camel.AsyncEndpoint;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
-import org.apache.camel.Message;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
-import org.apache.camel.impl.DefaultExchange;
-import org.apache.camel.impl.DefaultMessage;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
+import org.apache.camel.util.PropertiesHelper;
+import org.apache.camel.util.URISupport;
 
-@UriEndpoint(scheme = "rabbitmq", title = "RabbitMQ", syntax = "rabbitmq:hostname:portNumber/exchangeName", consumerClass = RabbitMQConsumer.class, label = "messaging")
-public class RabbitMQEndpoint extends DefaultEndpoint {
+import static org.apache.camel.component.rabbitmq.RabbitMQComponent.BINDING_ARG_PREFIX;
+import static org.apache.camel.component.rabbitmq.RabbitMQComponent.DLQ_ARG_PREFIX;
+import static org.apache.camel.component.rabbitmq.RabbitMQComponent.DLQ_BINDING_PREFIX;
+import static org.apache.camel.component.rabbitmq.RabbitMQComponent.EXCHANGE_ARG_PREFIX;
+import static org.apache.camel.component.rabbitmq.RabbitMQComponent.QUEUE_ARG_PREFIX;
 
-    @UriPath @Metadata(required = "true")
-    private String hostname;
-    @UriPath(defaultValue = "5672") @Metadata(required = "true")
-    private int portNumber;
-    @UriPath @Metadata(required = "true")
+/**
+ * Send and receive messages from <a href="http://www.rabbitmq.com/">RabbitMQ</a> instances.
+ */
+@UriEndpoint(firstVersion = "2.12.0", scheme = "rabbitmq", title = "RabbitMQ", syntax = "rabbitmq:exchangeName",
+             category = { Category.MESSAGING })
+public class RabbitMQEndpoint extends DefaultEndpoint implements AsyncEndpoint {
+    // header to indicate that the message body needs to be de-serialized
+    public static final String SERIALIZE_HEADER = "CamelSerialize";
+
+    @UriPath
+    @Metadata(required = true)
     private String exchangeName;
-    @UriParam(defaultValue = ConnectionFactory.DEFAULT_USER)
+    @UriParam(label = "common")
+    private String hostname;
+    @UriParam(label = "common")
+    private int portNumber;
+    @UriParam(label = "security", defaultValue = ConnectionFactory.DEFAULT_USER, secret = true)
     private String username = ConnectionFactory.DEFAULT_USER;
-    @UriParam(defaultValue = ConnectionFactory.DEFAULT_PASS)
+    @UriParam(label = "security", defaultValue = ConnectionFactory.DEFAULT_PASS, secret = true)
     private String password = ConnectionFactory.DEFAULT_PASS;
-    @UriParam(defaultValue = ConnectionFactory.DEFAULT_VHOST)
+    @UriParam(label = "common", defaultValue = ConnectionFactory.DEFAULT_VHOST)
     private String vhost = ConnectionFactory.DEFAULT_VHOST;
-    @UriParam(label = "consumer", defaultValue = "10")
+    @UriParam(label = "common")
+    private ConnectionFactory connectionFactory;
+    @UriParam(label = "consumer,advanced", defaultValue = "10")
     private int threadPoolSize = 10;
     @UriParam(label = "consumer", defaultValue = "true")
     private boolean autoAck = true;
-    @UriParam(defaultValue = "true")
+    @UriParam(label = "common", defaultValue = "true")
     private boolean autoDelete = true;
-    @UriParam(defaultValue = "true")
+    @UriParam(label = "common", defaultValue = "true")
     private boolean durable = true;
+    @UriParam(label = "consumer", defaultValue = "false")
+    private boolean exclusiveConsumer;
+    @UriParam(label = "common")
+    private boolean exclusive;
+    @UriParam(label = "common")
+    private boolean passive;
     @UriParam(label = "producer")
     private boolean bridgeEndpoint;
-    @UriParam
+    @UriParam(label = "common")
     private String queue = String.valueOf(UUID.randomUUID().toString().hashCode());
-    @UriParam(defaultValue = "direct", enums = "direct,fanout,headers,topic")
+    @UriParam(label = "common", defaultValue = "direct", enums = "direct,fanout,headers,topic")
     private String exchangeType = "direct";
-    @UriParam
+    @UriParam(label = "common")
     private String routingKey;
-    @UriParam
-    private Address[] addresses;
-    @UriParam(defaultValue = "" + ConnectionFactory.DEFAULT_CONNECTION_TIMEOUT)
+    @UriParam(label = "common")
+    private boolean skipQueueDeclare;
+    @UriParam(label = "common")
+    private boolean skipQueueBind;
+    @UriParam(label = "common")
+    private boolean skipDlqDeclare;
+    @UriParam(label = "common")
+    private boolean skipExchangeDeclare;
+    @UriParam(label = "common")
+    private String addresses;
+    @UriParam(label = "common", defaultValue = "true")
+    private Boolean automaticRecoveryEnabled = Boolean.TRUE;
+    @UriParam(label = "advanced", defaultValue = "" + ConnectionFactory.DEFAULT_CONNECTION_TIMEOUT)
     private int connectionTimeout = ConnectionFactory.DEFAULT_CONNECTION_TIMEOUT;
-    @UriParam(defaultValue = "" + ConnectionFactory.DEFAULT_CHANNEL_MAX)
+    @UriParam(label = "advanced", defaultValue = "" + ConnectionFactory.DEFAULT_CHANNEL_MAX)
     private int requestedChannelMax = ConnectionFactory.DEFAULT_CHANNEL_MAX;
-    @UriParam(defaultValue = "" + ConnectionFactory.DEFAULT_FRAME_MAX)
+    @UriParam(label = "advanced", defaultValue = "" + ConnectionFactory.DEFAULT_FRAME_MAX)
     private int requestedFrameMax = ConnectionFactory.DEFAULT_FRAME_MAX;
-    @UriParam(defaultValue = "" + ConnectionFactory.DEFAULT_HEARTBEAT)
+    @UriParam(label = "advanced", defaultValue = "" + ConnectionFactory.DEFAULT_HEARTBEAT)
     private int requestedHeartbeat = ConnectionFactory.DEFAULT_HEARTBEAT;
-    @UriParam
+    @UriParam(label = "security")
     private String sslProtocol;
-    @UriParam
+    @UriParam(label = "security")
     private TrustManager trustManager;
-    @UriParam
+    @UriParam(label = "advanced")
     private Map<String, Object> clientProperties;
-    @UriParam
-    private ConnectionFactory connectionFactory;
-    @UriParam
-    private Boolean automaticRecoveryEnabled;
-    @UriParam
-    private Integer networkRecoveryInterval;
-    @UriParam
+    @UriParam(label = "advanced", defaultValue = "5000")
+    private Integer networkRecoveryInterval = 5000;
+    @UriParam(label = "advanced")
     private Boolean topologyRecoveryEnabled;
     @UriParam(label = "consumer")
     private boolean prefetchEnabled;
@@ -112,15 +138,15 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     private boolean prefetchGlobal;
     @UriParam(label = "consumer", defaultValue = "1")
     private int concurrentConsumers = 1;
-    @UriParam(defaultValue = "true")
+    @UriParam(label = "common", defaultValue = "true")
     private boolean declare = true;
-    @UriParam
+    @UriParam(label = "common")
     private String deadLetterExchange;
-    @UriParam
+    @UriParam(label = "common")
     private String deadLetterRoutingKey;
-    @UriParam
+    @UriParam(label = "common")
     private String deadLetterQueue;
-    @UriParam(defaultValue = "direct", enums = "direct,fanout,headers,topic")
+    @UriParam(label = "common", defaultValue = "direct", enums = "direct,fanout,headers,topic")
     private String deadLetterExchangeType = "direct";
     @UriParam(label = "producer", defaultValue = "10")
     private int channelPoolMaxSize = 10;
@@ -130,48 +156,80 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     private boolean mandatory;
     @UriParam(label = "producer")
     private boolean immediate;
-    @UriParam
-    private ArgsConfigurer queueArgsConfigurer;
-    @UriParam
-    private ArgsConfigurer exchangeArgsConfigurer;
+    @UriParam(label = "advanced", prefix = "arg.", multiValue = true)
+    private Map<String, Object> args;
+    @UriParam(label = "advanced", defaultValue = "20000")
+    private long requestTimeout = 20000;
+    @UriParam(label = "advanced", defaultValue = "1000")
+    private long requestTimeoutCheckerInterval = 1000;
+    @UriParam(label = "advanced")
+    private boolean transferException;
+    @UriParam(label = "producer")
+    private boolean publisherAcknowledgements;
+    @UriParam(label = "producer")
+    private long publisherAcknowledgementsTimeout;
+    @UriParam(label = "producer")
+    private boolean guaranteedDeliveries;
+    @UriParam(label = "producer")
+    private boolean allowNullHeaders;
+    @UriParam(label = "producer")
+    private Map<String, Object> additionalHeaders;
+    @UriParam(label = "producer")
+    private Map<String, Object> additionalProperties;
+    @UriParam(label = "producer")
+    private boolean allowCustomHeaders = true;
+    @UriParam(label = "consumer")
+    private String consumerTag = "";
+    @UriParam(label = "advanced")
+    private ExceptionHandler connectionFactoryExceptionHandler;
+    @UriParam(label = "allowMessageBodySerialization", defaultValue = "false")
+    private boolean allowMessageBodySerialization;
+    @UriParam(label = "consumer")
+    private boolean reQueue;
+    // camel-jms supports this setting but it is not currently configurable in
+    // camel-rabbitmq
+    private boolean useMessageIDAsCorrelationID = true;
+    // camel-jms supports this setting but it is not currently configurable in
+    // camel-rabbitmq
+    private String replyToType = ReplyToType.Temporary.name();
+    // camel-jms supports this setting but it is not currently configurable in
+    // camel-rabbitmq
+    private String replyTo;
+
+    private final RabbitMQMessageConverter messageConverter = new RabbitMQMessageConverter();
+    private final RabbitMQConnectionFactorySupport factoryCreator = new RabbitMQConnectionFactorySupport();
+    private final RabbitMQDeclareSupport declareSupport = new RabbitMQDeclareSupport(this);
 
     public RabbitMQEndpoint() {
     }
 
-    public RabbitMQEndpoint(String endpointUri, RabbitMQComponent component) throws URISyntaxException {
+    public RabbitMQEndpoint(String endpointUri, RabbitMQComponent component) {
         super(endpointUri, component);
     }
 
-    public RabbitMQEndpoint(String endpointUri, RabbitMQComponent component, ConnectionFactory connectionFactory) throws URISyntaxException {
+    public RabbitMQEndpoint(String endpointUri, RabbitMQComponent component, ConnectionFactory connectionFactory) {
         super(endpointUri, component);
         this.connectionFactory = connectionFactory;
     }
 
     public Exchange createRabbitExchange(Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
-        Exchange exchange = new DefaultExchange(getCamelContext(), getExchangePattern());
-
-        Message message = new DefaultMessage();
-        exchange.setIn(message);
-
-        message.setHeader(RabbitMQConstants.ROUTING_KEY, envelope.getRoutingKey());
-        message.setHeader(RabbitMQConstants.EXCHANGE_NAME, envelope.getExchange());
-        message.setHeader(RabbitMQConstants.DELIVERY_TAG, envelope.getDeliveryTag());
-
-        Map<String, Object> headers = properties.getHeaders();
-        if (headers != null) {
-            for (Map.Entry<String, Object> entry : headers.entrySet()) {
-                // Convert LongStrings to String.
-                if (entry.getValue() instanceof LongString) {
-                    message.setHeader(entry.getKey(), entry.getValue().toString());
-                } else {
-                    message.setHeader(entry.getKey(), entry.getValue());
-                }
-            }
-        }
-
-        message.setBody(body);
-
+        Exchange exchange = super.createExchange();
+        messageConverter.populateRabbitExchange(exchange, envelope, properties, body, false, allowMessageBodySerialization);
         return exchange;
+    }
+
+    /**
+     * Gets the message converter to convert between rabbit and camel
+     */
+    protected RabbitMQMessageConverter getMessageConverter() {
+        return messageConverter;
+    }
+
+    /**
+     * Sends the body that is on the exchange
+     */
+    public void publishExchangeToChannel(Exchange camelExchange, Channel channel, String routingKey) throws IOException {
+        new RabbitMQMessagePublisher(camelExchange, channel, routingKey, this).publish();
     }
 
     @Override
@@ -181,11 +239,11 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
         return consumer;
     }
 
-    public Connection connect(ExecutorService executor) throws IOException {
+    public Connection connect(ExecutorService executor) throws IOException, TimeoutException {
         if (getAddresses() == null) {
             return getOrCreateConnectionFactory().newConnection(executor);
         } else {
-            return getOrCreateConnectionFactory().newConnection(executor, getAddresses());
+            return getOrCreateConnectionFactory().newConnection(executor, parseAddresses());
         }
     }
 
@@ -193,88 +251,12 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
      * If needed, declare Exchange, declare Queue and bind them with Routing Key
      */
     public void declareExchangeAndQueue(Channel channel) throws IOException {
-        Map<String, Object> queueArgs = new HashMap<String, Object>();
-        Map<String, Object> exchangeArgs = new HashMap<String, Object>();
-        
-        if (deadLetterExchange != null) {
-            queueArgs.put(RabbitMQConstants.RABBITMQ_DEAD_LETTER_EXCHANGE, getDeadLetterExchange());
-            queueArgs.put(RabbitMQConstants.RABBITMQ_DEAD_LETTER_ROUTING_KEY, getDeadLetterRoutingKey());
-            // TODO Do we need to setup the args for the DeadLetter?
-            channel.exchangeDeclare(getDeadLetterExchange(),
-                    getDeadLetterExchangeType(),
-                    isDurable(),
-                    isAutoDelete(),
-                    new HashMap<String, Object>());
-            channel.queueDeclare(getDeadLetterQueue(), isDurable(), false,
-                    isAutoDelete(), null);
-            channel.queueBind(
-                    getDeadLetterQueue(),
-                    getDeadLetterExchange(),
-                    getDeadLetterRoutingKey() == null ? "" : getDeadLetterRoutingKey());
-        }
-        
-        if (getQueueArgsConfigurer() != null) {
-            getQueueArgsConfigurer().configurArgs(queueArgs);
-        }
-        if (getExchangeArgsConfigurer() != null) {
-            getExchangeArgsConfigurer().configurArgs(exchangeArgs);
-        }
-        
-        channel.exchangeDeclare(getExchangeName(),
-                getExchangeType(),
-                isDurable(),
-                isAutoDelete(), exchangeArgs);
-        if (getQueue() != null) {
-            // need to make sure the queueDeclare is same with the exchange declare
-            channel.queueDeclare(getQueue(), isDurable(), false,
-                    isAutoDelete(), queueArgs);
-            channel.queueBind(
-                    getQueue(),
-                    getExchangeName(),
-                    getRoutingKey() == null ? "" : getRoutingKey());
-        }
+        declareSupport.declareAndBindExchangesAndQueuesUsing(channel);
     }
 
     private ConnectionFactory getOrCreateConnectionFactory() {
         if (connectionFactory == null) {
-            ConnectionFactory factory = new ConnectionFactory();
-            factory.setUsername(getUsername());
-            factory.setPassword(getPassword());
-            factory.setVirtualHost(getVhost());
-            factory.setHost(getHostname());
-            factory.setPort(getPortNumber());
-            if (getClientProperties() != null) {
-                factory.setClientProperties(getClientProperties());
-            }
-            factory.setConnectionTimeout(getConnectionTimeout());
-            factory.setRequestedChannelMax(getRequestedChannelMax());
-            factory.setRequestedFrameMax(getRequestedFrameMax());
-            factory.setRequestedHeartbeat(getRequestedHeartbeat());
-            if (getSslProtocol() != null) {
-                try {
-                    if (getSslProtocol().equals("true")) {
-                        factory.useSslProtocol();
-                    } else if (getTrustManager() == null) {
-                        factory.useSslProtocol(getSslProtocol());
-                    } else {
-                        factory.useSslProtocol(getSslProtocol(), getTrustManager());
-                    }
-                } catch (NoSuchAlgorithmException e) {
-                    throw new IllegalArgumentException("Invalid sslProtocol " + sslProtocol, e);
-                } catch (KeyManagementException e) {
-                    throw new IllegalArgumentException("Invalid sslProtocol " + sslProtocol, e);
-                }
-            }
-            if (getAutomaticRecoveryEnabled() != null) {
-                factory.setAutomaticRecoveryEnabled(getAutomaticRecoveryEnabled());
-            }
-            if (getNetworkRecoveryInterval() != null) {
-                factory.setNetworkRecoveryInterval(getNetworkRecoveryInterval());
-            }
-            if (getTopologyRecoveryEnabled() != null) {
-                factory.setTopologyRecoveryEnabled(getTopologyRecoveryEnabled());
-            }
-            connectionFactory = factory;
+            connectionFactory = factoryCreator.createFactoryFor(this);
         }
         return connectionFactory;
     }
@@ -284,14 +266,10 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
         return new RabbitMQProducer(this);
     }
 
-    @Override
-    public boolean isSingleton() {
-        return true;
-    }
-
     protected ExecutorService createExecutor() {
         if (getCamelContext() != null) {
-            return getCamelContext().getExecutorServiceManager().newFixedThreadPool(this, "RabbitMQConsumer", getThreadPoolSize());
+            return getCamelContext().getExecutorServiceManager().newFixedThreadPool(this,
+                    URISupport.sanitizeUri(getEndpointUri()), getThreadPoolSize());
         } else {
             return Executors.newFixedThreadPool(getThreadPoolSize());
         }
@@ -346,7 +324,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The consumer uses a Thread Pool Executor with a fixed number of threads. This setting allows you to set that number of threads.
+     * The consumer uses a Thread Pool Executor with a fixed number of threads. This setting allows you to set that
+     * number of threads.
      */
     public void setThreadPoolSize(int threadPoolSize) {
         this.threadPoolSize = threadPoolSize;
@@ -412,8 +391,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The exchange name determines which exchange produced messages will sent to.
-     * In the case of consumers, the exchange name determines which exchange the queue will bind to.
+     * The exchange name determines the exchange to which the produced messages will be sent to. In the case of
+     * consumers, the exchange name determines the exchange the queue will be bound to.
      */
     public void setExchangeName(String exchangeName) {
         this.exchangeName = exchangeName;
@@ -435,15 +414,63 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The routing key to use when binding a consumer queue to the exchange.
-     * For producer routing keys, you set the header rabbitmq.ROUTING_KEY.
+     * The routing key to use when binding a consumer queue to the exchange. For producer routing keys, you set the
+     * header rabbitmq.ROUTING_KEY.
      */
     public void setRoutingKey(String routingKey) {
         this.routingKey = routingKey;
     }
 
     /**
-     * If the bridgeEndpoint is true, the producer will ignore the message header of "rabbitmq.EXCHANGE_NAME" and "rabbitmq.ROUTING_KEY"
+     * If true the producer will not declare and bind a queue. This can be used for directing messages via an existing
+     * routing key.
+     */
+    public void setSkipQueueDeclare(boolean skipQueueDeclare) {
+        this.skipQueueDeclare = skipQueueDeclare;
+    }
+
+    public boolean isSkipQueueDeclare() {
+        return skipQueueDeclare;
+    }
+
+    /**
+     * If true the producer will not declare and bind a dead letter queue. This can be used if you have also DLQ
+     * rabbitmq consumer and you want to avoid argument clashing between Producer and Consumer. This option have no
+     * effect, if DLQ configured (deadLetterExchange option is not set).
+     */
+    public void setSkipDlqDeclare(boolean skipDlqDeclare) {
+        this.skipDlqDeclare = skipDlqDeclare;
+    }
+
+    public boolean isSkipDlqDeclare() {
+        return skipDlqDeclare;
+    }
+
+    /**
+     * If true the queue will not be bound to the exchange after declaring it
+     */
+    public boolean isSkipQueueBind() {
+        return skipQueueBind;
+    }
+
+    public void setSkipQueueBind(boolean skipQueueBind) {
+        this.skipQueueBind = skipQueueBind;
+    }
+
+    /**
+     * This can be used if we need to declare the queue but not the exchange
+     */
+    public void setSkipExchangeDeclare(boolean skipExchangeDeclare) {
+        this.skipExchangeDeclare = skipExchangeDeclare;
+    }
+
+    public boolean isSkipExchangeDeclare() {
+        return skipExchangeDeclare;
+    }
+
+    /**
+     * If the bridgeEndpoint is true, the producer will ignore the message header of "rabbitmq.EXCHANGE_NAME" and
+     * "rabbitmq.ROUTING_KEY"
      */
     public void setBridgeEndpoint(boolean bridgeEndpoint) {
         this.bridgeEndpoint = bridgeEndpoint;
@@ -454,18 +481,23 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * If this option is set, camel-rabbitmq will try to create connection based on the setting of option addresses.
-     * The addresses value is a string which looks like "server1:12345, server2:12345"
+     * If this option is set, camel-rabbitmq will try to create connection based on the setting of option addresses. The
+     * addresses value is a string which looks like "server1:12345, server2:12345"
      */
     public void setAddresses(String addresses) {
-        Address[] addressArray = Address.parseAddresses(addresses);
-        if (addressArray.length > 0) {
-            this.addresses = addressArray;
-        }
+        this.addresses = addresses;
     }
 
-    public Address[] getAddresses() {
+    public String getAddresses() {
         return addresses;
+    }
+
+    public Address[] parseAddresses() {
+        if (addresses != null) {
+            return Address.parseAddresses(getAddresses());
+        } else {
+            return null;
+        }
     }
 
     public int getConnectionTimeout() {
@@ -528,8 +560,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * To use a custom RabbitMQ connection factory.
-     * When this option is set, all connection options (connectionTimeout, requestedChannelMax...) set on URI are not used
+     * To use a custom RabbitMQ connection factory. When this option is set, all connection options (connectionTimeout,
+     * requestedChannelMax...) set on URI are not used
      */
     public void setConnectionFactory(ConnectionFactory connectionFactory) {
         this.connectionFactory = connectionFactory;
@@ -562,10 +594,28 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Enables connection automatic recovery (uses connection implementation that performs automatic recovery when connection shutdown is not initiated by the application)
+     * Enables connection automatic recovery (uses connection implementation that performs automatic recovery when
+     * existing connection has failures)
      */
     public void setAutomaticRecoveryEnabled(Boolean automaticRecoveryEnabled) {
         this.automaticRecoveryEnabled = automaticRecoveryEnabled;
+    }
+
+    public boolean isAllowMessageBodySerialization() {
+        return allowMessageBodySerialization;
+    }
+
+    /**
+     * Whether to allow Java serialization of the message body or not. If this value is true, the message body will be
+     * serialized on the producer side using Java serialization, if no type converter can handle the message body. On
+     * the consumer side, it will deserialize the message body if this value is true and the message contains a
+     * CamelSerialize header.
+     *
+     * Setting this value to true may introduce a security vulnerability as it allows an attacker to attempt to
+     * deserialize to a gadget object which could result in a RCE or other security vulnerability.
+     */
+    public void setAllowMessageBodySerialization(boolean allowMessageBodySerialization) {
+        this.allowMessageBodySerialization = allowMessageBodySerialization;
     }
 
     public Integer getNetworkRecoveryInterval() {
@@ -595,16 +645,16 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Enables the quality of service on the RabbitMQConsumer side.
-     * You need to specify the option of prefetchSize, prefetchCount, prefetchGlobal at the same time
+     * Enables the quality of service on the RabbitMQConsumer side. You need to specify the option of prefetchSize,
+     * prefetchCount, prefetchGlobal at the same time
      */
     public void setPrefetchEnabled(boolean prefetchEnabled) {
         this.prefetchEnabled = prefetchEnabled;
     }
 
     /**
-     * The maximum amount of content (measured in octets) that the server will deliver, 0 if unlimited.
-     * You need to specify the option of prefetchSize, prefetchCount, prefetchGlobal at the same time
+     * The maximum amount of content (measured in octets) that the server will deliver, 0 if unlimited. You need to
+     * specify the option of prefetchSize, prefetchCount, prefetchGlobal at the same time
      */
     public void setPrefetchSize(int prefetchSize) {
         this.prefetchSize = prefetchSize;
@@ -615,8 +665,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The maximum number of messages that the server will deliver, 0 if unlimited.
-     * You need to specify the option of prefetchSize, prefetchCount, prefetchGlobal at the same time
+     * The maximum number of messages that the server will deliver, 0 if unlimited. You need to specify the option of
+     * prefetchSize, prefetchCount, prefetchGlobal at the same time
      */
     public void setPrefetchCount(int prefetchCount) {
         this.prefetchCount = prefetchCount;
@@ -627,8 +677,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * If the settings should be applied to the entire channel rather than each consumer
-     * You need to specify the option of prefetchSize, prefetchCount, prefetchGlobal at the same time
+     * If the settings should be applied to the entire channel rather than each consumer You need to specify the option
+     * of prefetchSize, prefetchCount, prefetchGlobal at the same time
      */
     public void setPrefetchGlobal(boolean prefetchGlobal) {
         this.prefetchGlobal = prefetchGlobal;
@@ -643,7 +693,8 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Number of concurrent consumers when consuming from broker. (eg similar as to the same option for the JMS component).
+     * Number of concurrent consumers when consuming from broker. (eg similar as to the same option for the JMS
+     * component).
      */
     public void setConcurrentConsumers(int concurrentConsumers) {
         this.concurrentConsumers = concurrentConsumers;
@@ -654,13 +705,13 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * If the option is true, camel declare the exchange and queue name and bind them together.
-     * If the option is false, camel won't declare the exchange and queue name on the server.
+     * If the option is true, camel declare the exchange and queue name and bind them together. If the option is false,
+     * camel won't declare the exchange and queue name on the server.
      */
     public void setDeclare(boolean declare) {
         this.declare = declare;
     }
-    
+
     public String getDeadLetterExchange() {
         return deadLetterExchange;
     }
@@ -712,9 +763,6 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
         return channelPoolMaxSize;
     }
 
-    /**
-     * Set maximum number of opened channel in pool
-     */
     public void setChannelPoolMaxSize(int channelPoolMaxSize) {
         this.channelPoolMaxSize = channelPoolMaxSize;
     }
@@ -735,9 +783,9 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * This flag tells the server how to react if the message cannot be routed to a queue.
-     * If this flag is set, the server will return an unroutable message with a Return method.
-     * If this flag is zero, the server silently drops the message.
+     * This flag tells the server how to react if the message cannot be routed to a queue. If this flag is set, the
+     * server will return an unroutable message with a Return method. If this flag is zero, the server silently drops
+     * the message.
      * <p/>
      * If the header is present rabbitmq.MANDATORY it will override this option.
      */
@@ -750,9 +798,9 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * This flag tells the server how to react if the message cannot be routed to a queue consumer immediately.
-     * If this flag is set, the server will return an undeliverable message with a Return method.
-     * If this flag is zero, the server will queue the message, but with no guarantee that it will ever be consumed.
+     * This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. If this
+     * flag is set, the server will return an undeliverable message with a Return method. If this flag is zero, the
+     * server will queue the message, but with no guarantee that it will ever be consumed.
      * <p/>
      * If the header is present rabbitmq.IMMEDIATE it will override this option.
      */
@@ -760,25 +808,250 @@ public class RabbitMQEndpoint extends DefaultEndpoint {
         this.immediate = immediate;
     }
 
-    public ArgsConfigurer getQueueArgsConfigurer() {
-        return queueArgsConfigurer;
-    }
-    
     /**
-     * Set the configurer for setting the queue args in Channel.queueDeclare
+     * Specify arguments for configuring the different RabbitMQ concepts, a different prefix is required for each:
+     * <ul>
+     * <li>Exchange: arg.exchange.</li>
+     * <li>Queue: arg.queue.</li>
+     * <li>Binding: arg.binding.</li>
+     * <li>DLQ: arg.dlq.queue.</li>
+     * <li>DLQ binding: arg.dlq.binding.</li>
+     * </ul>
+     * For example to declare a queue with message ttl argument:
+     * http://localhost:5672/exchange/queue?args=arg.queue.x-message-ttl=60000
      */
-    public void setQueueArgsConfigurer(ArgsConfigurer queueArgsConfigurer) {
-        this.queueArgsConfigurer = queueArgsConfigurer;
+    public void setArgs(Map<String, Object> args) {
+        this.args = args;
     }
-    
-    public ArgsConfigurer getExchangeArgsConfigurer() {
-        return exchangeArgsConfigurer;
+
+    public Map<String, Object> getArgs() {
+        return args;
     }
-    
+
+    public Map<String, Object> getExchangeArgs() {
+        return PropertiesHelper.extractProperties(args, EXCHANGE_ARG_PREFIX, false);
+    }
+
+    public Map<String, Object> getQueueArgs() {
+        return PropertiesHelper.extractProperties(args, QUEUE_ARG_PREFIX, false);
+    }
+
+    public Map<String, Object> getDlqArgs() {
+        return PropertiesHelper.extractProperties(args, DLQ_ARG_PREFIX, false);
+    }
+
+    public Map<String, Object> getDlqBindingArgs() {
+        return PropertiesHelper.extractProperties(args, DLQ_BINDING_PREFIX, false);
+    }
+
+    public Map<String, Object> getBindingArgs() {
+        return PropertiesHelper.extractProperties(args, BINDING_ARG_PREFIX, false);
+    }
+
     /**
-     * Set the configurer for setting the exchange args in Channel.exchangeDeclare
+     * Set timeout for waiting for a reply when using the InOut Exchange Pattern (in milliseconds)
      */
-    public void setExchangeArgsConfigurer(ArgsConfigurer exchangeArgsConfigurer) {
-        this.exchangeArgsConfigurer = exchangeArgsConfigurer;
+    public void setRequestTimeout(long requestTimeout) {
+        this.requestTimeout = requestTimeout;
+    }
+
+    public long getRequestTimeout() {
+        return requestTimeout;
+    }
+
+    /**
+     * Set requestTimeoutCheckerInterval for inOut exchange
+     */
+    public void setRequestTimeoutCheckerInterval(long requestTimeoutCheckerInterval) {
+        this.requestTimeoutCheckerInterval = requestTimeoutCheckerInterval;
+    }
+
+    public long getRequestTimeoutCheckerInterval() {
+        return requestTimeoutCheckerInterval;
+    }
+
+    /**
+     * Get useMessageIDAsCorrelationID for inOut exchange
+     */
+    public boolean isUseMessageIDAsCorrelationID() {
+        return useMessageIDAsCorrelationID;
+    }
+
+    /**
+     * When true and an inOut Exchange failed on the consumer side send the caused Exception back in the response
+     */
+    public void setTransferException(boolean transferException) {
+        this.transferException = transferException;
+    }
+
+    public boolean isTransferException() {
+        return transferException;
+    }
+
+    /**
+     * When true, the message will be published with <a href="https://www.rabbitmq.com/confirms.html">publisher
+     * acknowledgements</a> turned on
+     */
+    public boolean isPublisherAcknowledgements() {
+        return publisherAcknowledgements;
+    }
+
+    public void setPublisherAcknowledgements(final boolean publisherAcknowledgements) {
+        this.publisherAcknowledgements = publisherAcknowledgements;
+    }
+
+    /**
+     * The amount of time in milliseconds to wait for a basic.ack response from RabbitMQ server
+     */
+    public long getPublisherAcknowledgementsTimeout() {
+        return publisherAcknowledgementsTimeout;
+    }
+
+    public void setPublisherAcknowledgementsTimeout(final long publisherAcknowledgementsTimeout) {
+        this.publisherAcknowledgementsTimeout = publisherAcknowledgementsTimeout;
+    }
+
+    /**
+     * When true, an exception will be thrown when the message cannot be delivered (basic.return) and the message is
+     * marked as mandatory. PublisherAcknowledgement will also be activated in this case. See also <a
+     * href=https://www.rabbitmq.com/confirms.html">publisher acknowledgements</a> - When will messages be confirmed.
+     */
+    public boolean isGuaranteedDeliveries() {
+        return guaranteedDeliveries;
+    }
+
+    public void setGuaranteedDeliveries(boolean guaranteedDeliveries) {
+        this.guaranteedDeliveries = guaranteedDeliveries;
+    }
+
+    /**
+     * Get replyToType for inOut exchange
+     */
+    public String getReplyToType() {
+        return replyToType;
+    }
+
+    /**
+     * Gets the Queue to reply to if you dont want to use temporary reply queues
+     */
+    public String getReplyTo() {
+        return replyTo;
+    }
+
+    public boolean isExclusive() {
+        return exclusive;
+    }
+
+    /**
+     * Exclusive queues may only be accessed by the current connection, and are deleted when that connection closes.
+     */
+    public void setExclusive(boolean exclusive) {
+        this.exclusive = exclusive;
+    }
+
+    public boolean isExclusiveConsumer() {
+        return exclusiveConsumer;
+    }
+
+    /**
+     * Request exclusive access to the queue (meaning only this consumer can access the queue). This is useful when you
+     * want a long-lived shared queue to be temporarily accessible by just one consumer.
+     */
+    public void setExclusiveConsumer(boolean exclusiveConsumer) {
+        this.exclusiveConsumer = exclusiveConsumer;
+    }
+
+    /**
+     * Allow pass null values to header
+     */
+    public boolean isAllowNullHeaders() {
+        return allowNullHeaders;
+    }
+
+    public void setAllowNullHeaders(boolean allowNullHeaders) {
+        this.allowNullHeaders = allowNullHeaders;
+    }
+
+    public boolean isPassive() {
+        return passive;
+    }
+
+    /**
+     * Passive queues depend on the queue already to be available at RabbitMQ.
+     */
+    public void setPassive(boolean passive) {
+        this.passive = passive;
+    }
+
+    public String getConsumerTag() {
+        return consumerTag;
+    }
+
+    /**
+     * Specify a client-generated consumer tag to establish context when invoking the consume operation
+     */
+    public void setConsumerTag(String consumerTag) {
+        this.consumerTag = consumerTag;
+    }
+
+    public boolean isAllowCustomHeaders() {
+        return allowCustomHeaders;
+    }
+
+    /**
+     * Map of additional headers. These headers will be set only when the 'allowCustomHeaders' is set to true
+     */
+    public void setAdditionalHeaders(Map<String, Object> additionalHeaders) {
+        this.additionalHeaders = additionalHeaders;
+    }
+
+    public Map<String, Object> getAdditionalHeaders() {
+        return additionalHeaders;
+    }
+
+    /**
+     * Map of additional properties. These are standard RabbitMQ properties as defined in
+     * {@link com.rabbitmq.client.AMQP.BasicProperties}. The map keys should be from
+     * {@link org.apache.camel.component.rabbitmq.RabbitMQConstants}. Any other keys will be ignored.
+     */
+    public void setAdditionalProperties(Map<String, Object> additionalProperties) {
+        this.additionalProperties = additionalProperties;
+    }
+
+    public Map<String, Object> getAdditionalProperties() {
+        return additionalProperties;
+    }
+
+    /**
+     * Allow pass custom values to header
+     */
+    public void setAllowCustomHeaders(boolean allowCustomHeaders) {
+        this.allowCustomHeaders = allowCustomHeaders;
+    }
+
+    public ExceptionHandler getConnectionFactoryExceptionHandler() {
+        return connectionFactoryExceptionHandler;
+    }
+
+    /**
+     * Custom rabbitmq ExceptionHandler for ConnectionFactory
+     */
+    public void setConnectionFactoryExceptionHandler(ExceptionHandler connectionFactoryExceptionHandler) {
+        this.connectionFactoryExceptionHandler = connectionFactoryExceptionHandler;
+    }
+
+    /**
+     * This is used by the consumer to control rejection of the message. When the consumer is complete processing the
+     * exchange, and if the exchange failed, then the consumer is going to reject the message from the RabbitMQ broker.
+     * If the header CamelRabbitmqRequeue is present then the value of the header will be used, otherwise this endpoint
+     * value is used as fallback. If the value is false (by default) then the message is discarded/dead-lettered. If the
+     * value is true, then the message is re-queued.
+     */
+    public boolean isReQueue() {
+        return reQueue;
+    }
+
+    public void setReQueue(boolean reQueue) {
+        this.reQueue = reQueue;
     }
 }

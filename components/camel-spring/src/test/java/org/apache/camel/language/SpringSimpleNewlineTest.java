@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,8 +17,11 @@
 package org.apache.camel.language;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SpringSimpleNewlineTest extends SpringTestSupport {
 
@@ -26,7 +29,8 @@ public class SpringSimpleNewlineTest extends SpringTestSupport {
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/language/springSimpleNewline.xml");
     }
-    
+
+    @Test
     public void testSimpleNewline() {
         String result = template.requestBody("direct:start", "Camel", String.class);
         assertEquals("Body is\non new line Camel\n", result);

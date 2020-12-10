@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,17 +19,13 @@ package org.apache.camel.component.jms;
 import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
 
-/**
- * @version 
- */
 public class JmsTransferExchangeTest extends CamelTestSupport {
 
     protected String getUri() {
@@ -40,6 +36,7 @@ public class JmsTransferExchangeTest extends CamelTestSupport {
     public void testBodyOnly() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World");
+        mock.expectedHeaderReceived("JMSDestination", "queue://foo");
 
         template.sendBody("direct:start", "Hello World");
 
@@ -51,6 +48,7 @@ public class JmsTransferExchangeTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World");
         mock.expectedHeaderReceived("foo", "cheese");
+        mock.expectedHeaderReceived("JMSDestination", "queue://foo");
 
         template.sendBodyAndHeader("direct:start", "Hello World", "foo", "cheese");
 
@@ -63,18 +61,18 @@ public class JmsTransferExchangeTest extends CamelTestSupport {
         mock.expectedBodiesReceived("Hello World");
         mock.expectedHeaderReceived("foo", "cheese");
         mock.expectedPropertyReceived("bar", 123);
+        mock.expectedHeaderReceived("JMSDestination", "queue://foo");
 
-        template.send("direct:start", new Processor() {
-            public void process(Exchange exchange) throws Exception {
-                exchange.getIn().setBody("Hello World");
-                exchange.getIn().setHeader("foo", "cheese");
-                exchange.setProperty("bar", 123);
-            }
+        template.send("direct:start", exchange -> {
+            exchange.getIn().setBody("Hello World");
+            exchange.getIn().setHeader("foo", "cheese");
+            exchange.setProperty("bar", 123);
         });
 
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 

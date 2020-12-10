@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,10 +17,10 @@
 package org.apache.camel.component.mongodb;
 
 public class MongoDbTailTrackingConfig {
-    
+
     public static final String DEFAULT_COLLECTION = "camelTailTracking";
     public static final String DEFAULT_FIELD = "lastTrackingValue";
-    
+
     /**
      * See {@link MongoDbEndpoint#setTailTrackIncreasingField(String)}
      */
@@ -45,14 +45,15 @@ public class MongoDbTailTrackingConfig {
      * See {@link MongoDbEndpoint#setPersistentId(String)}
      */
     public final String persistentId;
-    
+
     public MongoDbTailTrackingConfig(boolean persistentTailTracking, String tailTrackIncreasingField, String tailTrackDb,
-            String tailTrackCollection, String tailTrackField, String persistentId) {
+                                     String tailTrackCollection, String tailTrackField,
+                                     String persistentId) {
         this.increasingField = tailTrackIncreasingField;
         this.persistent = persistentTailTracking;
         this.db = tailTrackDb;
         this.persistentId = persistentId;
-        this.collection = tailTrackCollection == null ? MongoDbTailTrackingConfig.DEFAULT_COLLECTION : tailTrackCollection;
-        this.field = tailTrackField == null ? MongoDbTailTrackingConfig.DEFAULT_FIELD : tailTrackField;
+        this.collection = tailTrackCollection == null ? DEFAULT_COLLECTION : tailTrackCollection;
+        this.field = tailTrackField == null ? DEFAULT_FIELD : tailTrackField;
     }
 }

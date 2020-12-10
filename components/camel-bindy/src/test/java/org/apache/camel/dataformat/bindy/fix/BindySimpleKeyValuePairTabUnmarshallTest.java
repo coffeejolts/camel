@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,10 +19,12 @@ package org.apache.camel.dataformat.bindy.fix;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.dataformat.bindy.CommonBindyTest;
 import org.apache.camel.dataformat.bindy.kvp.BindyKeyValuePairDataFormat;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.camel.dataformat.bindy.model.fix.tab.Order;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ContextConfiguration
 public class BindySimpleKeyValuePairTabUnmarshallTest extends CommonBindyTest {
@@ -33,18 +35,20 @@ public class BindySimpleKeyValuePairTabUnmarshallTest extends CommonBindyTest {
         result.expectedMessageCount(1);
         result.assertIsSatisfied();
 
-        String body = result.getReceivedExchanges().get(0).getIn().getBody(String.class);
-        Assert.assertTrue(body.contains("FIX.4.1, 9: 20, 34: 1 , 35: 0, 49: INVMGR, 56: BRKR"));
-        Assert.assertTrue(body.contains("BE.CHM.001, 11: CHM0001-01, 22: 4, 48: BE0001245678, 54: 1, 58: this is a camel - bindy test"));
-        Assert.assertTrue(body.contains("10: 220"));
+        Order order = result.getReceivedExchanges().get(0).getIn().getBody(Order.class);
+
+        assertTrue(order.getHeader().toString().contains("FIX.4.1, 9: 20, 34: 1 , 35: 0, 49: INVMGR, 56: BRKR"));
+        assertTrue(order.toString()
+                .contains("BE.CHM.001, 11: CHM0001-01, 22: 4, 48: BE0001245678, 54: 1, 58: this is a camel - bindy test"));
+        assertTrue(order.getTrailer().toString().contains("10: 220"));
     }
 
     public static class ContextConfig extends RouteBuilder {
-        BindyKeyValuePairDataFormat kvpBindyDataFormat = new BindyKeyValuePairDataFormat("org.apache.camel.dataformat.bindy.model.fix.tab");
+        BindyKeyValuePairDataFormat kvpBindyDataFormat = new BindyKeyValuePairDataFormat(Order.class);
 
+        @Override
         public void configure() {
             from(URI_FILE_FIX_TAB).unmarshal(kvpBindyDataFormat).to(URI_MOCK_RESULT);
         }
-
     }
 }

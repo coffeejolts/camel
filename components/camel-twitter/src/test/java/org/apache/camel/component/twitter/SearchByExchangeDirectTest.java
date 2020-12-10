@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,27 +16,31 @@
  */
 package org.apache.camel.component.twitter;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
  */
 public class SearchByExchangeDirectTest extends CamelTwitterTestSupport {
 
-    @Produce(uri = "direct:start")
+    @Produce("direct:start")
     protected ProducerTemplate template;
 
-    @Produce(uri = "direct:header")
+    @Produce("direct:header")
     protected ProducerTemplate templateHeader;
 
-    @Produce(uri = "direct:double")
+    @Produce("direct:double")
     protected ProducerTemplate templateDouble;
 
     @Test
@@ -66,6 +70,34 @@ public class SearchByExchangeDirectTest extends CamelTwitterTestSupport {
     }
 
     @Test
+    public void testSearchTimelineWithDynamicQuerySinceId() throws Exception {
+        Map<String, Object> headers = new HashMap<>();
+        headers.put(TwitterConstants.TWITTER_KEYWORDS, "java");
+        headers.put(TwitterConstants.TWITTER_SINCEID, 258347905419730944L);
+        templateHeader.sendBodyAndHeaders(null, headers);
+
+        MockEndpoint mock = getMockEndpoint("mock:result");
+        mock.expectedMinimumMessageCount(1);
+        mock.assertIsSatisfied();
+        List<Exchange> tweets = mock.getExchanges();
+        for (Exchange e : tweets) {
+            log.info("Tweet: " + e.getIn().getBody(String.class));
+        }
+    }
+
+    @Test
+    public void testSearchTimelineWithDynamicQuerySinceIdAndMaxId() throws Exception {
+        Map<String, Object> headers = new HashMap<>();
+        headers.put(TwitterConstants.TWITTER_KEYWORDS, "java");
+        headers.put(TwitterConstants.TWITTER_SINCEID, 258347905419730944L);
+        headers.put(TwitterConstants.TWITTER_MAXID, 258348815243960320L);
+        templateHeader.sendBodyAndHeaders(null, headers);
+
+        MockEndpoint mock = getMockEndpoint("mock:result");
+        mock.expectedMinimumMessageCount(0);
+    }
+
+    @Test
     public void testDoubleSearchKeepingOld() throws Exception {
         templateDouble.sendBodyAndHeader(null, TwitterConstants.TWITTER_KEYWORDS, "java");
 
@@ -86,21 +118,22 @@ public class SearchByExchangeDirectTest extends CamelTwitterTestSupport {
         assertTrue(mock.getReceivedCounter() >= total);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
                 from("direct:start")
-                        .toF("twitter://search?%s&keywords=java", getUriTokens())
+                        .toF("twitter-search://java?%s", getUriTokens())
                         .split().body()
                         .to("mock:result");
 
                 from("direct:header")
-                        .toF("twitter://search?%s", getUriTokens())
+                        .toF("twitter-search://foo?%s", getUriTokens())
                         .split().body()
                         .to("mock:result");
 
                 from("direct:double")
-                        .toF("twitter://search?filterOld=false&%s", getUriTokens())
+                        .toF("twitter-search://foo?filterOld=false&%s", getUriTokens())
                         .split().body()
                         .to("mock:result");
             }

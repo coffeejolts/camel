@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -32,17 +32,13 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 
+import org.apache.cxf.common.util.StringUtils;
 
-
-/**
- *
- * @version 
- */
 @Path("/customerservice/")
 public class CustomerService {
     private final AtomicLong currentId = new AtomicLong(123L);
-    private final Map<Long, Customer> customers = new ConcurrentHashMap<Long, Customer>();
-    private final Map<Long, Order> orders = new ConcurrentHashMap<Long, Order>();
+    private final Map<Long, Customer> customers = new ConcurrentHashMap<>();
+    private final Map<Long, Order> orders = new ConcurrentHashMap<>();
 
     public CustomerService() {
         init();
@@ -55,7 +51,7 @@ public class CustomerService {
         Customer c = customers.get(idNumber);
         return c;
     }
-    
+
     @GET
     @Path("/customers")
     public Customer getCustomerByQueryParam(@QueryParam("id") String id) {
@@ -63,15 +59,14 @@ public class CustomerService {
         Customer c = customers.get(idNumber);
         return c;
     }
-    
+
     @GET
     @Path("/customers/")
     @Produces("application/xml")
     public List<Customer> getCustomers() {
-        List<Customer> list = new ArrayList<Customer>(customers.values());
+        List<Customer> list = new ArrayList<>(customers.values());
         return list;
     }
-    
 
     @PUT
     @Path("/customers/")
@@ -91,20 +86,24 @@ public class CustomerService {
     @POST
     @Path("/customers/")
     public Response addCustomer(Customer customer) {
+        if (StringUtils.isEmpty(customer.getName())) {
+            return Response.status(422).build();
+        }
+
         customer.setId(currentId.incrementAndGet());
 
         customers.put(customer.getId(), customer);
-        
+
         return Response.ok(customer).build();
     }
-    
+
     @POST
     @Path("/customersUniqueResponseCode/")
     public Response addCustomerUniqueResponseCode(Customer customer) {
         customer.setId(currentId.incrementAndGet());
 
         customers.put(customer.getId(), customer);
-        
+
         return Response.status(201).entity(customer).build();
     }
 

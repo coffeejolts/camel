@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,21 +20,28 @@ import org.apache.camel.Exchange;
 import org.apache.camel.component.dropbox.DropboxConfiguration;
 import org.apache.camel.component.dropbox.DropboxEndpoint;
 import org.apache.camel.component.dropbox.core.DropboxAPIFacade;
-import org.apache.camel.component.dropbox.dto.DropboxResult;
+import org.apache.camel.component.dropbox.dto.DropboxDelResult;
+import org.apache.camel.component.dropbox.util.DropboxHelper;
+import org.apache.camel.component.dropbox.util.DropboxResultHeader;
+import org.apache.camel.component.dropbox.validator.DropboxConfigurationValidator;
 
 public class DropboxDelProducer extends DropboxProducer {
-    
+
     public DropboxDelProducer(DropboxEndpoint endpoint, DropboxConfiguration configuration) {
         super(endpoint, configuration);
     }
 
     @Override
     public void process(Exchange exchange) throws Exception {
-        DropboxResult result = DropboxAPIFacade.getInstance(configuration.getClient())
-                .del(configuration.getRemotePath());
-        result.populateExchange(exchange);
-        log.info("Deleted: " + configuration.getRemotePath());
 
+        String remotePath = DropboxHelper.getRemotePath(configuration, exchange);
+        DropboxConfigurationValidator.validateDelOp(remotePath);
+
+        DropboxDelResult result = new DropboxAPIFacade(configuration.getClient(), exchange)
+                .del(remotePath);
+
+        exchange.getIn().setHeader(DropboxResultHeader.DELETED_PATH.name(), result.getEntry());
+        exchange.getIn().setBody(result.getEntry());
     }
 
 }

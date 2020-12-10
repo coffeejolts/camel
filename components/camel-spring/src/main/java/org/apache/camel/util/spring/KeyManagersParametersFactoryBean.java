@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,14 +21,14 @@ import javax.xml.bind.annotation.XmlTransient;
 import org.apache.camel.CamelContext;
 import org.apache.camel.core.xml.util.jsse.AbstractKeyManagersParametersFactoryBean;
 import org.apache.camel.spring.util.CamelContextResolverHelper;
-import org.apache.camel.util.jsse.KeyManagersParameters;
+import org.apache.camel.support.jsse.KeyManagersParameters;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
-public class KeyManagersParametersFactoryBean extends AbstractKeyManagersParametersFactoryBean 
+public class KeyManagersParametersFactoryBean extends AbstractKeyManagersParametersFactoryBean
         implements FactoryBean<KeyManagersParameters>, ApplicationContextAware {
-    
+
     KeyStoreParametersFactoryBean keyStore;
 
     @XmlTransient
@@ -48,6 +48,7 @@ public class KeyManagersParametersFactoryBean extends AbstractKeyManagersParamet
         return CamelContextResolverHelper.getCamelContextWithId(applicationContext, camelContextId);
     }
 
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }

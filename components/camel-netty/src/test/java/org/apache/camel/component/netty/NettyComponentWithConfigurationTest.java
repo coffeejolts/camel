@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,12 +16,13 @@
  */
 package org.apache.camel.component.netty;
 
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 public class NettyComponentWithConfigurationTest extends CamelTestSupport {
 
     @Test
@@ -39,7 +40,7 @@ public class NettyComponentWithConfigurationTest extends CamelTestSupport {
         // should not be same
         assertNotSame(e1, e2);
         assertNotSame(e1.getConfiguration(), e2.getConfiguration());
-        
+
         assertEquals(0, e2.getConfiguration().getReceiveBufferSizePredictor());
         e2.getConfiguration().setReceiveBufferSizePredictor(1024);
         assertEquals(1024, e2.getConfiguration().getReceiveBufferSizePredictor());
@@ -53,7 +54,7 @@ public class NettyComponentWithConfigurationTest extends CamelTestSupport {
         assertEquals(4455, e1.getConfiguration().getPort());
         assertEquals(5566, e2.getConfiguration().getPort());
     }
-    
+
     @Test
     public void testNettyComponentUdpWithConfiguration() throws Exception {
         NettyComponent comp = context.getComponent("netty", NettyComponent.class);
@@ -64,7 +65,8 @@ public class NettyComponentWithConfigurationTest extends CamelTestSupport {
         assertSame(cfg, comp.getConfiguration());
 
         NettyEndpoint e1 = (NettyEndpoint) comp.createEndpoint("netty://udp://localhost:8601?sync=false");
-        NettyEndpoint e2 = (NettyEndpoint) comp.createEndpoint("netty://udp://localhost:8602?sync=false&udpConnectionlessSending=true");
+        NettyEndpoint e2
+                = (NettyEndpoint) comp.createEndpoint("netty://udp://localhost:8602?sync=false&udpConnectionlessSending=true");
 
         // should not be same
         assertNotSame(e1, e2);

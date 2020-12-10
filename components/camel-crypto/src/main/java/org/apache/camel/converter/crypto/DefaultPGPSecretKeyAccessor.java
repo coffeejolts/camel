@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.util.StringHelper;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPrivateKey;
 import org.bouncycastle.openpgp.PGPSecretKeyRingCollection;
@@ -33,16 +34,14 @@ import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator;
 
 /**
- * Caches a Secret Keyring. Assumes that the password for all private keys is
- * the same.
- * 
+ * Caches a Secret Keyring. Assumes that the password for all private keys is the same.
  */
 public class DefaultPGPSecretKeyAccessor implements PGPSecretKeyAccessor {
 
-    private final Map<String, List<PGPSecretKeyAndPrivateKeyAndUserId>> userIdPart2SecretKeyList = new HashMap<String, List<PGPSecretKeyAndPrivateKeyAndUserId>>(
+    private final Map<String, List<PGPSecretKeyAndPrivateKeyAndUserId>> userIdPart2SecretKeyList = new HashMap<>(
             3);
 
-    private final Map<Long, PGPPrivateKey> keyId2PrivateKey = new HashMap<Long, PGPPrivateKey>(3);
+    private final Map<Long, PGPPrivateKey> keyId2PrivateKey = new HashMap<>(3);
 
     private final PGPSecretKeyRingCollection pgpSecretKeyring;
 
@@ -52,33 +51,33 @@ public class DefaultPGPSecretKeyAccessor implements PGPSecretKeyAccessor {
 
     /**
      * 
-     * @param secretKeyRing
-     *            secret key ring as byte array
-     * @param password
-     *            password for the private keys, assuming that all private keys
-     *            have the same password
-     * @param provider
+     * @param  secretKeyRing secret key ring as byte array
+     * @param  password      password for the private keys, assuming that all private keys have the same password
+     * @param  provider
      * @throws PGPException
      * @throws IOException
      */
-    public DefaultPGPSecretKeyAccessor(byte[] secretKeyRing, String password, String provider) throws PGPException, IOException {
+    public DefaultPGPSecretKeyAccessor(byte[] secretKeyRing, String password, String provider) throws PGPException,
+                                                                                               IOException {
         ObjectHelper.notNull(secretKeyRing, "secretKeyRing");
-        ObjectHelper.notEmpty(password, "password");
-        ObjectHelper.notEmpty(provider, "provider");
-        pgpSecretKeyring = 
-            new PGPSecretKeyRingCollection(PGPUtil.getDecoderStream(new ByteArrayInputStream(secretKeyRing)),
-                                           new BcKeyFingerprintCalculator());
+        StringHelper.notEmpty(password, "password");
+        StringHelper.notEmpty(provider, "provider");
+        pgpSecretKeyring = new PGPSecretKeyRingCollection(
+                PGPUtil.getDecoderStream(new ByteArrayInputStream(secretKeyRing)),
+                new BcKeyFingerprintCalculator());
         this.password = password;
         this.provider = provider;
     }
 
     @Override
-    public List<PGPSecretKeyAndPrivateKeyAndUserId> getSignerKeys(Exchange exchange, List<String> useridParts) throws Exception {
-        List<PGPSecretKeyAndPrivateKeyAndUserId> result = new ArrayList<PGPSecretKeyAndPrivateKeyAndUserId>(3);
+    public List<PGPSecretKeyAndPrivateKeyAndUserId> getSignerKeys(Exchange exchange, List<String> useridParts)
+            throws Exception {
+        List<PGPSecretKeyAndPrivateKeyAndUserId> result = new ArrayList<>(3);
         for (String useridPart : useridParts) {
             List<PGPSecretKeyAndPrivateKeyAndUserId> partResult = userIdPart2SecretKeyList.get(useridPart);
             if (partResult == null) {
-                partResult = PGPDataFormatUtil.findSecretKeysWithPrivateKeyAndUserId(Collections.singletonMap(useridPart, password),
+                partResult = PGPDataFormatUtil.findSecretKeysWithPrivateKeyAndUserId(
+                        Collections.singletonMap(useridPart, password),
                         provider, pgpSecretKeyring);
                 userIdPart2SecretKeyList.put(useridPart, partResult);
             }

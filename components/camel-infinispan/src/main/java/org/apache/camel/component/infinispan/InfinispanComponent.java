@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,22 +16,92 @@
  */
 package org.apache.camel.component.infinispan;
 
+import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.infinispan.configuration.global.GlobalConfigurationBuilder;
+import org.infinispan.manager.CacheContainer;
+import org.infinispan.manager.DefaultCacheManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class InfinispanComponent extends UriEndpointComponent {
+@Component("infinispan")
+public class InfinispanComponent extends DefaultComponent {
+
+    private static final Logger LOG = LoggerFactory.getLogger(InfinispanComponent.class);
+
+    private transient CacheContainer defaultCacheManager;
+
+    @Metadata(description = "Component configuration")
+    private InfinispanConfiguration configuration = new InfinispanConfiguration();
 
     public InfinispanComponent() {
-        super(InfinispanEndpoint.class);
+    }
+
+    public InfinispanComponent(CamelContext camelContext) {
+        super(camelContext);
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        InfinispanConfiguration configuration = new InfinispanConfiguration();
-        configuration.setHost(remaining);
-        setProperties(configuration, parameters);
-        return new InfinispanEndpoint(uri, this, configuration);
+        InfinispanConfiguration conf = configuration.copy();
+        // init default embedded cache if config parameters aren't specified or cacheContainer is set using setMethod
+        if (!isConfigProvided(parameters, conf)) {
+            if (defaultCacheManager == null) {
+                defaultCacheManager = new DefaultCacheManager(
+                        new GlobalConfigurationBuilder().defaultCacheName("default").build(),
+                        new org.infinispan.configuration.cache.ConfigurationBuilder().build());
+                LOG.debug("Default cacheContainer has been created");
+            }
+            conf.setCacheContainer(defaultCacheManager);
+        }
+
+        InfinispanEndpoint endpoint = new InfinispanEndpoint(uri, remaining, this, conf);
+        setProperties(endpoint, parameters);
+        return endpoint;
+    }
+
+    public void setConfiguration(InfinispanConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    public InfinispanConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * Determine if cache is configured
+     */
+    private boolean isConfigProvided(Map<String, Object> parameters, InfinispanConfiguration conf) {
+        if (conf.getHosts() != null) {
+            return true;
+        }
+        if (conf.getCacheContainer() != null) {
+            return true;
+        }
+        if (conf.getCacheContainerConfiguration() != null) {
+            return true;
+        }
+        if (conf.getConfigurationUri() != null) {
+            return true;
+        }
+
+        String[] confParameters = new String[] { "hosts", "cacheContainerConfiguration", "configurationUri", "cacheContainer" };
+        return Arrays.stream(confParameters).anyMatch(parameters::containsKey);
+    }
+
+    @Override
+    protected void doShutdown() throws Exception {
+        super.doShutdown();
+
+        if (defaultCacheManager != null) {
+            defaultCacheManager.stop();
+            defaultCacheManager = null;
+        }
     }
 }

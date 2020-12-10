@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,7 +20,7 @@ import org.apache.camel.AsyncCallback;
 import org.apache.camel.AsyncProcessor;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.util.AsyncProcessorConverterHelper;
+import org.apache.camel.support.AsyncProcessorConverterHelper;
 import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +48,7 @@ public class CamelEventHandler {
      * @param event the event received by Guava EventBus.
      */
     public void doEventReceived(Object event) {
-        log.trace("Received event: {}");
+        log.trace("Received event: {}", event);
         final Exchange exchange = eventBusEndpoint.createExchange(event);
         log.debug("Processing event: {}", event);
         // use async processor to support async routing engine

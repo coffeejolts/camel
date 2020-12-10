@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,100 +14,91 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.gora;
 
-import java.util.Map;
-
 import org.apache.camel.Exchange;
-import org.apache.camel.ExchangePattern;
 import org.apache.camel.Message;
-import org.apache.camel.component.gora.utils.GoraUtils;
 import org.apache.gora.persistency.Persistent;
-import org.apache.gora.query.Query;
-import org.apache.gora.query.impl.QueryBase;
 import org.apache.gora.store.DataStore;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.internal.verification.VerificationModeFactory.times;
-import static org.powermock.api.mockito.PowerMockito.mock;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
-import static org.powermock.api.mockito.PowerMockito.verifyStatic;
-import static org.powermock.api.mockito.PowerMockito.when;
+import static org.mockito.Mockito.when;
 
 /**
  * GORA Producer Tests
- *
- * TODO: <b>NOTE:</b> Query methods does not yet has tests
- *
  */
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(GoraUtils.class)
+@ExtendWith(MockitoExtension.class)
 public class GoraProducerTest extends GoraTestSupport {
+
+    // TODO: Query methods does not yet has tests
 
     /**
      * Mock CamelExchange
      */
+    @Mock
     private Exchange mockCamelExchange;
 
     /**
      * Mock Gora Endpoint
      */
+    @Mock
     private GoraEndpoint mockGoraEndpoint;
 
     /**
      * Mock Gora Configuration
      */
+    @Mock
     private GoraConfiguration mockGoraConfiguration;
 
     /**
      * Mock Camel Message
      */
+    @Mock
     private Message mockCamelMessage;
 
     /**
      * Mock Gora DataStore
      */
-    private DataStore mockDatastore;
+    @Mock
+    private DataStore<Object, Persistent> mockDatastore;
 
-    @Before
-    public void setUp()  {
-
+    @Override
+    @BeforeEach
+    public void setUp() {
         //setup mocks
         mockCamelExchange = mock(Exchange.class);
         mockGoraEndpoint = mock(GoraEndpoint.class);
         mockGoraConfiguration = mock(GoraConfiguration.class);
         mockCamelMessage = mock(Message.class);
-        mockDatastore = mock(DataStore.class);
 
         //setup default conditions
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
-        when(mockCamelExchange.getPattern()).thenReturn(ExchangePattern.InOnly);
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void processShouldThrowExceptionIfOperationIsNull() throws Exception {
-
         final GoraProducer producer = new GoraProducer(mockGoraEndpoint, mockGoraConfiguration, mockDatastore);
-        producer.process(mockCamelExchange);
+        assertThrows(RuntimeException.class,
+                () -> producer.process(mockCamelExchange));
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void shouldThrowExceptionIfOperationIsUnknown() throws Exception {
-
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("dah");
 
         final GoraProducer producer = new GoraProducer(mockGoraEndpoint, mockGoraConfiguration, mockDatastore);
-        producer.process(mockCamelExchange);
+        assertThrows(RuntimeException.class,
+                () -> producer.process(mockCamelExchange));
 
         verify(mockCamelExchange, atMost(1)).getIn();
         verify(mockCamelMessage, atMost(1)).getHeader(GoraAttribute.GORA_OPERATION.value);
@@ -115,11 +106,10 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDastorePut() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("PUT");
 
-        final Long sampleKey = new Long(2);
+        final Long sampleKey = 2L;
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_KEY.value)).thenReturn(sampleKey);
 
         final Persistent sampleValue = mock(Persistent.class);
@@ -140,11 +130,10 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDastoreGet() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("get");
 
-        final Long sampleKey = new Long(2);
+        final Long sampleKey = 2L;
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_KEY.value)).thenReturn(sampleKey);
 
         final Message outMessage = mock(Message.class);
@@ -161,11 +150,10 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDatastoreDelete() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("dEletE");
 
-        final Long sampleKey = new Long(2);
+        final Long sampleKey = 2L;
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_KEY.value)).thenReturn(sampleKey);
 
         final Message outMessage = mock(Message.class);
@@ -182,7 +170,6 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDastoreSchemaExists() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("schemaExists");
 
@@ -199,7 +186,6 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDastoreCreateSchema() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("createSchema");
 
@@ -216,10 +202,8 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDastoreGetSchemaName() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("GetSchemANamE");
-
 
         final Message outMessage = mock(Message.class);
         when(mockCamelExchange.getOut()).thenReturn(outMessage);
@@ -234,10 +218,8 @@ public class GoraProducerTest extends GoraTestSupport {
 
     @Test
     public void shouldInvokeDatastoreDeleteSchema() throws Exception {
-
         when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
         when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("DeleteSChEmA");
-
 
         final Message outMessage = mock(Message.class);
         when(mockCamelExchange.getOut()).thenReturn(outMessage);
@@ -248,58 +230,6 @@ public class GoraProducerTest extends GoraTestSupport {
         verify(mockCamelExchange, atLeastOnce()).getIn();
         verify(mockCamelMessage, atLeastOnce()).getHeader(GoraAttribute.GORA_OPERATION.value);
         verify(mockDatastore, atMost(1)).deleteSchema();
-    }
-
-    @Test
-    public void shouldInvokeDatastoreQuery() throws Exception {
-
-        when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
-        when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("query");
-
-        final Map<String, Object> mockProperties = mock(Map.class);
-        when(mockCamelMessage.getHeaders()).thenReturn(mockProperties);
-
-        final Message outMessage = mock(Message.class);
-        when(mockCamelExchange.getOut()).thenReturn(outMessage);
-
-        mockStatic(GoraUtils.class);
-
-        final Query mockQuery = mock(QueryBase.class);
-        when(GoraUtils.constractQueryFromPropertiesMap(mockProperties, mockDatastore, mockGoraConfiguration)).thenReturn(mockQuery);
-
-        final GoraProducer producer = new GoraProducer(mockGoraEndpoint, mockGoraConfiguration, mockDatastore);
-        producer.process(mockCamelExchange);
-
-        verify(mockCamelExchange, atLeastOnce()).getIn();
-        verify(mockCamelMessage, atLeastOnce()).getHeader(GoraAttribute.GORA_OPERATION.value);
-        verify(mockQuery, atLeastOnce()).execute();
-        verifyStatic(times(1));
-    }
-
-    @Test
-    public void shouldInvokeDatastoreDeleteByQuery() throws Exception {
-
-        when(mockCamelExchange.getIn()).thenReturn(mockCamelMessage);
-        when(mockCamelMessage.getHeader(GoraAttribute.GORA_OPERATION.value)).thenReturn("deleteByQuery");
-
-        final Map<String, Object> mockProperties = mock(Map.class);
-        when(mockCamelMessage.getHeaders()).thenReturn(mockProperties);
-
-        final Message outMessage = mock(Message.class);
-        when(mockCamelExchange.getOut()).thenReturn(outMessage);
-
-        mockStatic(GoraUtils.class);
-
-        final Query mockQuery = mock(QueryBase.class);
-        when(GoraUtils.constractQueryFromPropertiesMap(mockProperties, mockDatastore, mockGoraConfiguration)).thenReturn(mockQuery);
-
-        final GoraProducer producer = new GoraProducer(mockGoraEndpoint, mockGoraConfiguration, mockDatastore);
-        producer.process(mockCamelExchange);
-
-        verify(mockCamelExchange, atLeastOnce()).getIn();
-        verify(mockCamelMessage, atLeastOnce()).getHeader(GoraAttribute.GORA_OPERATION.value);
-        verify(mockDatastore, atMost(1)).deleteByQuery(mockQuery);
-        verifyStatic(times(1));
     }
 
 }

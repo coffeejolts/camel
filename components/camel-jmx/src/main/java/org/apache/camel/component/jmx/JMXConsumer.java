@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,10 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
 import javax.management.MBeanServerConnection;
 import javax.management.Notification;
 import javax.management.NotificationFilter;
@@ -33,32 +35,36 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.ExchangePattern;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
-import org.apache.camel.util.ServiceHelper;
+import org.apache.camel.support.DefaultConsumer;
+import org.apache.camel.support.service.ServiceHelper;
 import org.apache.camel.util.URISupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Consumer will add itself as a NotificationListener on the object
- * specified by the objectName param.
+ * Consumer will add itself as a NotificationListener on the object specified by the objectName param.
  */
 public class JMXConsumer extends DefaultConsumer implements NotificationListener {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(JMXConsumer.class);
-    
+
     private JMXEndpoint mJmxEndpoint;
     private JMXConnector mConnector;
     private String mConnectionId;
-    
+
+    /**
+     * Used for processing notifications (should not block notification thread)
+     */
+    private ExecutorService executorService;
+    private boolean shutdownExecutorService;
+
     /**
      * Used to schedule delayed connection attempts
      */
     private ScheduledExecutorService mScheduledExecutor;
-    
+
     /**
      * Used to receive notifications about lost connections
      */
@@ -74,20 +80,36 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
      */
     private NotificationXmlFormatter mFormatter;
 
-
     public JMXConsumer(JMXEndpoint endpoint, Processor processor) {
         super(endpoint, processor);
         this.mJmxEndpoint = endpoint;
         this.mFormatter = new NotificationXmlFormatter();
     }
 
+    @Override
+    public JMXEndpoint getEndpoint() {
+        return (JMXEndpoint) super.getEndpoint();
+    }
+
     /**
-     * Initializes the mbean server connection and starts listening for
-     * Notification events from the object.
+     * Initializes the mbean server connection and starts listening for Notification events from the object.
      */
     @Override
     protected void doStart() throws Exception {
         ServiceHelper.startService(mFormatter);
+
+        if (executorService == null) {
+            if (getEndpoint().getExecutorService() != null) {
+                // use shared thread-pool
+                executorService = getEndpoint().getExecutorService();
+            } else {
+                // lets just use a single threaded thread-pool to process these notifications
+                String name = "JMXConsumer[" + getEndpoint().getJMXObjectName().getCanonicalName() + "]";
+                executorService
+                        = getEndpoint().getCamelContext().getExecutorServiceManager().newSingleThreadExecutor(this, name);
+                shutdownExecutorService = true;
+            }
+        }
 
         // connect to the mbean server
         if (mJmxEndpoint.isPlatformServer()) {
@@ -96,23 +118,23 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
             try {
                 initNetworkConnection();
             } catch (IOException e) {
-                if (!mJmxEndpoint.getTestConnectionOnStartup()) {
+                if (!mJmxEndpoint.isTestConnectionOnStartup()) {
                     LOG.warn("Failed to connect to JMX server. >> {}", e.getMessage());
                     scheduleDelayedStart();
                     return;
                 } else {
                     throw e;
-                } 
+                }
             }
         }
         // subscribe
         addNotificationListener();
         super.doStart();
     }
-    
+
     /**
-     * Initializes a network connection to the configured JMX server and registers a connection 
-     * notification listener to to receive notifications of connection loss
+     * Initializes a network connection to the configured JMX server and registers a connection notification listener to
+     * to receive notifications of connection loss
      */
     private void initNetworkConnection() throws IOException {
         if (mConnector != null) {
@@ -123,25 +145,24 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
             }
         }
         JMXServiceURL url = new JMXServiceURL(mJmxEndpoint.getServerURL());
-        String[] creds = {mJmxEndpoint.getUser(), mJmxEndpoint.getPassword()};
+        String[] creds = { mJmxEndpoint.getUser(), mJmxEndpoint.getPassword() };
         Map<String, String[]> map = Collections.singletonMap(JMXConnector.CREDENTIALS, creds);
         mConnector = JMXConnectorFactory.connect(url, map);
         mConnector.addConnectionNotificationListener(getConnectionNotificationListener(), null, null);
         mConnectionId = mConnector.getConnectionId();
         setServerConnection(mConnector.getMBeanServerConnection());
     }
-    
+
     /**
-     * Returns the connection notification listener; creates the default listener if one does not 
-     * already exist
+     * Returns the connection notification listener; creates the default listener if one does not already exist
      */
     protected ConnectionNotificationListener getConnectionNotificationListener() {
         if (mConnectionNotificationListener == null) {
             mConnectionNotificationListener = new ConnectionNotificationListener();
-        }  
+        }
         return mConnectionNotificationListener;
     }
-    
+
     /**
      * Schedules execution of the doStart() operation to occur again after the reconnect delay
      */
@@ -152,8 +173,9 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
                 try {
                     doStart();
                 } catch (Exception e) {
-                    LOG.error("An unrecoverable exception has occurred while starting the JMX consumer" 
-                                + "for endpoint {}", URISupport.sanitizeUri(mJmxEndpoint.getEndpointUri()), e);
+                    LOG.error("An unrecoverable exception has occurred while starting the JMX consumer"
+                              + " for endpoint {}",
+                            URISupport.sanitizeUri(mJmxEndpoint.getEndpointUri()), e);
                 }
             }
         };
@@ -161,7 +183,7 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
                 URISupport.sanitizeUri(mJmxEndpoint.getEndpointUri()), mJmxEndpoint.getReconnectDelay());
         getExecutor().schedule(startRunnable, mJmxEndpoint.getReconnectDelay(), TimeUnit.SECONDS);
     }
-    
+
     /**
      * Helper class used for receiving connection loss notifications
      */
@@ -169,25 +191,25 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
 
         @Override
         public void handleNotification(Notification notification, Object handback) {
-            JMXConnectionNotification connectionNotification = (JMXConnectionNotification)notification;
+            JMXConnectionNotification connectionNotification = (JMXConnectionNotification) notification;
             // only reset the connection if the notification is for the connection from this endpoint
             if (!connectionNotification.getConnectionId().equals(mConnectionId)) {
                 return;
             }
-            if (connectionNotification.getType().equals(JMXConnectionNotification.NOTIFS_LOST) 
-                        || connectionNotification.getType().equals(JMXConnectionNotification.CLOSED) 
-                        || connectionNotification.getType().equals(JMXConnectionNotification.FAILED)) {
+            if (connectionNotification.getType().equals(JMXConnectionNotification.NOTIFS_LOST)
+                    || connectionNotification.getType().equals(JMXConnectionNotification.CLOSED)
+                    || connectionNotification.getType().equals(JMXConnectionNotification.FAILED)) {
                 LOG.warn("Lost JMX connection for : {}", URISupport.sanitizeUri(mJmxEndpoint.getEndpointUri()));
-                if (mJmxEndpoint.getReconnectOnConnectionFailure()) {
+                if (mJmxEndpoint.isReconnectOnConnectionFailure()) {
                     scheduleReconnect();
                 } else {
-                    LOG.warn("The JMX consumer will not be reconnected.  Use 'reconnectOnConnectionFailure' to "
-                            + "enable reconnections.");
+                    LOG.warn("The JMX consumer will not be reconnected. Use 'reconnectOnConnectionFailure' to "
+                             + "enable reconnections.");
                 }
             }
         }
     }
-    
+
     /**
      * Schedules an attempt to re-initialize a lost connection after the reconnect delay
      */
@@ -208,26 +230,32 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
                 URISupport.sanitizeUri(mJmxEndpoint.getEndpointUri()), mJmxEndpoint.getReconnectDelay());
         getExecutor().schedule(startRunnable, mJmxEndpoint.getReconnectDelay(), TimeUnit.SECONDS);
     }
-    
+
     /**
-     * Returns the thread executor used for scheduling delayed connection events.  Creates the executor
-     * if it does not already exist
+     * Returns the thread executor used for scheduling delayed connection events. Creates the executor if it does not
+     * already exist
      */
     private ScheduledExecutorService getExecutor() {
         if (this.mScheduledExecutor == null) {
             mScheduledExecutor = mJmxEndpoint.getCamelContext().getExecutorServiceManager()
-                .newSingleThreadScheduledExecutor(this, "connectionExcutor");
+                    .newSingleThreadScheduledExecutor(this, "JMXConnectionExecutor");
         }
         return mScheduledExecutor;
-    }    
+    }
 
     /**
      * Adds a notification listener to the target bean.
-     * @throws Exception
      */
     protected void addNotificationListener() throws Exception {
-        JMXEndpoint ep = (JMXEndpoint) getEndpoint();
+        JMXEndpoint ep = getEndpoint();
         NotificationFilter nf = ep.getNotificationFilter();
+
+        // if we should observe a single attribute then use filter
+        if (nf == null && ep.getObservedAttribute() != null) {
+            LOG.debug("Observing attribute: {}", ep.getObservedAttribute());
+            boolean match = !ep.isNotifyDiffer();
+            nf = new JMXConsumerNotificationFilter(ep.getObservedAttribute(), ep.getStringToCompare(), match);
+        }
 
         ObjectName objectName = ep.getJMXObjectName();
 
@@ -240,7 +268,7 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
     @Override
     protected void doStop() throws Exception {
         super.doStop();
-        
+
         if (mScheduledExecutor != null) {
             getEndpoint().getCamelContext().getExecutorServiceManager().shutdownNow(mScheduledExecutor);
             mScheduledExecutor = null;
@@ -248,21 +276,28 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
 
         removeNotificationListeners();
 
+        if (mConnector != null) {
+            mConnector.close();
+        }
+
         ServiceHelper.stopService(mFormatter);
+
+        if (shutdownExecutorService && executorService != null) {
+            getEndpoint().getCamelContext().getExecutorServiceManager().shutdownNow(executorService);
+            executorService = null;
+        }
     }
-    
+
     /**
-     * Removes the configured notification listener and the connection notification listener from the 
-     * connection
+     * Removes the configured notification listener and the connection notification listener from the connection
      */
-    protected void removeNotificationListeners() throws Exception {   
+    protected void removeNotificationListeners() throws Exception {
         getServerConnection().removeNotificationListener(mJmxEndpoint.getJMXObjectName(), this);
         if (mConnectionNotificationListener != null) {
             mConnector.removeConnectionNotificationListener(mConnectionNotificationListener);
             mConnectionNotificationListener = null;
-        }    
+        }
     }
-
 
     protected MBeanServerConnection getServerConnection() {
         return mServerConnection;
@@ -273,18 +308,18 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
     }
 
     /**
-     * Processes the Notification received. The handback will be set as
-     * the header "jmx.handback" while the Notification will be set as
-     * the body.
+     * Processes the Notification received. The handback will be set as the header "jmx.handback" while the Notification
+     * will be set as the body.
      * <p/>
-     * If the format is set to "xml" then the Notification will be converted
-     * to XML first using {@link NotificationXmlFormatter}
+     * If the format is set to "xml" then the Notification will be converted to XML first using
+     * {@link NotificationXmlFormatter}
      *
      * @see javax.management.NotificationListener#handleNotification(javax.management.Notification, java.lang.Object)
      */
+    @Override
     public void handleNotification(Notification aNotification, Object aHandback) {
-        JMXEndpoint ep = (JMXEndpoint) getEndpoint();
-        Exchange exchange = getEndpoint().createExchange(ExchangePattern.InOnly);
+        JMXEndpoint ep = getEndpoint();
+        Exchange exchange = getEndpoint().createExchange();
         Message message = exchange.getIn();
         message.setHeader("jmx.handback", aHandback);
         try {
@@ -293,11 +328,18 @@ public class JMXConsumer extends DefaultConsumer implements NotificationListener
             } else {
                 message.setBody(aNotification);
             }
-            getProcessor().process(exchange);
+
+            // process the notification from thred pool to not block this notification callback thread from the JVM
+            executorService.submit(() -> {
+                try {
+                    getProcessor().process(exchange);
+                } catch (Exception e) {
+                    getExceptionHandler().handleException("Failed to process notification", e);
+                }
+            });
+
         } catch (NotificationFormatException e) {
             getExceptionHandler().handleException("Failed to marshal notification", e);
-        } catch (Exception e) {
-            getExceptionHandler().handleException("Failed to process notification", e);
         }
     }
 

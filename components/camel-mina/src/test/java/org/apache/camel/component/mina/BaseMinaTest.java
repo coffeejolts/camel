@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,69 +16,64 @@
  */
 package org.apache.camel.component.mina;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.util.Properties;
-
-import org.apache.camel.CamelContext;
-import org.apache.camel.component.properties.PropertiesComponent;
-import org.apache.camel.impl.JndiRegistry;
+import org.apache.camel.BindToRegistry;
+import org.apache.camel.support.jsse.ClientAuthentication;
+import org.apache.camel.support.jsse.KeyManagersParameters;
+import org.apache.camel.support.jsse.KeyStoreParameters;
+import org.apache.camel.support.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.SSLContextServerParameters;
+import org.apache.camel.support.jsse.TrustManagersParameters;
 import org.apache.camel.test.AvailablePortFinder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.apache.camel.util.IOHelper;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeAll;
 
-
-/**
- *
- */
 public class BaseMinaTest extends CamelTestSupport {
+
+    protected static final String KEY_STORE_PASSWORD = "changeit";
+
     private static volatile int port;
 
-    @BeforeClass
+    @BeforeAll
     public static void initPort() throws Exception {
         port = AvailablePortFinder.getNextAvailable();
     }
 
-    @AfterClass
-    public static void savePort() throws Exception {
-        File file = new File("target/minaport.txt");
-
-        // save to file, do not append
-        FileOutputStream fos = new FileOutputStream(file, false);
-        try {
-            fos.write(String.valueOf(port).getBytes());
-        } finally {
-            IOHelper.close(fos);
-        }
-    }
-
-    @Override
-    protected CamelContext createCamelContext() throws Exception {
-        CamelContext context = super.createCamelContext();
-        context.addComponent("properties", new PropertiesComponent("ref:prop"));
-        return context;
-    }
-
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-
-        Properties prop = new Properties();
-        prop.setProperty("port", "" + getPort());
-        jndi.bind("prop", prop);
-
-        return jndi;
-    }
-
     protected int getNextPort() {
-        port = AvailablePortFinder.getNextAvailable();
-        return port;
+        return AvailablePortFinder.getNextAvailable();
     }
 
     protected int getPort() {
         return port;
     }
 
+    protected boolean isUseSslContext() {
+        return false;
+    }
+
+    @BindToRegistry("sslContextParameters")
+    public SSLContextParameters createSslContextParameters() {
+        KeyStoreParameters ksp = new KeyStoreParameters();
+        ksp.setResource(this.getClass().getClassLoader().getResource("jsse/localhost.p12").toString());
+        ksp.setPassword(KEY_STORE_PASSWORD);
+
+        KeyManagersParameters kmp = new KeyManagersParameters();
+        kmp.setKeyPassword(KEY_STORE_PASSWORD);
+        kmp.setKeyStore(ksp);
+
+        TrustManagersParameters tmp = new TrustManagersParameters();
+        tmp.setKeyStore(ksp);
+
+        // NOTE: Needed since the client uses a loose trust configuration when
+        // no ssl context
+        // is provided. We turn on WANT client-auth to prefer using
+        // authentication
+        SSLContextServerParameters scsp = new SSLContextServerParameters();
+        scsp.setClientAuthentication(ClientAuthentication.WANT.name());
+
+        SSLContextParameters sslContextParameters = new SSLContextParameters();
+        sslContextParameters.setKeyManagers(kmp);
+        sslContextParameters.setTrustManagers(tmp);
+        sslContextParameters.setServerParameters(scsp);
+        return sslContextParameters;
+    }
 }

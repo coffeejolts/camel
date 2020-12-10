@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,24 +19,28 @@ package org.apache.camel.spring.issues;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class FileWireTapWithXMLPayloadIssueTest extends SpringTestSupport {
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         deleteDirectory("target/xmldata");
         super.setUp();
 
         template.sendBodyAndHeader("file://target/xmldata",
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<sample>\n<test>Helloooo</test>\n</sample>", Exchange.FILE_NAME, "hello.xml");
+                                                            + "<sample>\n<test>Helloooo</test>\n</sample>",
+                Exchange.FILE_NAME, "hello.xml");
     }
 
+    @Test
     public void testWireTapXpathExpression() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);

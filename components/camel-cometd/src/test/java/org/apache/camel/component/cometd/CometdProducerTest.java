@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,17 +19,17 @@ package org.apache.camel.component.cometd;
 import org.apache.camel.component.cometd.CometdProducer.ProducerService;
 import org.cometd.bayeux.server.LocalSession;
 import org.cometd.server.BayeuxServerImpl;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class CometdProducerTest {
 
     private CometdProducer testObj;
@@ -40,15 +40,15 @@ public class CometdProducerTest {
     @Mock
     private LocalSession localSession;
 
-    @Before
+    @BeforeEach
     public void before() {
-        when(bayeuxServerImpl.newLocalSession(anyString())).thenReturn(localSession);
+        when(bayeuxServerImpl.newLocalSession(ArgumentMatchers.isNull())).thenReturn(localSession);
         testObj = new CometdProducer(endpoint);
         testObj.setBayeux(bayeuxServerImpl);
     }
 
     @Test
-    public void testStartDoesNotCreateNewProducerService() throws Exception {
+    void testStartDoesNotCreateNewProducerService() {
         // setup
         testObj.start();
         ProducerService expectedService = testObj.getProducerService();
@@ -58,7 +58,6 @@ public class CometdProducerTest {
         ProducerService result = testObj.getProducerService();
 
         // assert
-
         assertEquals(expectedService, result);
     }
 }

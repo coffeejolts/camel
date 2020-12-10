@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,9 +16,14 @@
  */
 package org.apache.camel.spring;
 
-import org.apache.camel.model.ModelHelper;
+import org.apache.camel.ExtendedCamelContext;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -30,15 +35,17 @@ public class DumpModelAsXmlPlaceholdersTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/DumpModelAsXmlPlaceholdersTest.xml");
     }
 
+    @Test
     public void testDumpModelAsXml() throws Exception {
         assertEquals("Gouda", context.getRoutes().get(0).getId());
-        String xml = ModelHelper.dumpModelAsXml(context, context.getRouteDefinition("Gouda"));
+        ExtendedCamelContext ecc = context.adapt(ExtendedCamelContext.class);
+        String xml = ecc.getModelToXMLDumper().dumpModelAsXml(context, context.getRouteDefinition("Gouda"));
         assertNotNull(xml);
         log.info(xml);
 
-        assertTrue(xml.contains("<route customId=\"true\" id=\"Gouda\" xmlns=\"http://camel.apache.org/schema/spring\">"));
+        assertTrue(xml.contains("<route xmlns=\"http://camel.apache.org/schema/spring\" customId=\"true\" id=\"Gouda\">"));
         assertTrue(xml.contains("<from uri=\"direct:start-{{cheese.type}}\"/>"));
-        assertTrue(xml.contains("<to uri=\"direct:end-{{cheese.type}}\" customId=\"true\" id=\"log\"/>"));
+        assertTrue(xml.contains("<to customId=\"true\" id=\"log\" uri=\"direct:end-{{cheese.type}}\"/>"));
     }
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,19 +18,21 @@ package org.apache.camel.component.geocoder;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
-public class GeoCoderComponentAddressTest extends CamelTestSupport {
+@EnabledIfEnvironmentVariable(named = "CAMEL_GEOCODER_APIKEY", matches = ".+")
+public class GeoCoderComponentAddressTest extends GeoCoderApiKeyTestBase {
 
     @Test
     public void testGeoCoder() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
 
+        mock.expectedHeaderReceived(GeoCoderConstants.LATLNG, "55.67609680,12.56833720");
         // the address header overrides the endpoint configuration
-        template.sendBodyAndHeader("direct:start", "Hello", GeoCoderConstants.ADDRESS, "Copenhagen, Denmark");
-        
+        template.sendBodyAndHeader("direct:start", "Hello", GeoCoderConstants.ADDRESS, " ");
+
         assertMockEndpointsSatisfied();
     }
 
@@ -38,11 +40,9 @@ public class GeoCoderComponentAddressTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("direct:start")
-                    .to("geocoder:address:Paris, France")
-                    .to("log:result")
-                    .log("Location ${header.CamelGeocoderAddress} is at lat/lng: ${header.CamelGeocoderLatlng} in city ${header.CamelGeocoderCity}")
-                    .to("mock:result");
+                from("direct:start").to("geocoder:address: empty?apiKey=" + getApiKey()).to("log:result")
+                        .log("Location ${header.CamelGeocoderAddress} is at lat/lng: ${header.CamelGeocoderLatlng} in city ${header.CamelGeocoderCity}")
+                        .to("mock:result");
             }
         };
     }

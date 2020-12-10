@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,8 +19,8 @@ package org.apache.camel.component.cometd;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.support.DefaultConsumer;
+import org.apache.camel.support.ExchangeHelper;
 import org.cometd.bayeux.server.ServerChannel;
 import org.cometd.bayeux.server.ServerMessage;
 import org.cometd.bayeux.server.ServerSession;
@@ -42,8 +42,8 @@ public class CometdConsumer extends DefaultConsumer implements CometdProducerCon
     }
 
     @Override
-    public void start() throws Exception {
-        super.start();
+    public void doStart() throws Exception {
+        super.doStart();
         // must connect first
         endpoint.connect(this);
         // should probably look into synchronization for this.
@@ -53,19 +53,21 @@ public class CometdConsumer extends DefaultConsumer implements CometdProducerCon
     }
 
     @Override
-    public void stop() throws Exception {
+    public void doStop() throws Exception {
         endpoint.disconnect(this);
-        super.stop();
+        super.doStop();
     }
 
+    @Override
     public void setBayeux(BayeuxServerImpl bayeux) {
         this.bayeux = bayeux;
     }
 
+    @Override
     public CometdEndpoint getEndpoint() {
         return endpoint;
     }
-    
+
     public ConsumerService getConsumerService() {
         return service;
     }
@@ -75,24 +77,26 @@ public class CometdConsumer extends DefaultConsumer implements CometdProducerCon
         private final CometdEndpoint endpoint;
         private final CometdConsumer consumer;
         private final CometdBinding binding;
+        private final String channelName;
 
         public ConsumerService(String channel, BayeuxServerImpl bayeux, CometdConsumer consumer) {
             super(bayeux, channel);
             this.endpoint = consumer.getEndpoint();
             this.binding = createBinding(bayeux);
             this.consumer = consumer;
+            this.channelName = channel;
             addService(channel, "push");
         }
 
         private CometdBinding createBinding(BayeuxServerImpl bayeux) {
-            boolean enableSessionHeaders = endpoint == null ? false : endpoint.areSessionHeadersEnabled();
+            boolean enableSessionHeaders = endpoint == null ? false : endpoint.isSessionHeadersEnabled();
             return new CometdBinding(bayeux, enableSessionHeaders);
         }
 
-        public void push(ServerSession remote, String channelName, ServerMessage cometdMessage, String messageId) throws Exception {
+        public void push(ServerSession remote, ServerMessage cometdMessage) throws Exception {
             Object data = null;
 
-            Message message = binding.createCamelMessage(remote, cometdMessage, data);
+            Message message = binding.createCamelMessage(endpoint.getCamelContext(), remote, cometdMessage, data);
 
             Exchange exchange = endpoint.createExchange();
             exchange.setIn(message);

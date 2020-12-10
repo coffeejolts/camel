@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,16 @@
  */
 package org.apache.camel.component.scp;
 
+import java.io.File;
+import java.nio.file.Files;
+
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Assume;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class ScpSimpleProduceTest extends ScpServerTestSupport {
 
@@ -30,15 +35,15 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
             @Override
             public void configure() throws Exception {
                 from("file:" + getScpPath() + "?recursive=true&delete=true")
-                    .convertBodyTo(String.class)
-                    .to("mock:result");
+                        .convertBodyTo(String.class)
+                        .to("mock:result");
             }
         };
     }
 
     @Test
     public void testScpSimpleProduce() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedBodiesReceived("Hello World");
 
@@ -50,7 +55,7 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
 
     @Test
     public void testScpSimpleProduceTwoTimes() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedBodiesReceivedInAnyOrder("Hello World", "Bye World");
 
@@ -63,7 +68,7 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
 
     @Test
     public void testScpSimpleSubPathProduce() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedBodiesReceived("Bye World");
 
@@ -75,7 +80,7 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
 
     @Test
     public void testScpSimpleTwoSubPathProduce() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedBodiesReceived("Farewell World");
 
@@ -87,7 +92,7 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
 
     @Test
     public void testScpProduceChmod() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedBodiesReceived("Bonjour Monde");
 
@@ -98,15 +103,54 @@ public class ScpSimpleProduceTest extends ScpServerTestSupport {
     }
 
     @Test
-    @Ignore("Fails on CI servers")
+    @Disabled("Fails on CI servers")
     public void testScpProducePrivateKey() throws Exception {
-        Assume.assumeTrue(this.isSetupComplete());
+        assumeTrue(this.isSetupComplete());
 
         getMockEndpoint("mock:result").expectedMessageCount(1);
 
-        String uri = getScpUri() + "?username=admin&privateKeyFile=src/test/resources/camel-key.priv&privateKeyFilePassphrase=password&knownHostsFile=" + getKnownHostsFile();
+        String uri
+                = getScpUri()
+                  + "?username=admin&privateKeyFile=src/test/resources/camel-key.priv&privateKeyFilePassphrase=password&knownHostsFile="
+                  + getKnownHostsFile();
         template.sendBodyAndHeader(uri, "Hallo Welt", Exchange.FILE_NAME, "welt.txt");
 
         assertMockEndpointsSatisfied();
+    }
+
+    @Test
+    @Disabled("Fails on CI servers")
+    public void testScpProducePrivateKeyFromClasspath() throws Exception {
+        assumeTrue(this.isSetupComplete());
+
+        getMockEndpoint("mock:result").expectedMessageCount(1);
+
+        String uri
+                = getScpUri()
+                  + "?username=admin&privateKeyFile=classpath:camel-key.priv&privateKeyFilePassphrase=password&knownHostsFile="
+                  + getKnownHostsFile();
+        template.sendBodyAndHeader(uri, "Hallo Welt", Exchange.FILE_NAME, "welt.txt");
+
+        assertMockEndpointsSatisfied();
+    }
+
+    @Test
+    @Disabled("Fails on CI servers")
+    public void testScpProducePrivateKeyByte() throws Exception {
+        assumeTrue(this.isSetupComplete());
+
+        getMockEndpoint("mock:result").expectedMessageCount(1);
+
+        String uri = getScpUri() + "?username=admin&privateKeyBytes=#privKey&privateKeyFilePassphrase=password&knownHostsFile="
+                     + getKnownHostsFile();
+        template.sendBodyAndHeader(uri, "Hallo Welt", Exchange.FILE_NAME, "welt.txt");
+
+        assertMockEndpointsSatisfied();
+    }
+
+    @BindToRegistry("privKey")
+    public byte[] loadPrivateKey() throws Exception {
+        byte[] privKey = Files.readAllBytes(new File("src/test/resources/camel-key.priv").toPath());
+        return privKey;
     }
 }

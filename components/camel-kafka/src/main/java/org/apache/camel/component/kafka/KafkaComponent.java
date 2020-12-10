@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,29 +19,94 @@ package org.apache.camel.component.kafka;
 import java.util.Map;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.SSLContextParametersAware;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.util.PropertiesHelper;
 
-public class KafkaComponent extends UriEndpointComponent {
+@Component("kafka")
+public class KafkaComponent extends DefaultComponent implements SSLContextParametersAware {
+
+    @Metadata
+    private KafkaConfiguration configuration = new KafkaConfiguration();
+    @Metadata(label = "security", defaultValue = "false")
+    private boolean useGlobalSslContextParameters;
+    @Metadata(label = "consumer,advanced")
+    private KafkaManualCommitFactory kafkaManualCommitFactory = new DefaultKafkaManualCommitFactory();
 
     public KafkaComponent() {
-        super(KafkaEndpoint.class);
     }
 
     public KafkaComponent(CamelContext context) {
-        super(context, KafkaEndpoint.class);
+        super(context);
     }
 
     @Override
-    protected KafkaEndpoint createEndpoint(String uri,
-                                           String remaining,
-                                           Map<String, Object> params) throws Exception {
+    protected KafkaEndpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
+        if (ObjectHelper.isEmpty(remaining)) {
+            throw new IllegalArgumentException("Topic must be configured on endpoint using syntax kafka:topic");
+        }
 
         KafkaEndpoint endpoint = new KafkaEndpoint(uri, this);
-        String brokers = remaining.split("\\?")[0];
-        if (brokers != null) {
-            endpoint.getConfiguration().setBrokers(brokers);
+
+        KafkaConfiguration copy = getConfiguration().copy();
+        endpoint.setConfiguration(copy);
+        endpoint.getConfiguration().setTopic(remaining);
+
+        setProperties(endpoint, parameters);
+
+        if (endpoint.getConfiguration().getSslContextParameters() == null) {
+            endpoint.getConfiguration().setSslContextParameters(retrieveGlobalSslContextParameters());
         }
-        setProperties(endpoint, params);
+
+        // extract the additional properties map
+        if (PropertiesHelper.hasProperties(parameters, "additionalProperties.")) {
+            final Map<String, Object> additionalProperties = endpoint.getConfiguration().getAdditionalProperties();
+
+            // add and overwrite additional properties from endpoint to
+            // pre-configured properties
+            additionalProperties.putAll(PropertiesHelper.extractProperties(parameters, "additionalProperties."));
+        }
+
         return endpoint;
+    }
+
+    public KafkaConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * Allows to pre-configure the Kafka component with common options that the endpoints will reuse.
+     */
+    public void setConfiguration(KafkaConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Override
+    public boolean isUseGlobalSslContextParameters() {
+        return this.useGlobalSslContextParameters;
+    }
+
+    /**
+     * Enable usage of global SSL context parameters.
+     */
+    @Override
+    public void setUseGlobalSslContextParameters(boolean useGlobalSslContextParameters) {
+        this.useGlobalSslContextParameters = useGlobalSslContextParameters;
+    }
+
+    public KafkaManualCommitFactory getKafkaManualCommitFactory() {
+        return kafkaManualCommitFactory;
+    }
+
+    /**
+     * Factory to use for creating {@link KafkaManualCommit} instances. This allows to plugin a custom factory to create
+     * custom {@link KafkaManualCommit} instances in case special logic is needed when doing manual commits that
+     * deviates from the default implementation that comes out of the box.
+     */
+    public void setKafkaManualCommitFactory(KafkaManualCommitFactory kafkaManualCommitFactory) {
+        this.kafkaManualCommitFactory = kafkaManualCommitFactory;
     }
 }

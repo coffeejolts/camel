@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,7 +19,7 @@ package org.apache.camel.component.google.mail;
 import java.util.Map;
 
 import com.google.api.services.gmail.Gmail;
-
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
@@ -29,24 +29,31 @@ import org.apache.camel.component.google.mail.internal.GoogleMailConstants;
 import org.apache.camel.component.google.mail.internal.GoogleMailPropertiesHelper;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
-import org.apache.camel.util.component.AbstractApiEndpoint;
-import org.apache.camel.util.component.ApiMethod;
-import org.apache.camel.util.component.ApiMethodPropertiesHelper;
+import org.apache.camel.support.component.AbstractApiEndpoint;
+import org.apache.camel.support.component.ApiMethod;
+import org.apache.camel.support.component.ApiMethodPropertiesHelper;
 
 /**
- * Represents a GoogleMail endpoint.
+ * Manage messages in Google Mail.
  */
-@UriEndpoint(scheme = "google-mail", title = "Google Mail", syntax = "google-mail:apiName/methodName", consumerClass = GoogleMailConsumer.class, consumerPrefix = "consumer", label = "api,cloud,mail")
+@UriEndpoint(firstVersion = "2.15.0",
+             scheme = "google-mail",
+             title = "Google Mail",
+             syntax = "google-mail:apiName/methodName",
+             apiSyntax = "apiName/methodName",
+             consumerPrefix = "consumer",
+             category = { Category.CLOUD, Category.API, Category.MAIL })
 public class GoogleMailEndpoint extends AbstractApiEndpoint<GoogleMailApiName, GoogleMailConfiguration> {
 
-    // TODO create and manage API proxy
     private Object apiProxy;
 
     @UriParam
     private GoogleMailConfiguration configuration;
 
-    public GoogleMailEndpoint(String uri, GoogleMailComponent component, GoogleMailApiName apiName, String methodName, GoogleMailConfiguration endpointConfiguration) {
-        super(uri, component, apiName, methodName, GoogleMailApiCollection.getCollection().getHelper(apiName), endpointConfiguration);
+    public GoogleMailEndpoint(String uri, GoogleMailComponent component, GoogleMailApiName apiName, String methodName,
+                              GoogleMailConfiguration endpointConfiguration) {
+        super(uri, component, apiName, methodName, GoogleMailApiCollection.getCollection().getHelper(apiName),
+              endpointConfiguration);
         this.configuration = endpointConfiguration;
     }
 
@@ -69,7 +76,7 @@ public class GoogleMailEndpoint extends AbstractApiEndpoint<GoogleMailApiName, G
 
     @Override
     protected ApiMethodPropertiesHelper<GoogleMailConfiguration> getPropertiesHelper() {
-        return GoogleMailPropertiesHelper.getHelper();
+        return GoogleMailPropertiesHelper.getHelper(getCamelContext());
     }
 
     @Override
@@ -80,46 +87,46 @@ public class GoogleMailEndpoint extends AbstractApiEndpoint<GoogleMailApiName, G
     @Override
     protected void afterConfigureProperties() {
         switch (apiName) {
-        case ATTACHMENTS:
-            apiProxy = getClient().users().messages().attachments();
-            break;
-        case DRAFTS:
-            apiProxy = getClient().users().drafts();
-            break;
-        case HISTORY:
-            apiProxy = getClient().users().history();
-            break;
-        case LABELS:
-            apiProxy = getClient().users().labels();
-            break;
-        case MESSAGES:
-            apiProxy = getClient().users().messages();
-            break;
-        case THREADS:
-            apiProxy = getClient().users().threads();
-            break;
-        case USERS:
-            apiProxy = getClient().users();
-            break;
-        default:
-            throw new IllegalArgumentException("Invalid API name " + apiName);
+            case ATTACHMENTS:
+                apiProxy = getClient().users().messages().attachments();
+                break;
+            case DRAFTS:
+                apiProxy = getClient().users().drafts();
+                break;
+            case HISTORY:
+                apiProxy = getClient().users().history();
+                break;
+            case LABELS:
+                apiProxy = getClient().users().labels();
+                break;
+            case MESSAGES:
+                apiProxy = getClient().users().messages();
+                break;
+            case THREADS:
+                apiProxy = getClient().users().threads();
+                break;
+            case USERS:
+                apiProxy = getClient().users();
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid API name " + apiName);
         }
     }
 
     public Gmail getClient() {
-        return ((GoogleMailComponent) getComponent()).getClient();
+        return ((GoogleMailComponent) getComponent()).getClient(configuration);
     }
 
     @Override
     public Object getApiProxy(ApiMethod method, Map<String, Object> args) {
         return apiProxy;
     }
-    
+
     public GoogleMailClientFactory getClientFactory() {
-        return ((GoogleMailComponent)getComponent()).getClientFactory();
+        return ((GoogleMailComponent) getComponent()).getClientFactory();
     }
 
     public void setClientFactory(GoogleMailClientFactory clientFactory) {
-        ((GoogleMailComponent)getComponent()).setClientFactory(clientFactory);
+        ((GoogleMailComponent) getComponent()).setClientFactory(clientFactory);
     }
 }

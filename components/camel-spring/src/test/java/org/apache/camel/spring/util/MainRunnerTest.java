@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +17,17 @@
 package org.apache.camel.spring.util;
 
 import org.apache.camel.TestSupport;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MainRunnerTest extends TestSupport {
 
+    @Test
     public void testMainRunner() throws Exception {
         MainRunner runner = new MainRunner();
         runner.setDelay(10);
-        runner.setArgs(new String[]{"Hello", "World"});
+        runner.setArgs(new String[] { "Hello", "World" });
         runner.setMain(MainRunnerTest.class);
         runner.afterPropertiesSet();
         runner.run();

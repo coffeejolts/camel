@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,13 +18,15 @@ package org.apache.camel.component.netty;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
-import org.apache.camel.util.ServiceHelper;
+import org.apache.camel.support.DefaultConsumer;
+import org.apache.camel.support.service.ServiceHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class NettyConsumer extends DefaultConsumer {
+
     private static final Logger LOG = LoggerFactory.getLogger(NettyConsumer.class);
+
     private CamelContext context;
     private NettyConfiguration configuration;
     private NettyServerBootstrapFactory nettyServerBootstrapFactory;
@@ -50,12 +52,12 @@ public class NettyConsumer extends DefaultConsumer {
 
         if (nettyServerBootstrapFactory == null) {
             // setup pipeline factory
-            ServerPipelineFactory pipelineFactory;
-            ServerPipelineFactory factory = configuration.getServerPipelineFactory();
+            ServerInitializerFactory pipelineFactory;
+            ServerInitializerFactory factory = configuration.getServerInitializerFactory();
             if (factory != null) {
                 pipelineFactory = factory.createPipelineFactory(this);
             } else {
-                pipelineFactory = new DefaultServerPipelineFactory(this);
+                pipelineFactory = new DefaultServerInitializerFactory(this);
             }
 
             if (isTcp()) {
@@ -70,9 +72,9 @@ public class NettyConsumer extends DefaultConsumer {
             nettyServerBootstrapFactory.init(context, configuration, pipelineFactory);
         }
 
-        ServiceHelper.startServices(nettyServerBootstrapFactory);
+        ServiceHelper.startService(nettyServerBootstrapFactory);
 
-        LOG.info("Netty consumer bound to: " + configuration.getAddress());
+        LOG.info("Netty consumer bound to: {}", configuration.getAddress());
     }
 
     @Override
@@ -81,19 +83,9 @@ public class NettyConsumer extends DefaultConsumer {
 
         ServiceHelper.stopService(nettyServerBootstrapFactory);
 
-        LOG.info("Netty consumer unbound from: " + configuration.getAddress());
+        LOG.info("Netty consumer unbound from: {}", configuration.getAddress());
 
         super.doStop();
-    }
-
-    @Override
-    protected void doSuspend() throws Exception {
-        ServiceHelper.suspendService(nettyServerBootstrapFactory);
-    }
-
-    @Override
-    protected void doResume() throws Exception {
-        ServiceHelper.resumeService(nettyServerBootstrapFactory);
     }
 
     public CamelContext getContext() {

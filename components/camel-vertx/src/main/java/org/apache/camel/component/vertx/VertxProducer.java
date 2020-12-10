@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,18 +16,18 @@
  */
 package org.apache.camel.component.vertx;
 
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.Message;
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.Exchange;
 import org.apache.camel.InvalidPayloadRuntimeException;
-import org.apache.camel.impl.DefaultAsyncProducer;
-import org.apache.camel.util.ExchangeHelper;
-import org.apache.camel.util.MessageHelper;
+import org.apache.camel.support.DefaultAsyncProducer;
+import org.apache.camel.support.ExchangeHelper;
+import org.apache.camel.support.MessageHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.eventbus.EventBus;
-
-import static org.apache.camel.component.vertx.VertxHelper.getVertxBody;
 
 public class VertxProducer extends DefaultAsyncProducer {
 
@@ -56,11 +56,11 @@ public class VertxProducer extends DefaultAsyncProducer {
         boolean reply = ExchangeHelper.isOutCapable(exchange);
         boolean pubSub = getEndpoint().isPubSub();
 
-        Object body = getVertxBody(exchange);
+        Object body = exchange.getMessage().getBody();
         if (body != null) {
             if (reply) {
                 LOG.debug("Sending to: {} with body: {}", address, body);
-                eventBus.send(address, body, new CamelReplyHandler(exchange, callback));
+                eventBus.request(address, body, new CamelReplyHandler(exchange, callback));
                 return false;
             } else {
                 if (pubSub) {
@@ -80,7 +80,7 @@ public class VertxProducer extends DefaultAsyncProducer {
         return true;
     }
 
-    private static final class CamelReplyHandler implements Handler<org.vertx.java.core.eventbus.Message> {
+    private static final class CamelReplyHandler implements Handler<AsyncResult<Message<Object>>> {
 
         private final Exchange exchange;
         private final AsyncCallback callback;
@@ -91,14 +91,20 @@ public class VertxProducer extends DefaultAsyncProducer {
         }
 
         @Override
-        public void handle(org.vertx.java.core.eventbus.Message event) {
+        public void handle(AsyncResult<Message<Object>> event) {
             try {
                 // preserve headers
                 MessageHelper.copyHeaders(exchange.getIn(), exchange.getOut(), false);
-                exchange.getOut().setBody(event.body());
+                Throwable e = event.cause();
+                if (e != null) {
+                    exchange.setException(e);
+                } else {
+                    exchange.getOut().setBody(event.result().body());
+                }
             } finally {
                 callback.done(false);
             }
         }
+
     }
 }

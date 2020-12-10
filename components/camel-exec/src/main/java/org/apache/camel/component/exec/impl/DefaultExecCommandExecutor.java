@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.camel.component.exec.ExecCommand;
 import org.apache.camel.component.exec.ExecCommandExecutor;
@@ -42,14 +43,14 @@ import org.slf4j.LoggerFactory;
 import static org.apache.camel.util.ObjectHelper.notNull;
 
 /**
- * Executes the command utilizing the <a
- * href="http://commons.apache.org/exec/">Apache Commons exec library</a>. Adds
- * a shutdown hook for every executed process.
+ * Executes the command utilizing the <a href="http://commons.apache.org/exec/">Apache Commons exec library</a>. Adds a
+ * shutdown hook for every executed process.
  */
 public class DefaultExecCommandExecutor implements ExecCommandExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultExecCommandExecutor.class);
 
+    @Override
     public ExecResult execute(ExecCommand command) {
         notNull(command, "command");
 
@@ -74,31 +75,35 @@ public class DefaultExecCommandExecutor implements ExecCommandExecutor {
             return result;
 
         } catch (ExecuteException ee) {
-            LOG.error("ExecException while executing command: " + command.toString() + " - " + ee.getMessage());
-            throw new ExecException("Failed to execute command " + command, ee);
-        } catch (IOException ioe) {
-            // workaround to ignore if the stream was already closes due some race condition in commons-exec
-            String msg = ioe.getMessage();
-            if ("Stream closed".equals(msg)) {
-                LOG.debug("Ignoring Stream closed IOException", ioe);
-                // if the size is zero, we have no output, so construct the result
-                // with null (required by ExecResult)
-                InputStream stdout = out.size() == 0 ? null : new ByteArrayInputStream(out.toByteArray());
-                InputStream stderr = err.size() == 0 ? null : new ByteArrayInputStream(err.toByteArray());
+            LOG.error("ExecException while executing command: {} - {}", command, ee.getMessage());
 
-                // use 0 as exit value as the executor didn't return the value
-                int exitValue = 0;
-                if (executor instanceof ExecDefaultExecutor) {
-                    // get the exit value from the executor as it captures this to work around the common-exec bug
-                    exitValue = ((ExecDefaultExecutor) executor).getExitValue();
-                }
+            InputStream stdout = out.size() == 0 ? null : new ByteArrayInputStream(out.toByteArray());
+            InputStream stderr = err.size() == 0 ? null : new ByteArrayInputStream(err.toByteArray());
+
+            throw new ExecException("Failed to execute command " + command, stdout, stderr, ee.getExitValue(), ee);
+
+        } catch (IOException ioe) {
+
+            InputStream stdout = out.size() == 0 ? null : new ByteArrayInputStream(out.toByteArray());
+            InputStream stderr = err.size() == 0 ? null : new ByteArrayInputStream(err.toByteArray());
+
+            int exitValue = 0; // use 0 as exit value as the executor didn't return the value
+            if (executor instanceof ExecDefaultExecutor) {
+                // get the exit value from the executor as it captures this to work around the common-exec bug
+                exitValue = ((ExecDefaultExecutor) executor).getExitValue();
+            }
+
+            // workaround to Disabled if the stream was already closes due some race condition in commons-exec
+            String msg = ioe.getMessage();
+            if (msg != null && "stream closed".equals(msg.toLowerCase(Locale.ENGLISH))) {
+                LOG.debug("Ignoring Stream closed IOException", ioe);
 
                 ExecResult result = new ExecResult(command, stdout, stderr, exitValue);
                 return result;
             }
             // invalid working dir
-            LOG.error("IOException while executing command: " + command.toString() + " - " + ioe.getMessage());
-            throw new ExecException("Unable to execute command " + command, ioe);
+            LOG.error("IOException while executing command: {} - {}", command, ioe.getMessage());
+            throw new ExecException("Unable to execute command " + command, stdout, stderr, exitValue, ioe);
         } finally {
             // the inputStream must be closed after the execution
             IOUtils.closeQuietly(command.getInput());
@@ -120,11 +125,10 @@ public class DefaultExecCommandExecutor implements ExecCommandExecutor {
     }
 
     /**
-     * Transforms an {@link ExecCommand} to a {@link CommandLine}. No quoting fo
-     * the arguments is used.
-     * 
-     * @param execCommand a not-null <code>ExecCommand</code> instance.
-     * @return a {@link CommandLine} object.
+     * Transforms an {@link ExecCommand} to a {@link CommandLine}. No quoting fo the arguments is used.
+     *
+     * @param  execCommand a not-null <code>ExecCommand</code> instance.
+     * @return             a {@link CommandLine} object.
      */
     protected CommandLine toCommandLine(ExecCommand execCommand) {
         notNull(execCommand, "execCommand");

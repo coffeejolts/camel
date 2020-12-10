@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,7 +24,7 @@ public enum HdfsFileSystemType {
             StringBuilder hpath = new StringBuilder();
             hpath.append("file://");
             hpath.append(config.getPath());
-            if (config.getSplitStrategies().size() > 0) {
+            if (config.hasSplitStrategies()) {
                 hpath.append('/');
             }
             return hpath;
@@ -37,10 +37,11 @@ public enum HdfsFileSystemType {
             StringBuilder hpath = new StringBuilder();
             hpath.append("hdfs://");
             hpath.append(config.getHostName());
-            hpath.append(':');
-            hpath.append(config.getPort());
+            if (!config.hasClusterConfiguration()) {
+                hpath.append(':').append(config.getPort());
+            }
             hpath.append(config.getPath());
-            if (config.getSplitStrategies().size() > 0) {
+            if (config.hasSplitStrategies()) {
                 hpath.append('/');
             }
             return hpath;

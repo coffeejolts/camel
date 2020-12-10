@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,8 +23,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.builder.NotifyBuilder;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.createDirectory;
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class NettyHttpStreamCacheFileResponseTest extends BaseNettyTest {
 
@@ -32,7 +37,7 @@ public class NettyHttpStreamCacheFileResponseTest extends BaseNettyTest {
     private String body2 = "Bye " + body;
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         deleteDirectory("target/cachedir");
         createDirectory("target/cachedir");
@@ -51,7 +56,7 @@ public class NettyHttpStreamCacheFileResponseTest extends BaseNettyTest {
         // the temporary files should have been deleted
         File file = new File("target/cachedir");
         String[] files = file.list();
-        assertEquals("There should be no files", 0, files.length);
+        assertEquals(0, files.length, "There should be no files");
     }
 
     @Override
@@ -64,7 +69,7 @@ public class NettyHttpStreamCacheFileResponseTest extends BaseNettyTest {
                 context.getStreamCachingStrategy().setSpoolThreshold(16);
                 context.setStreamCaching(true);
 
-                from("netty-http://http://localhost:{{port}}/myserver")
+                from("netty-http:http://localhost:{{port}}/myserver")
                         // wrap the response in 2 input streams so it will force caching to disk
                         .transform().constant(new BufferedInputStream(new ByteArrayInputStream(body2.getBytes())))
                         .to("log:reply");

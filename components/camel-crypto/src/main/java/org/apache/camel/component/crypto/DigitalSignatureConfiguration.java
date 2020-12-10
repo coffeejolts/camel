@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,6 @@
  */
 package org.apache.camel.component.crypto;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -32,24 +30,30 @@ import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriParams;
 import org.apache.camel.spi.UriPath;
-import org.apache.camel.util.jsse.KeyStoreParameters;
+import org.apache.camel.support.jsse.KeyStoreParameters;
 
 @UriParams
 public class DigitalSignatureConfiguration implements Cloneable, CamelContextAware {
 
     private CamelContext context;
 
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private CryptoOperation cryptoOperation;
-    @UriParam
+    @UriPath
+    @Metadata(required = true)
+    private String name;
+    @UriParam(secret = true)
     private PrivateKey privateKey;
+    @UriParam(label = "advanced")
+    private KeyStoreParameters keyStoreParameters;
     @UriParam
     private KeyStore keystore;
-    @UriParam
+    @UriParam(label = "advanced", secret = true)
     private SecureRandom secureRandom;
-    @UriParam(defaultValue = "SHA1WithDSA")
-    private String algorithm = "SHA1WithDSA";
-    @UriParam(defaultValue = "" + 2048)
+    @UriParam(defaultValue = "SHA256withRSA")
+    private String algorithm = "SHA256withRSA";
+    @UriParam(label = "advanced", defaultValue = "" + 2048)
     private Integer bufferSize = 2048;
     @UriParam
     private String provider;
@@ -57,11 +61,11 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     private String signatureHeaderName;
     @UriParam
     private String alias;
-    @UriParam
-    private char[] password;
-    @UriParam
+    @UriParam(label = "security", secret = true)
+    private String password;
+    @UriParam(label = "advanced")
     private PublicKey publicKey;
-    @UriParam
+    @UriParam(label = "advanced")
     private Certificate certificate;
 
     /** references that should be resolved when the context changes */
@@ -69,27 +73,29 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     private String publicKeyName;
     @UriParam
     private String certificateName;
-    @UriParam
+    @UriParam(secret = true)
     private String privateKeyName;
     @UriParam
     private String keystoreName;
     @UriParam
     private String secureRandomName;
-    @UriParam(defaultValue = "true")
+    @UriParam(label = "advanced", defaultValue = "true")
     private boolean clearHeaders = true;
 
     public DigitalSignatureConfiguration copy() {
         try {
-            return (DigitalSignatureConfiguration)clone();
+            return (DigitalSignatureConfiguration) clone();
         } catch (CloneNotSupportedException e) {
             throw new RuntimeCamelException(e);
         }
     }
 
+    @Override
     public CamelContext getCamelContext() {
         return context;
     }
 
+    @Override
     public void setCamelContext(CamelContext camelContext) {
         // TODO: this is wrong a configuration should not have CamelContext
         this.context = camelContext;
@@ -99,6 +105,17 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
         setPrivateKeyName(privateKeyName);
         setCertificateName(certificateName);
         setSecureRandomName(secureRandomName);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * The logical name of this operation.
+     */
+    public void setName(String name) {
+        this.name = name;
     }
 
     /**
@@ -116,8 +133,8 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Gets the alias used to query the KeyStore for keys and {@link java.security.cert.Certificate Certificates}
-     * to be used in signing and verifying exchanges. This value can be provided at runtime via the message header
+     * Gets the alias used to query the KeyStore for keys and {@link java.security.cert.Certificate Certificates} to be
+     * used in signing and verifying exchanges. This value can be provided at runtime via the message header
      * {@link org.apache.camel.component.crypto.DigitalSignatureConstants#KEYSTORE_ALIAS}
      */
     public String getAlias() {
@@ -125,8 +142,8 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Sets the alias used to query the KeyStore for keys and {@link java.security.cert.Certificate Certificates}
-     * to be used in signing and verifying exchanges. This value can be provided at runtime via the message header
+     * Sets the alias used to query the KeyStore for keys and {@link java.security.cert.Certificate Certificates} to be
+     * used in signing and verifying exchanges. This value can be provided at runtime via the message header
      * {@link org.apache.camel.component.crypto.DigitalSignatureConstants#KEYSTORE_ALIAS}
      */
     public void setAlias(String alias) {
@@ -136,30 +153,32 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     /**
      * Get the PrivateKey that should be used to sign the exchange
      */
-    public PrivateKey getPrivateKey() throws Exception {
-        return getPrivateKey(alias, password);
+    public PrivateKey getPrivateKey() {
+        return getPrivateKey(alias, password.toCharArray());
     }
 
     /**
-     * Get the PrivateKey that should be used to sign the signature in the
-     * exchange using the supplied alias.
+     * Get the PrivateKey that should be used to sign the signature in the exchange using the supplied alias.
      *
      * @param alias the alias used to retrieve the Certificate from the keystore.
      */
     public PrivateKey getPrivateKey(String alias) throws Exception {
-        return getPrivateKey(alias, password);
+        return getPrivateKey(alias, password.toCharArray());
     }
 
     /**
-     * Get the PrivateKey that should be used to sign the signature in the
-     * exchange using the supplied alias.
+     * Get the PrivateKey that should be used to sign the signature in the exchange using the supplied alias.
      *
      * @param alias the alias used to retrieve the Certificate from the keystore.
      */
-    public PrivateKey getPrivateKey(String alias, char[] password) throws Exception {
+    public PrivateKey getPrivateKey(String alias, char[] password) {
         PrivateKey pk = null;
         if (alias != null && keystore != null) {
-            pk = (PrivateKey)keystore.getKey(alias, password);
+            try {
+                pk = (PrivateKey) keystore.getKey(alias, password);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
         if (pk == null) {
             pk = privateKey;
@@ -176,8 +195,12 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
         this.privateKey = privateKey;
     }
 
+    public String getPrivateKeyName() {
+        return privateKeyName;
+    }
+
     /**
-     * Sets the reference name for a PrivateKey that can be fond in the registry.
+     * Sets the reference name for a PrivateKey that can be found in the registry.
      */
     public void setPrivateKeyName(String privateKeyName) {
         if (context != null && privateKeyName != null) {
@@ -198,8 +221,12 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
         this.publicKey = publicKey;
     }
 
+    public String getPublicKeyName() {
+        return publicKeyName;
+    }
+
     /**
-     * Sets the reference name for a publicKey that can be fond in the registry.
+     * Sets the reference name for a publicKey that can be found in the registry.
      */
     public void setPublicKeyName(String publicKeyName) {
         if (context != null && publicKeyName != null) {
@@ -221,11 +248,9 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Set the Certificate that should be used to verify the signature in the
-     * exchange. If a {@link KeyStore} has been configured then this will
-     * attempt to retrieve the {@link Certificate}from it using hte supplied
-     * alias. If either the alias or the Keystore is invalid then the configured
-     * certificate will be returned
+     * Set the Certificate that should be used to verify the signature in the exchange. If a {@link KeyStore} has been
+     * configured then this will attempt to retrieve the {@link Certificate}from it using hte supplied alias. If either
+     * the alias or the Keystore is invalid then the configured certificate will be returned
      *
      * @param alias the alias used to retrieve the Certificate from the keystore.
      */
@@ -241,23 +266,25 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Get the explicitly configured {@link Certificate} that should be used to
-     * verify the signature in the exchange.
+     * Get the explicitly configured {@link Certificate} that should be used to verify the signature in the exchange.
      */
-    public Certificate getCertificate() throws Exception {
+    public Certificate getCertificate() {
         return certificate;
     }
 
     /**
-     * Set the Certificate that should be used to verify the signature in the
-     * exchange based on its payload.
+     * Set the Certificate that should be used to verify the signature in the exchange based on its payload.
      */
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
     }
 
+    public String getCertificateName() {
+        return certificateName;
+    }
+
     /**
-     * Sets the reference name for a PrivateKey that can be fond in the registry.
+     * Sets the reference name for a PrivateKey that can be found in the registry.
      */
     public void setCertificateName(String certificateName) {
         if (context != null && certificateName != null) {
@@ -272,31 +299,31 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Gets the KeyStore that can contain keys and Certficates for use in
-     * signing and verifying exchanges. A {@link KeyStore} is typically used
-     * with an alias, either one supplied in the Route definition or dynamically
-     * via the message header "CamelSignatureKeyStoreAlias". If no alias is
-     * supplied and there is only a single entry in the Keystore, then this
-     * single entry will be used.
+     * Gets the KeyStore that can contain keys and Certficates for use in signing and verifying exchanges. A
+     * {@link KeyStore} is typically used with an alias, either one supplied in the Route definition or dynamically via
+     * the message header "CamelSignatureKeyStoreAlias". If no alias is supplied and there is only a single entry in the
+     * Keystore, then this single entry will be used.
      */
     public KeyStore getKeystore() {
         return keystore;
     }
 
     /**
-     * Sets the KeyStore that can contain keys and Certficates for use in
-     * signing and verifying exchanges. A {@link KeyStore} is typically used
-     * with an alias, either one supplied in the Route definition or dynamically
-     * via the message header "CamelSignatureKeyStoreAlias". If no alias is
-     * supplied and there is only a single entry in the Keystore, then this
-     * single entry will be used.
+     * Sets the KeyStore that can contain keys and Certficates for use in signing and verifying exchanges. A
+     * {@link KeyStore} is typically used with an alias, either one supplied in the Route definition or dynamically via
+     * the message header "CamelSignatureKeyStoreAlias". If no alias is supplied and there is only a single entry in the
+     * Keystore, then this single entry will be used.
      */
     public void setKeystore(KeyStore keystore) {
         this.keystore = keystore;
     }
 
+    public String getKeystoreName() {
+        return keystoreName;
+    }
+
     /**
-     * Sets the reference name for a Keystore that can be fond in the registry.
+     * Sets the reference name for a Keystore that can be found in the registry.
      */
     public void setKeystoreName(String keystoreName) {
         if (context != null && keystoreName != null) {
@@ -313,21 +340,35 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     /**
      * Gets the password used to access an aliased {@link PrivateKey} in the KeyStore.
      */
-    public char[] getPassword() {
+    public String getPassword() {
         return password;
     }
 
     /**
      * Sets the password used to access an aliased {@link PrivateKey} in the KeyStore.
      */
-    public void setPassword(char[] password) {
+    public void setPassword(String password) {
         this.password = password;
     }
-    
-    public void setKeyStoreParameters(KeyStoreParameters parameters) 
-        throws GeneralSecurityException, IOException {
-        if (parameters != null) {
-            this.keystore = parameters.createKeyStore();
+
+    public KeyStoreParameters getKeyStoreParameters() {
+        return keyStoreParameters;
+    }
+
+    /**
+     * Sets the KeyStore that can contain keys and Certficates for use in signing and verifying exchanges based on the
+     * given KeyStoreParameters. A {@link KeyStore} is typically used with an alias, either one supplied in the Route
+     * definition or dynamically via the message header "CamelSignatureKeyStoreAlias". If no alias is supplied and there
+     * is only a single entry in the Keystore, then this single entry will be used.
+     */
+    public void setKeyStoreParameters(KeyStoreParameters keyStoreParameters) {
+        this.keyStoreParameters = keyStoreParameters;
+        if (keyStoreParameters != null) {
+            try {
+                this.keystore = keyStoreParameters.createKeyStore();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -338,8 +379,12 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
         return secureRandom;
     }
 
+    public String getSecureRandomName() {
+        return secureRandomName;
+    }
+
     /**
-     * Sets the reference name for a SecureRandom that can be fond in the registry.
+     * Sets the reference name for a SecureRandom that can be found in the registry.
      */
     public void setSecureRandomName(String randomName) {
         if (context != null && randomName != null) {
@@ -377,16 +422,14 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Get the id of the security provider that provides the configured
-     * {@link Signature} algorithm.
+     * Get the id of the security provider that provides the configured {@link Signature} algorithm.
      */
     public String getProvider() {
         return provider;
     }
 
     /**
-     * Set the id of the security provider that provides the configured
-     * {@link Signature} algorithm.
+     * Set the id of the security provider that provides the configured {@link Signature} algorithm.
      *
      * @param provider the id of the security provider
      */
@@ -395,25 +438,24 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Get the name of the message header that should be used to store the
-     * base64 encoded signature. This defaults to 'CamelDigitalSignature'
+     * Get the name of the message header that should be used to store the base64 encoded signature. This defaults to
+     * 'CamelDigitalSignature'
      */
     public String getSignatureHeaderName() {
         return signatureHeaderName != null ? signatureHeaderName : DigitalSignatureConstants.SIGNATURE;
     }
 
     /**
-     * Set the name of the message header that should be used to store the
-     * base64 encoded signature. This defaults to 'CamelDigitalSignature'
+     * Set the name of the message header that should be used to store the base64 encoded signature. This defaults to
+     * 'CamelDigitalSignature'
      */
     public void setSignatureHeaderName(String signatureHeaderName) {
         this.signatureHeaderName = signatureHeaderName;
     }
 
     /**
-     * Determines if the Signature specific headers be cleared after signing and
-     * verification. Defaults to true, and should only be made otherwise at your
-     * extreme peril as vital private information such as Keys and passwords may
+     * Determines if the Signature specific headers be cleared after signing and verification. Defaults to true, and
+     * should only be made otherwise at your extreme peril as vital private information such as Keys and passwords may
      * escape if unset.
      *
      * @return true if the Signature headers should be unset, false otherwise
@@ -423,9 +465,8 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Determines if the Signature specific headers be cleared after signing and
-     * verification. Defaults to true, and should only be made otherwise at your
-     * extreme peril as vital private information such as Keys and passwords may
+     * Determines if the Signature specific headers be cleared after signing and verification. Defaults to true, and
+     * should only be made otherwise at your extreme peril as vital private information such as Keys and passwords may
      * escape if unset.
      */
     public void setClearHeaders(boolean clearHeaders) {
@@ -433,8 +474,8 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Set the Crypto operation from that supplied after the crypto scheme in the
-     * endpoint uri e.g. crypto:sign sets sign as the operation.
+     * Set the Crypto operation from that supplied after the crypto scheme in the endpoint uri e.g. crypto:sign sets
+     * sign as the operation.
      *
      * @param operation the operation supplied after the crypto scheme
      */
@@ -447,7 +488,7 @@ public class DigitalSignatureConfiguration implements Cloneable, CamelContextAwa
     }
 
     /**
-     * Gets the Crypto operation that was supplied in the the crypto scheme in the endpoint uri
+     * Gets the Crypto operation that was supplied in the crypto scheme in the endpoint uri
      */
     public CryptoOperation getCryptoOperation() {
         return cryptoOperation;

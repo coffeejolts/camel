@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.camel.Processor;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.schwering.irc.lib.IRCConnection;
 import org.schwering.irc.lib.IRCEventAdapter;
 
@@ -38,7 +38,7 @@ public class IrcConsumerTest {
     private IrcConsumer consumer;
     private IRCEventAdapter listener;
 
-    @Before
+    @BeforeEach
     public void doSetup() {
         connection = mock(IRCConnection.class);
         endpoint = mock(IrcEndpoint.class);
@@ -46,11 +46,11 @@ public class IrcConsumerTest {
         configuration = mock(IrcConfiguration.class);
         listener = mock(IRCEventAdapter.class);
 
-        List<IrcChannel> channels = new ArrayList<IrcChannel>();
+        List<IrcChannel> channels = new ArrayList<>();
         channels.add(new IrcChannel("#chan1", null));
         channels.add(new IrcChannel("#chan2", "chan2key"));
 
-        when(configuration.getChannels()).thenReturn(channels);
+        when(configuration.getChannelList()).thenReturn(channels);
         when(endpoint.getConfiguration()).thenReturn(configuration);
 
         consumer = new IrcConsumer(endpoint, processor, connection);

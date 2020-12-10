@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,47 +23,70 @@ import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.AvailablePortFinder;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
+@Disabled("Test manually as CI server cannot run this test")
 public class PublishSubscribeTest extends CamelTestSupport {
-    
-    @EndpointInject(uri = "mock:neverland")
-    protected MockEndpoint unreachableEndpoint;
 
-    @EndpointInject(uri = "mock:notification")
-    protected MockEndpoint resultEndpoint;
+    private int port1;
+    private int port2;
+    private int port3;
 
-    @Produce(uri = "direct:start")
-    protected ProducerTemplate producerTemplate;
-    
+    @EndpointInject("mock:neverland")
+    private MockEndpoint unreachableEndpoint;
+
+    @EndpointInject("mock:notification")
+    private MockEndpoint resultEndpoint;
+
+    @Produce("direct:start")
+    private ProducerTemplate producerTemplate;
+
+    @Override
+    @BeforeEach
+    public void setUp() throws Exception {
+        port1 = AvailablePortFinder.getNextAvailable();
+        port2 = AvailablePortFinder.getNextAvailable();
+        port3 = AvailablePortFinder.getNextAvailable();
+
+        super.setUp();
+    }
+
     @Test
     public void testPresenceAgentBasedPubSub() throws Exception {
         unreachableEndpoint.expectedMessageCount(0);
         resultEndpoint.expectedMinimumMessageCount(1);
-        
+
         producerTemplate.sendBodyAndHeader(
-            "sip://agent@localhost:5252?stackName=client&eventHeaderName=evtHdrName&eventId=evtid&fromUser=user2&fromHost=localhost&fromPort=3534", 
-            "EVENT_A",
-            "REQUEST_METHOD", Request.PUBLISH);         
+                "sip://agent@localhost:" + port1
+                                           + "?stackName=client&eventHeaderName=evtHdrName&eventId=evtid&fromUser=user2&fromHost=localhost&fromPort="
+                                           + port3,
+                "EVENT_A",
+                "REQUEST_METHOD", Request.PUBLISH);
 
         assertMockEndpointsSatisfied();
     }
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
-            public void configure() throws Exception {  
+            public void configure() throws Exception {
                 // Create PresenceAgent
-                from("sip://agent@localhost:5252?stackName=PresenceAgent&presenceAgent=true&eventHeaderName=evtHdrName&eventId=evtid")
-                    .to("mock:neverland");
-                
-                from("sip://johndoe@localhost:5254?stackName=Subscriber&toUser=agent&toHost=localhost&toPort=5252&eventHeaderName=evtHdrName&eventId=evtid")
-                    .to("log:ReceivedEvent")
-                    .to("mock:notification");
+                fromF("sip://agent@localhost:%s?stackName=PresenceAgent&presenceAgent=true&eventHeaderName=evtHdrName&eventId=evtid",
+                        port1)
+                                .to("log:neverland")
+                                .to("mock:neverland");
+
+                fromF("sip://johndoe@localhost:%s?stackName=Subscriber&toUser=agent&toHost=localhost&toPort=%s&eventHeaderName=evtHdrName&eventId=evtid",
+                        port2, port1)
+                                .to("log:notification")
+                                .to("mock:notification");
             }
         };
     }
 
-} 
+}

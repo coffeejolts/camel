@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,10 @@
  */
 package org.apache.camel.spring.issues;
 
+import org.apache.camel.builder.AdviceWith;
 import org.apache.camel.builder.AdviceWithRouteBuilder;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -28,16 +30,18 @@ public class SpringAdviceWithContextScopedErrorHandlerIssueTest extends SpringTe
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/spring/issues/SpringAdviceWithContextScopedErrorHandlerIssueTest.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/spring/issues/SpringAdviceWithContextScopedErrorHandlerIssueTest.xml");
     }
 
+    @Test
     public void testAdviceWith() throws Exception {
-        context.getRouteDefinition("route-a").adviceWith(context, new AdviceWithRouteBuilder() {
+        AdviceWith.adviceWith(context.getRouteDefinition("route-a"), context, new AdviceWithRouteBuilder() {
             @Override
             public void configure() throws Exception {
                 interceptSendToEndpoint("direct:bar")
-                    .skipSendToOriginalEndpoint()
-                    .throwException(new IllegalArgumentException("Forced"));
+                        .skipSendToOriginalEndpoint()
+                        .throwException(new IllegalArgumentException("Forced"));
             }
         });
 

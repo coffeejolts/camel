@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,8 +19,12 @@ package org.apache.camel.spring.management;
 import org.apache.camel.management.DefaultManagementAgent;
 import org.apache.camel.spi.ManagementAgent;
 import org.apache.camel.spring.EndpointReferenceTest;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class JmxInstrumentationWithConnectorTest extends EndpointReferenceTest {
 
@@ -29,10 +33,11 @@ public class JmxInstrumentationWithConnectorTest extends EndpointReferenceTest {
         return true;
     }
 
+    @Test
     public void testJmxConfiguration() throws Exception {
         ManagementAgent agent = getMandatoryBean(DefaultManagementAgent.class, "agent");
-        assertNotNull("SpringInstrumentationAgent must be configured for JMX support", agent);
-        assertNotNull("MBeanServer must be configured for JMX support", agent.getMBeanServer());
+        assertNotNull(agent, "SpringInstrumentationAgent must be configured for JMX support");
+        assertNotNull(agent.getMBeanServer(), "MBeanServer must be configured for JMX support");
         assertEquals("org.apache.camel.test", agent.getMBeanServer().getDefaultDomain());
     }
 
@@ -41,6 +46,8 @@ public class JmxInstrumentationWithConnectorTest extends EndpointReferenceTest {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/management/jmxInstrumentationWithConnector.xml");
     }
 
+    @Override
+    @Test
     public void testReferenceEndpointFromOtherCamelContext() throws Exception {
         // don't run the test in this method
     }

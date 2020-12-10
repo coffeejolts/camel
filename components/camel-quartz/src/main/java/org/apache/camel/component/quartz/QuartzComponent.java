@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,438 +19,74 @@ package org.apache.camel.component.quartz;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.text.ParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.StartupListener;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.EndpointHelper;
+import org.apache.camel.Endpoint;
+import org.apache.camel.ExtendedStartupListener;
+import org.apache.camel.RuntimeCamelException;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.ResourceHelper;
 import org.apache.camel.util.IOHelper;
-import org.apache.camel.util.IntrospectionSupport;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.camel.util.ResourceHelper;
-import org.quartz.CronTrigger;
-import org.quartz.JobDetail;
+import org.apache.camel.util.PropertiesHelper;
+import org.apache.camel.util.StringHelper;
 import org.quartz.Scheduler;
+import org.quartz.SchedulerContext;
 import org.quartz.SchedulerException;
 import org.quartz.SchedulerFactory;
-import org.quartz.SimpleTrigger;
-import org.quartz.Trigger;
+import org.quartz.TriggerKey;
 import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A <a href="http://camel.apache.org/quartz.html">Quartz Component</a>
- * <p/>
- * For a brief tutorial on setting cron expression see
- * <a href="http://quartz-scheduler.org/documentation/quartz-1.x/tutorials/crontrigger">Quartz cron tutorial</a>.
- *
- * @version
+ * This component will hold a Quartz Scheduler that will provide scheduled timer based endpoint that generate a
+ * QuartzMessage to a route. Currently it support Cron and Simple trigger scheduling type.
  */
-public class QuartzComponent extends UriEndpointComponent implements StartupListener {
+@Component("quartz")
+public class QuartzComponent extends DefaultComponent implements ExtendedStartupListener {
+
     private static final Logger LOG = LoggerFactory.getLogger(QuartzComponent.class);
+
+    private final List<SchedulerInitTask> schedulerInitTasks = new ArrayList<>();
+    private volatile boolean schedulerInitTasksDone;
+
+    @Metadata(label = "advanced")
     private Scheduler scheduler;
-    private final transient List<JobToAdd> jobsToAdd = new ArrayList<JobToAdd>();
-    private SchedulerFactory factory;
-    private Properties properties;
+    @Metadata(label = "advanced")
+    private SchedulerFactory schedulerFactory;
+    @Metadata
+    private String propertiesRef;
+    @Metadata
+    private Map properties;
+    @Metadata
     private String propertiesFile;
+    @Metadata(label = "scheduler")
     private int startDelayedSeconds;
+    @Metadata(label = "scheduler", defaultValue = "true")
     private boolean autoStartScheduler = true;
+    @Metadata(label = "scheduler")
+    private boolean interruptJobsOnShutdown;
+    @Metadata(defaultValue = "true")
     private boolean enableJmx = true;
-
-    private static final class JobToAdd {
-        private final JobDetail job;
-        private final Trigger trigger;
-
-        private JobToAdd(JobDetail job, Trigger trigger) {
-            this.job = job;
-            this.trigger = trigger;
-        }
-
-        public JobDetail getJob() {
-            return job;
-        }
-
-        public Trigger getTrigger() {
-            return trigger;
-        }
-    }
+    @Metadata
+    private boolean prefixJobNameWithEndpointId;
+    @Metadata(defaultValue = "true")
+    private boolean prefixInstanceName = true;
 
     public QuartzComponent() {
-        super(QuartzEndpoint.class);
     }
 
-    public QuartzComponent(final CamelContext context) {
-        super(context, QuartzEndpoint.class);
-    }
-
-    @Override
-    protected QuartzEndpoint createEndpoint(final String uri, final String remaining, final Map<String, Object> parameters) throws Exception {
-        // lets split the remaining into a group/name
-        URI u = new URI(uri);
-        String path = ObjectHelper.after(u.getPath(), "/");
-        String host = u.getHost();
-        String cron = getAndRemoveParameter(parameters, "cron", String.class);
-        Boolean fireNow = getAndRemoveParameter(parameters, "fireNow", Boolean.class, Boolean.FALSE);
-        Integer startDelayedSeconds = getAndRemoveParameter(parameters, "startDelayedSeconds", Integer.class);
-        if (startDelayedSeconds != null) {
-            if (scheduler.isStarted()) {
-                LOG.warn("A Quartz job is already started. Cannot apply the 'startDelayedSeconds' configuration!");
-            } else if (this.startDelayedSeconds != 0 && !(this.startDelayedSeconds == startDelayedSeconds)) {
-                LOG.warn("A Quartz job is already configured with a different 'startDelayedSeconds' configuration! "
-                    + "All Quartz jobs must share the same 'startDelayedSeconds' configuration! Cannot apply the 'startDelayedSeconds' configuration!");
-            } else {
-                this.startDelayedSeconds = startDelayedSeconds;
-            }
-        }
-
-        // host can be null if the uri did contain invalid host characters such as an underscore
-        if (host == null) {
-            host = ObjectHelper.before(remaining, "/");
-            if (host == null) {
-                host = remaining;
-            }
-        }
-
-        // group can be optional, if so set it to Camel
-        String name;
-        String group;
-        if (ObjectHelper.isNotEmpty(path) && ObjectHelper.isNotEmpty(host)) {
-            group = host;
-            name = path;
-        } else {
-            group = "Camel";
-            name = host;
-        }
-
-        Map<String, Object> triggerParameters = IntrospectionSupport.extractProperties(parameters, "trigger.");
-        Map<String, Object> jobParameters = IntrospectionSupport.extractProperties(parameters, "job.");
-
-        Trigger trigger;
-        boolean stateful = "true".equals(parameters.get("stateful"));
-
-        // if we're starting up and not running in Quartz clustered mode or not stateful then check for a name conflict.
-        if (!isClustered() && !stateful) {
-            // check to see if this trigger already exists
-            trigger = getScheduler().getTrigger(name, group);
-            if (trigger != null) {
-                String msg = "A Quartz job already exists with the name/group: " + name + "/" + group;
-                throw new IllegalArgumentException(msg);
-            }
-        }
-
-        // create the trigger either cron or simple
-        if (ObjectHelper.isNotEmpty(cron)) {
-            cron = encodeCronExpression(cron);
-            trigger = createCronTrigger(cron);
-        } else {
-            trigger = new SimpleTrigger();
-            if (fireNow) {
-                String intervalString = (String) triggerParameters.get("repeatInterval");
-                if (intervalString != null) {
-                    long interval = EndpointHelper.resolveParameter(getCamelContext(), intervalString, Long.class);
-                    
-                    trigger.setStartTime(new Date(System.currentTimeMillis() - interval));
-                }
-            }
-        }
-
-        QuartzEndpoint answer = new QuartzEndpoint(uri, this);
-        answer.setGroupName(group);
-        answer.setTimerName(name);
-        answer.setCron(cron);
-
-        setProperties(answer.getJobDetail(), jobParameters);
-
-        // enrich job data map with trigger information
-        if (cron != null) {
-            answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_TYPE, "cron");
-            answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_CRON_EXPRESSION, cron);
-            String timeZone = EndpointHelper.resolveParameter(getCamelContext(), (String)triggerParameters.get("timeZone"), String.class);
-            if (timeZone != null) {
-                answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_CRON_TIMEZONE, timeZone);
-            }
-        } else {
-            answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_TYPE, "simple");
-            Long interval = EndpointHelper.resolveParameter(getCamelContext(), (String)triggerParameters.get("repeatInterval"), Long.class);
-            if (interval != null) {
-                triggerParameters.put("repeatInterval", interval);
-                answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_INTERVAL, interval);
-            }
-            Integer counter = EndpointHelper.resolveParameter(getCamelContext(), (String)triggerParameters.get("repeatCount"), Integer.class);
-            if (counter != null) {
-                triggerParameters.put("repeatCount", counter);
-                answer.getJobDetail().getJobDataMap().put(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_COUNTER, counter);
-            }
-        }
-
-        setProperties(trigger, triggerParameters);
-        trigger.setName(name);
-        trigger.setGroup(group);
-        answer.setTrigger(trigger);
-
-        return answer;
-    }
-
-    protected CronTrigger createCronTrigger(String path) throws ParseException {
-        CronTrigger cron = new CronTrigger();
-        cron.setCronExpression(path);
-        return cron;
-    }
-
-    private static String encodeCronExpression(String path) {
-        // replace + back to space so it's a cron expression
-        return path.replaceAll("\\+", " ");
-    }
-
-    public void onCamelContextStarted(CamelContext camelContext, boolean alreadyStarted) throws Exception {
-        if (scheduler != null) {
-            String uid = QuartzHelper.getQuartzContextName(camelContext);
-            scheduler.getContext().put(QuartzConstants.QUARTZ_CAMEL_CONTEXT + "-" + uid, camelContext);
-        }
-
-        // if not configure to auto start then don't start it
-        if (!isAutoStartScheduler()) {
-            LOG.info("QuartzComponent configured to not auto start Quartz scheduler.");
-            return;
-        }
-
-        // only start scheduler when CamelContext has finished starting
-        startScheduler();
-    }
-
-    @Override
-    protected void doStart() throws Exception {
-        super.doStart();
-        if (scheduler == null) {
-            scheduler = getScheduler();
-        }
-    }
-
-    @Override
-    protected void doStop() throws Exception {
-        super.doStop();
-
-        if (scheduler != null) {
-            AtomicInteger number = (AtomicInteger) scheduler.getContext().get("CamelJobs");
-            if (number != null && number.get() > 0) {
-                LOG.info("Cannot shutdown Quartz scheduler: " + scheduler.getSchedulerName() + " as there are still " + number.get() + " jobs registered.");
-            } else {
-                // no more jobs then shutdown the scheduler
-                LOG.info("There are no more jobs registered, so shutting down Quartz scheduler: " + scheduler.getSchedulerName());
-                scheduler.shutdown();
-                scheduler = null;
-            }
-        }
-    }
-
-    public void addJob(JobDetail job, Trigger trigger) throws SchedulerException {
-        if (scheduler == null) {
-            // add job to internal list because we will defer adding to the scheduler when camel context has been fully started
-            jobsToAdd.add(new JobToAdd(job, trigger));
-        } else {
-            // add job directly to scheduler
-            doAddJob(job, trigger);
-        }
-    }
-
-    private void doAddJob(JobDetail job, Trigger trigger) throws SchedulerException {
-        Trigger existingTrigger = getScheduler().getTrigger(trigger.getName(), trigger.getGroup());
-        if (existingTrigger == null) {
-            LOG.debug("Adding job using trigger: {}/{}", trigger.getGroup(), trigger.getName());
-            getScheduler().scheduleJob(job, trigger);
-        } else if (hasTriggerChanged(existingTrigger, trigger)) {
-            LOG.debug("Trigger: {}/{} already exists and will be updated by Quartz.", trigger.getGroup(), trigger.getName());
-            // fast forward start time to now, as we do not want any misfire to kick in
-            trigger.setStartTime(new Date());
-
-            // To ensure trigger uses the same job (the job name might change!) we will remove old trigger then re-add.
-            scheduler.unscheduleJob(trigger.getName(), trigger.getGroup());
-            scheduler.addJob(job, true);
-            trigger.setJobName(job.getName());
-            trigger.setJobGroup(job.getGroup());
-            scheduler.scheduleJob(trigger);
-        } else {
-            if (!isClustered()) {
-                LOG.debug("Trigger: {}/{} already exists and will be resumed by Quartz.", trigger.getGroup(), trigger.getName());
-                // fast forward start time to now, as we do not want any misfire to kick in
-                trigger.setStartTime(new Date());
-
-                // To ensure trigger uses the same job (the job name might change!) we will remove old trigger then re-add.
-                scheduler.unscheduleJob(trigger.getName(), trigger.getGroup());
-                scheduler.addJob(job, true);
-                trigger.setJobName(job.getName());
-                trigger.setJobGroup(job.getGroup());
-                scheduler.scheduleJob(trigger);
-            } else {
-                LOG.debug("Trigger: {}/{} already exists and is already scheduled by clustered JobStore.", trigger.getGroup(), trigger.getName());
-            }
-        }
-
-        // only increment job counter if we are successful
-        incrementJobCounter(getScheduler());
-    }
-
-    private static boolean hasTriggerChanged(Trigger oldTrigger, Trigger newTrigger) {
-        if (newTrigger instanceof CronTrigger && oldTrigger instanceof CronTrigger) {
-            CronTrigger newCron = (CronTrigger) newTrigger;
-            CronTrigger oldCron = (CronTrigger) oldTrigger;
-            return !newCron.getCronExpression().equals(oldCron.getCronExpression());
-        } else if (newTrigger instanceof SimpleTrigger && oldTrigger instanceof SimpleTrigger) {
-            SimpleTrigger newSimple = (SimpleTrigger) newTrigger;
-            SimpleTrigger oldSimple = (SimpleTrigger) oldTrigger;
-            return newSimple.getRepeatInterval() != oldSimple.getRepeatInterval()
-                    || newSimple.getRepeatCount() != oldSimple.getRepeatCount();
-        } else {
-            return !newTrigger.getClass().equals(oldTrigger.getClass()) || !newTrigger.equals(oldTrigger);
-        }
-    }
-
-    public void pauseJob(Trigger trigger) throws SchedulerException {
-        if (isClustered()) {
-            // do not pause jobs which are clustered, as we want the jobs to continue running on the other nodes
-            LOG.debug("Cannot pause job using trigger: {}/{} as the JobStore is clustered.", trigger.getGroup(), trigger.getName());
-        } else {
-            LOG.debug("Pausing job using trigger: {}/{}", trigger.getGroup(), trigger.getName());
-            getScheduler().pauseTrigger(trigger.getName(), trigger.getGroup());
-            getScheduler().pauseJob(trigger.getName(), trigger.getGroup());
-        }
-
-        // only decrement job counter if we are successful
-        decrementJobCounter(getScheduler());
-    }
-
-    public void deleteJob(String name, String group) throws SchedulerException {
-        if (isClustered()) {
-            // do not pause jobs which are clustered, as we want the jobs to continue running on the other nodes
-            LOG.debug("Cannot delete job using trigger: {}/{} as the JobStore is clustered.", group, name);
-        } else {
-            Trigger trigger = getScheduler().getTrigger(name, group);
-            if (trigger != null) {
-                LOG.debug("Deleting job using trigger: {}/{}", group, name);
-                getScheduler().unscheduleJob(name, group);
-            }
-        }
-    }
-
-    /**
-     * To force shutdown the quartz scheduler
-     *
-     * @throws SchedulerException can be thrown if error shutting down
-     */
-    public void shutdownScheduler() throws SchedulerException {
-        if (scheduler != null) {
-            LOG.info("Forcing shutdown of Quartz scheduler: " + scheduler.getSchedulerName());
-            scheduler.shutdown();
-            scheduler = null;
-        }
-    }
-
-    /**
-     * Is the quartz scheduler clustered?
-     */
-    public boolean isClustered() throws SchedulerException {
-        try {
-            return getScheduler().getMetaData().isJobStoreClustered();
-        } catch (NoSuchMethodError e) {
-            LOG.debug("Job clustering is only supported since Quartz 1.7, isClustered returning false");
-            return false;
-        }
-    }
-
-    /**
-     * To force starting the quartz scheduler
-     *
-     * @throws SchedulerException can be thrown if error starting
-     */
-    public void startScheduler() throws SchedulerException {
-        for (JobToAdd add : jobsToAdd) {
-            doAddJob(add.getJob(), add.getTrigger());
-        }
-        jobsToAdd.clear();
-
-        if (!getScheduler().isStarted()) {
-            if (getStartDelayedSeconds() > 0) {
-                LOG.info("Starting Quartz scheduler: " + getScheduler().getSchedulerName() + " delayed: " + getStartDelayedSeconds() + " seconds.");
-                try {
-                    getScheduler().startDelayed(getStartDelayedSeconds());
-                } catch (NoSuchMethodError e) {
-                    LOG.warn("Your version of Quartz is too old to support delayed startup! "
-                        + "Starting Quartz scheduler immediately : " + getScheduler().getSchedulerName());
-                    getScheduler().start();
-                }
-            } else {
-                LOG.info("Starting Quartz scheduler: " + getScheduler().getSchedulerName());
-                getScheduler().start();
-            }
-        }
-    }
-
-    // Properties
-    // -------------------------------------------------------------------------
-
-    public SchedulerFactory getFactory() throws SchedulerException {
-        if (factory == null) {
-            factory = createSchedulerFactory();
-        }
-        return factory;
-    }
-
-    /**
-     * To use the custom SchedulerFactory which is used to create the Scheduler.
-     */
-    public void setFactory(SchedulerFactory factory) {
-        this.factory = factory;
-    }
-
-    public synchronized Scheduler getScheduler() throws SchedulerException {
-        if (scheduler == null) {
-            scheduler = createScheduler();
-        }
-        return scheduler;
-    }
-
-    /**
-     * To use the custom configured Quartz scheduler, instead of creating a new Scheduler.
-     */
-    public void setScheduler(final Scheduler scheduler) {
-        this.scheduler = scheduler;
-    }
-
-    public Properties getProperties() {
-        return properties;
-    }
-
-    /**
-     * Properties to configure the Quartz scheduler.
-     */
-    public void setProperties(Properties properties) {
-        this.properties = properties;
-    }
-
-    public String getPropertiesFile() {
-        return propertiesFile;
-    }
-
-    /**
-     * File name of the properties to load from the classpath
-     */
-    public void setPropertiesFile(String propertiesFile) {
-        this.propertiesFile = propertiesFile;
-    }
-
-    public int getStartDelayedSeconds() {
-        return startDelayedSeconds;
-    }
-
-    /**
-     * Seconds to wait before starting the quartz scheduler.
-     */
-    public void setStartDelayedSeconds(int startDelayedSeconds) {
-        this.startDelayedSeconds = startDelayedSeconds;
+    public QuartzComponent(CamelContext camelContext) {
+        super(camelContext);
     }
 
     public boolean isAutoStartScheduler() {
@@ -466,6 +102,30 @@ public class QuartzComponent extends UriEndpointComponent implements StartupList
         this.autoStartScheduler = autoStartScheduler;
     }
 
+    public int getStartDelayedSeconds() {
+        return startDelayedSeconds;
+    }
+
+    /**
+     * Seconds to wait before starting the quartz scheduler.
+     */
+    public void setStartDelayedSeconds(int startDelayedSeconds) {
+        this.startDelayedSeconds = startDelayedSeconds;
+    }
+
+    public boolean isPrefixJobNameWithEndpointId() {
+        return prefixJobNameWithEndpointId;
+    }
+
+    /**
+     * Whether to prefix the quartz job with the endpoint id.
+     * <p/>
+     * This option is default false.
+     */
+    public void setPrefixJobNameWithEndpointId(boolean prefixJobNameWithEndpointId) {
+        this.prefixJobNameWithEndpointId = prefixJobNameWithEndpointId;
+    }
+
     public boolean isEnableJmx() {
         return enableJmx;
     }
@@ -479,28 +139,78 @@ public class QuartzComponent extends UriEndpointComponent implements StartupList
         this.enableJmx = enableJmx;
     }
 
-    // Implementation methods
-    // -------------------------------------------------------------------------
-
-    protected Properties loadProperties() throws SchedulerException {
-        Properties answer = getProperties();
-        if (answer == null && getPropertiesFile() != null) {
-            LOG.info("Loading Quartz properties file from: {}", getPropertiesFile());
-            InputStream is = null;
-            try {
-                is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext().getClassResolver(), getPropertiesFile());
-                answer = new Properties();
-                answer.load(is);
-            } catch (IOException e) {
-                throw new SchedulerException("Error loading Quartz properties file: " + getPropertiesFile(), e);
-            } finally {
-                IOHelper.close(is);
-            }
-        }
-        return answer;
+    public String getPropertiesRef() {
+        return propertiesRef;
     }
 
-    protected SchedulerFactory createSchedulerFactory() throws SchedulerException {
+    /**
+     * References to an existing {@link Properties} or {@link Map} to lookup in the registry to use for configuring
+     * quartz.
+     */
+    public void setPropertiesRef(String propertiesRef) {
+        this.propertiesRef = propertiesRef;
+    }
+
+    public Map getProperties() {
+        return properties;
+    }
+
+    /**
+     * Properties to configure the Quartz scheduler.
+     */
+    public void setProperties(Map properties) {
+        this.properties = properties;
+    }
+
+    public String getPropertiesFile() {
+        return propertiesFile;
+    }
+
+    /**
+     * File name of the properties to load from the classpath
+     */
+    public void setPropertiesFile(String propertiesFile) {
+        this.propertiesFile = propertiesFile;
+    }
+
+    public boolean isPrefixInstanceName() {
+        return prefixInstanceName;
+    }
+
+    /**
+     * Whether to prefix the Quartz Scheduler instance name with the CamelContext name.
+     * <p/>
+     * This is enabled by default, to let each CamelContext use its own Quartz scheduler instance by default. You can
+     * set this option to <tt>false</tt> to reuse Quartz scheduler instances between multiple CamelContext's.
+     */
+    public void setPrefixInstanceName(boolean prefixInstanceName) {
+        this.prefixInstanceName = prefixInstanceName;
+    }
+
+    public boolean isInterruptJobsOnShutdown() {
+        return interruptJobsOnShutdown;
+    }
+
+    /**
+     * Whether to interrupt jobs on shutdown which forces the scheduler to shutdown quicker and attempt to interrupt any
+     * running jobs. If this is enabled then any running jobs can fail due to being interrupted.
+     */
+    public void setInterruptJobsOnShutdown(boolean interruptJobsOnShutdown) {
+        this.interruptJobsOnShutdown = interruptJobsOnShutdown;
+    }
+
+    public SchedulerFactory getSchedulerFactory() {
+        if (schedulerFactory == null) {
+            try {
+                schedulerFactory = createSchedulerFactory();
+            } catch (SchedulerException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return schedulerFactory;
+    }
+
+    private SchedulerFactory createSchedulerFactory() throws SchedulerException {
         SchedulerFactory answer;
 
         Properties prop = loadProperties();
@@ -508,21 +218,28 @@ public class QuartzComponent extends UriEndpointComponent implements StartupList
 
             // force disabling update checker (will do online check over the internet)
             prop.put("org.quartz.scheduler.skipUpdateCheck", "true");
+            prop.put("org.terracotta.quartz.skipUpdateCheck", "true");
 
             // camel context name will be a suffix to use one scheduler per context
-            String instName = createInstanceName(prop);
-            prop.setProperty(StdSchedulerFactory.PROP_SCHED_INSTANCE_NAME, instName);
+            if (isPrefixInstanceName()) {
+                String instName = createInstanceName(prop);
+                prop.setProperty(StdSchedulerFactory.PROP_SCHED_INSTANCE_NAME, instName);
+            }
+
+            if (isInterruptJobsOnShutdown()) {
+                prop.setProperty(StdSchedulerFactory.PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN, "true");
+            }
 
             // enable jmx unless configured to not do so
             if (enableJmx && !prop.containsKey("org.quartz.scheduler.jmx.export")) {
-                LOG.info("Setting org.quartz.scheduler.jmx.export=true to ensure QuartzScheduler(s) will be enlisted in JMX.");
                 prop.put("org.quartz.scheduler.jmx.export", "true");
+                LOG.info("Setting org.quartz.scheduler.jmx.export=true to ensure QuartzScheduler(s) will be enlisted in JMX.");
             }
 
             answer = new StdSchedulerFactory(prop);
         } else {
             // read default props to be able to use a single scheduler per camel context
-            // if we need more than one scheduler per context use setScheduler(Scheduler) 
+            // if we need more than one scheduler per context use setScheduler(Scheduler)
             // or setFactory(SchedulerFactory) methods
 
             // must use classloader from StdSchedulerFactory to work even in OSGi
@@ -534,17 +251,26 @@ public class QuartzComponent extends UriEndpointComponent implements StartupList
             try {
                 prop.load(is);
             } catch (IOException e) {
-                throw new SchedulerException("Error loading Quartz properties file from classpath: org/quartz/quartz.properties", e);
+                throw new SchedulerException(
+                        "Error loading Quartz properties file from classpath: org/quartz/quartz.properties", e);
             } finally {
                 IOHelper.close(is);
             }
 
             // camel context name will be a suffix to use one scheduler per context
-            String instName = createInstanceName(prop);
-            prop.setProperty(StdSchedulerFactory.PROP_SCHED_INSTANCE_NAME, instName);
+            if (isPrefixInstanceName()) {
+                // camel context name will be a suffix to use one scheduler per context
+                String instName = createInstanceName(prop);
+                prop.setProperty(StdSchedulerFactory.PROP_SCHED_INSTANCE_NAME, instName);
+            }
 
             // force disabling update checker (will do online check over the internet)
             prop.put("org.quartz.scheduler.skipUpdateCheck", "true");
+            prop.put("org.terracotta.quartz.skipUpdateCheck", "true");
+
+            if (isInterruptJobsOnShutdown()) {
+                prop.setProperty(StdSchedulerFactory.PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN, "true");
+            }
 
             // enable jmx unless configured to not do so
             if (enableJmx && !prop.containsKey("org.quartz.scheduler.jmx.export")) {
@@ -577,41 +303,272 @@ public class QuartzComponent extends UriEndpointComponent implements StartupList
         return instName;
     }
 
-    protected Scheduler createScheduler() throws SchedulerException {
-        Scheduler scheduler = getFactory().getScheduler();
+    /**
+     * Is the quartz scheduler clustered?
+     */
+    public boolean isClustered() throws SchedulerException {
+        return getScheduler().getMetaData().isJobStoreClustered();
+    }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Using SchedulerFactory {} to get/create Scheduler {}({})",
-                    new Object[]{getFactory(), scheduler, ObjectHelper.getIdentityHashCode(scheduler)});
+    private Properties loadProperties() throws SchedulerException {
+        Properties answer = null;
+        if (getProperties() != null) {
+            answer = new Properties();
+            answer.putAll(getProperties());
         }
-
-        // register current camel context to scheduler so we can look it up when jobs is being triggered
-        // must use management name as it should be unique in the same JVM
-        String uid = QuartzHelper.getQuartzContextName(getCamelContext());
-        scheduler.getContext().put(QuartzConstants.QUARTZ_CAMEL_CONTEXT + "-" + uid, getCamelContext());
-
-        // store Camel job counter
-        AtomicInteger number = (AtomicInteger) scheduler.getContext().get("CamelJobs");
-        if (number == null) {
-            number = new AtomicInteger(0);
-            scheduler.getContext().put("CamelJobs", number);
+        if (answer == null && getPropertiesRef() != null) {
+            Map map = CamelContextHelper.mandatoryLookup(getCamelContext(), getPropertiesRef(), Map.class);
+            answer = new Properties();
+            answer.putAll(map);
         }
+        if (answer == null && getPropertiesFile() != null) {
+            LOG.info("Loading Quartz properties file from: {}", getPropertiesFile());
+            InputStream is = null;
+            try {
+                is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext(), getPropertiesFile());
+                answer = new Properties();
+                answer.load(is);
+            } catch (IOException e) {
+                throw new SchedulerException("Error loading Quartz properties file: " + getPropertiesFile(), e);
+            } finally {
+                IOHelper.close(is);
+            }
+        }
+        return answer;
+    }
 
+    /**
+     * To use the custom SchedulerFactory which is used to create the Scheduler.
+     */
+    public void setSchedulerFactory(SchedulerFactory schedulerFactory) {
+        this.schedulerFactory = schedulerFactory;
+    }
+
+    public Scheduler getScheduler() {
         return scheduler;
     }
 
-    private static void decrementJobCounter(Scheduler scheduler) throws SchedulerException {
-        AtomicInteger number = (AtomicInteger) scheduler.getContext().get("CamelJobs");
-        if (number != null) {
-            number.decrementAndGet();
+    /**
+     * Adds a task to be executed as part of initializing and starting the scheduler; or executes the task if the
+     * scheduler has already been started.
+     */
+    public void addScheduleInitTask(SchedulerInitTask task) {
+        if (schedulerInitTasksDone) {
+            // task already done then run task now
+            try {
+                task.initializeTask(scheduler);
+            } catch (Exception e) {
+                throw RuntimeCamelException.wrapRuntimeException(e);
+            }
+        } else {
+            this.schedulerInitTasks.add(task);
         }
     }
 
-    private static void incrementJobCounter(Scheduler scheduler) throws SchedulerException {
-        AtomicInteger number = (AtomicInteger) scheduler.getContext().get("CamelJobs");
-        if (number != null) {
-            number.incrementAndGet();
+    /**
+     * To use the custom configured Quartz scheduler, instead of creating a new Scheduler.
+     */
+    public void setScheduler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
+    @Override
+    protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
+        // Get couple of scheduler settings
+        Integer startDelayedSeconds = getAndRemoveParameter(parameters, "startDelayedSeconds", Integer.class);
+        if (startDelayedSeconds != null) {
+            if (this.startDelayedSeconds != 0 && !(this.startDelayedSeconds == startDelayedSeconds)) {
+                LOG.warn("A Quartz job is already configured with a different 'startDelayedSeconds' configuration! "
+                         + "All Quartz jobs must share the same 'startDelayedSeconds' configuration! Cannot apply the 'startDelayedSeconds' configuration!");
+            } else {
+                this.startDelayedSeconds = startDelayedSeconds;
+            }
+        }
+
+        Boolean autoStartScheduler = getAndRemoveParameter(parameters, "autoStartScheduler", Boolean.class);
+        if (autoStartScheduler != null) {
+            this.autoStartScheduler = autoStartScheduler;
+        }
+
+        Boolean prefixJobNameWithEndpointId = getAndRemoveParameter(parameters, "prefixJobNameWithEndpointId", Boolean.class);
+        if (prefixJobNameWithEndpointId != null) {
+            this.prefixJobNameWithEndpointId = prefixJobNameWithEndpointId;
+        }
+
+        // Extract trigger.XXX and job.XXX properties to be set on endpoint below
+        Map<String, Object> triggerParameters = PropertiesHelper.extractProperties(parameters, "trigger.");
+        Map<String, Object> jobParameters = PropertiesHelper.extractProperties(parameters, "job.");
+
+        // Create quartz endpoint
+        QuartzEndpoint result = new QuartzEndpoint(uri, this);
+        TriggerKey triggerKey = createTriggerKey(uri, remaining, result);
+        result.setTriggerKey(triggerKey);
+        result.setTriggerParameters(triggerParameters);
+        result.setJobParameters(jobParameters);
+        if (startDelayedSeconds != null) {
+            result.setStartDelayedSeconds(startDelayedSeconds);
+        }
+        if (autoStartScheduler != null) {
+            result.setAutoStartScheduler(autoStartScheduler);
+        }
+        if (prefixJobNameWithEndpointId != null) {
+            result.setPrefixJobNameWithEndpointId(prefixJobNameWithEndpointId);
+        }
+        // special for cron where we replace + as space
+        String cron = getAndRemoveParameter(parameters, "cron", String.class);
+        if (cron != null) {
+            // replace + as space
+            cron = cron.replace('+', ' ');
+            result.setCron(cron);
+        }
+        setProperties(result, parameters);
+        return result;
+    }
+
+    private TriggerKey createTriggerKey(String uri, String remaining, QuartzEndpoint endpoint) throws Exception {
+        // Parse uri for trigger name and group
+        URI u = new URI(uri);
+        String path = StringHelper.after(u.getPath(), "/");
+        String host = u.getHost();
+
+        // host can be null if the uri did contain invalid host characters such as an underscore
+        if (host == null) {
+            host = StringHelper.before(remaining, "/");
+            if (host == null) {
+                host = remaining;
+            }
+        }
+
+        // Trigger group can be optional, if so set it to this context's unique name
+        String name;
+        String group;
+        if (ObjectHelper.isNotEmpty(path) && ObjectHelper.isNotEmpty(host)) {
+            group = host;
+            name = path;
+        } else {
+            String camelContextName = QuartzHelper.getQuartzContextName(getCamelContext());
+            group = camelContextName == null ? "Camel" : "Camel_" + camelContextName;
+            name = host;
+        }
+
+        if (prefixJobNameWithEndpointId) {
+            name = endpoint.getId() + "_" + name;
+        }
+
+        return new TriggerKey(name, group);
+    }
+
+    @Override
+    protected void doStart() throws Exception {
+        super.doStart();
+
+        if (scheduler == null) {
+            createAndInitScheduler();
         }
     }
 
+    private void createAndInitScheduler() throws SchedulerException {
+        LOG.info("Create and initializing scheduler.");
+        scheduler = createScheduler();
+
+        SchedulerContext quartzContext = storeCamelContextInQuartzContext();
+
+        // Set camel job counts to zero. We needed this to prevent shutdown in case there are multiple Camel contexts
+        // that has not completed yet, and the last one with job counts to zero will eventually shutdown.
+        AtomicInteger number = (AtomicInteger) quartzContext.get(QuartzConstants.QUARTZ_CAMEL_JOBS_COUNT);
+        if (number == null) {
+            number = new AtomicInteger();
+            quartzContext.put(QuartzConstants.QUARTZ_CAMEL_JOBS_COUNT, number);
+        }
+    }
+
+    private SchedulerContext storeCamelContextInQuartzContext() throws SchedulerException {
+        // Store CamelContext into QuartzContext space
+        SchedulerContext quartzContext = scheduler.getContext();
+        String camelContextName = QuartzHelper.getQuartzContextName(getCamelContext());
+        LOG.debug("Storing camelContextName={} into Quartz Context space.", camelContextName);
+        quartzContext.put(QuartzConstants.QUARTZ_CAMEL_CONTEXT + "-" + camelContextName, getCamelContext());
+        return quartzContext;
+    }
+
+    private Scheduler createScheduler() throws SchedulerException {
+        return getSchedulerFactory().getScheduler();
+    }
+
+    @Override
+    protected void doStop() throws Exception {
+        super.doStop();
+
+        if (scheduler != null) {
+            if (isInterruptJobsOnShutdown()) {
+                LOG.info("Shutting down scheduler. (will interrupts jobs to shutdown quicker.)");
+                scheduler.shutdown(false);
+                scheduler = null;
+            } else {
+                AtomicInteger number = (AtomicInteger) scheduler.getContext().get(QuartzConstants.QUARTZ_CAMEL_JOBS_COUNT);
+                if (number != null && number.get() > 0) {
+                    LOG.info("Cannot shutdown scheduler: {} as there are still {} jobs registered.",
+                            scheduler.getSchedulerName(), number.get());
+                } else {
+                    LOG.info("Shutting down scheduler. (will wait for all jobs to complete first.)");
+                    scheduler.shutdown(true);
+                    scheduler = null;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onCamelContextStarted(CamelContext context, boolean alreadyStarted) throws Exception {
+        if (alreadyStarted) {
+            // a route may have been added or starter after CamelContext is started so ensure we startup the scheduler
+            doStartScheduler();
+        }
+    }
+
+    @Override
+    public void onCamelContextFullyStarted(CamelContext context, boolean alreadyStarted) throws Exception {
+        doStartScheduler();
+    }
+
+    protected void doStartScheduler() throws Exception {
+        // If Camel has already started and then user add a route dynamically, we need to ensure
+        // to create and init the scheduler first.
+        if (scheduler == null) {
+            createAndInitScheduler();
+        } else {
+            // in case custom scheduler was injected (i.e. created elsewhere), we may need to add
+            // current camel context to quartz context so jobs have access
+            storeCamelContextInQuartzContext();
+        }
+
+        // initialize scheduler tasks
+        for (SchedulerInitTask task : schedulerInitTasks) {
+            task.initializeTask(scheduler);
+        }
+        // cleanup tasks as they need only to be triggered once
+        schedulerInitTasks.clear();
+        schedulerInitTasksDone = true;
+
+        // Now scheduler is ready, let see how we should start it.
+        if (!autoStartScheduler) {
+            LOG.info("Not starting scheduler because autoStartScheduler is set to false.");
+        } else {
+            if (startDelayedSeconds > 0) {
+                if (scheduler.isStarted()) {
+                    LOG.warn("The scheduler has already started. Cannot apply the 'startDelayedSeconds' configuration!");
+                } else {
+                    LOG.info("Starting scheduler with startDelayedSeconds={}", startDelayedSeconds);
+                    scheduler.startDelayed(startDelayedSeconds);
+                }
+            } else {
+                if (scheduler.isStarted()) {
+                    LOG.info("The scheduler has already been started.");
+                } else {
+                    LOG.info("Starting scheduler.");
+                    scheduler.start();
+                }
+            }
+        }
+    }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -35,17 +35,17 @@ public class FacebookConfiguration implements Cloneable {
 
     private static final Logger LOG = LoggerFactory.getLogger(FacebookConfiguration.class);
 
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String oAuthAppId;
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String oAuthAppSecret;
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String oAuthAccessToken;
-    @UriParam(defaultValue = "https://www.facebook.com/dialog/oauth")
+    @UriParam(label = "security", defaultValue = "https://www.facebook.com/dialog/oauth")
     private String oAuthAuthorizationURL;
-    @UriParam
+    @UriParam(label = "security")
     private String oAuthPermissions;
-    @UriParam(defaultValue = "https://graph.facebook.com/oauth/access_token")
+    @UriParam(label = "security", defaultValue = "https://graph.facebook.com/oauth/access_token")
     private String oAuthAccessTokenURL;
     @UriParam
     private String clientURL;
@@ -61,13 +61,13 @@ public class FacebookConfiguration implements Cloneable {
     private Integer httpDefaultMaxPerRoute;
     @UriParam(defaultValue = "20")
     private Integer httpMaxTotalConnections;
-    @UriParam
+    @UriParam(label = "proxy")
     private String httpProxyHost;
-    @UriParam
+    @UriParam(label = "proxy")
     private String httpProxyPassword;
-    @UriParam
+    @UriParam(label = "proxy")
     private Integer httpProxyPort;
-    @UriParam
+    @UriParam(label = "proxy")
     private String httpProxyUser;
     @UriParam(defaultValue = "120000")
     private Integer httpReadTimeout;
@@ -185,6 +185,7 @@ public class FacebookConfiguration implements Cloneable {
 
     /**
      * Returns {@link Facebook} instance. If needed, creates one from configuration.
+     * 
      * @return {@link Facebook} instance
      */
     public Facebook getFacebook() throws FacebookException {
@@ -462,8 +463,8 @@ public class FacebookConfiguration implements Cloneable {
     }
 
     /**
-     * Default OAuth permissions. Comma separated permission names.
-     * See https://developers.facebook.com/docs/reference/login/#permissions for the detail
+     * Default OAuth permissions. Comma separated permission names. See
+     * https://developers.facebook.com/docs/reference/login/#permissions for the detail
      */
     public void setOAuthPermissions(String oAuthPermissions) {
         this.oAuthPermissions = oAuthPermissions;
@@ -515,7 +516,7 @@ public class FacebookConfiguration implements Cloneable {
 
     public void validate() {
         if ((oAuthAppId == null || oAuthAppId.isEmpty())
-            || (oAuthAppSecret == null || oAuthAppSecret.isEmpty())) {
+                || (oAuthAppSecret == null || oAuthAppSecret.isEmpty())) {
             throw new IllegalArgumentException("Missing required properties oAuthAppId, oAuthAppSecret");
         }
     }

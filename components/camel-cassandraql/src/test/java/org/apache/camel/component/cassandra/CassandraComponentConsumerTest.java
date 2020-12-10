@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,34 +19,18 @@ package org.apache.camel.component.cassandra;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.Row;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.cassandraunit.CassandraCQLUnit;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class CassandraComponentConsumerTest extends CamelTestSupport {
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    private static final String CQL = "select login, first_name, last_name from camel_user";
+public class CassandraComponentConsumerTest extends BaseCassandraTest {
 
-    @Rule
-    public CassandraCQLUnit cassandra = CassandraUnitUtils.cassandraCQLUnit();
-
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-        CassandraUnitUtils.startEmbeddedCassandra();
-    }
-
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-        CassandraUnitUtils.cleanEmbeddedCassandra();
-    }
+    static final String CQL = "select login, first_name, last_name from camel_user";
 
     @Test
     public void testConsumeAll() throws Exception {
@@ -98,11 +82,10 @@ public class CassandraComponentConsumerTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("cql://localhost/camel_ks?cql=" + CQL)
-                        .to("mock:resultAll");
-                from("cql://localhost/camel_ks?cql=" + CQL + "&prepareStatements=false")
+                from(String.format("cql://%s/%s?cql=%s", getUrl(), KEYSPACE_NAME, CQL)).to("mock:resultAll");
+                from(String.format("cql://%s/%s?cql=%s&prepareStatements=false", getUrl(), KEYSPACE_NAME, CQL))
                         .to("mock:resultUnprepared");
-                from("cql://localhost/camel_ks?cql=" + CQL + "&resultSetConversionStrategy=ONE")
+                from(String.format("cql://%s/%s?cql=%s&resultSetConversionStrategy=ONE", getUrl(), KEYSPACE_NAME, CQL))
                         .to("mock:resultOne");
             }
         };

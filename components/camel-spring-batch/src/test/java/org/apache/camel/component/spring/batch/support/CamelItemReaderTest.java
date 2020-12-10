@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,10 @@
  */
 package org.apache.camel.component.spring.batch.support;
 
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CamelItemReaderTest extends CamelTestSupport {
 
@@ -31,7 +33,7 @@ public class CamelItemReaderTest extends CamelTestSupport {
 
     @Override
     protected void doPostSetup() throws Exception {
-        camelItemReader = new CamelItemReader<String>(consumer(), "seda:start");
+        camelItemReader = new CamelItemReader<>(consumer(), "seda:start");
         sendBody("seda:start", message);
     }
 

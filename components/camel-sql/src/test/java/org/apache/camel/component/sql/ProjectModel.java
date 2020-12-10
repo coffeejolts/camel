@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -44,5 +44,10 @@ public class ProjectModel {
 
     public String getLicense() {
         return license;
+    }
+
+    @Override
+    public String toString() {
+        return "ProjectModel{id=" + id + ", project='" + project + '\'' + ", license='" + license + '\'' + '}';
     }
 }

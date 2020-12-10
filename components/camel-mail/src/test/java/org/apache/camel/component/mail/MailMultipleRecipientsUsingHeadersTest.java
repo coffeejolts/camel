@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,12 +18,15 @@ package org.apache.camel.component.mail;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import javax.mail.Message;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for Mail using camel headers to set recipeient subject.
@@ -35,9 +38,9 @@ public class MailMultipleRecipientsUsingHeadersTest extends CamelTestSupport {
         Mailbox.clearAll();
 
         // START SNIPPET: e1
-        Map<String, Object> map = new HashMap<String, Object>();
+        Map<String, Object> map = new HashMap<>();
 
-        map.put("To", new String[] {"davsclaus@apache.org", "janstey@apache.org"});
+        map.put("To", new String[] { "davsclaus@apache.org", "janstey@apache.org" });
         map.put("From", "jstrachan@apache.org");
         map.put("Subject", "Camel rocks");
 
@@ -53,6 +56,7 @@ public class MailMultipleRecipientsUsingHeadersTest extends CamelTestSupport {
         assertEquals("Camel rocks", msg.getSubject());
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {

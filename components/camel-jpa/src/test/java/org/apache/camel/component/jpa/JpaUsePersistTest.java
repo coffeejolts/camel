@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,43 +16,60 @@
  */
 package org.apache.camel.component.jpa;
 
-import org.apache.camel.examples.Address;
-import org.apache.camel.examples.Customer;
-import org.junit.Test;
+import java.util.Random;
 
-/**
- * @version 
- */
+import javax.persistence.PersistenceException;
+
+import org.apache.camel.CamelExecutionException;
+import org.apache.camel.examples.Order;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 public class JpaUsePersistTest extends AbstractJpaMethodTest {
-    
+
+    @Override
     public boolean usePersist() {
         return true;
     }
-    
+
     @Test
     public void produceExistingEntityShouldThrowAnException() throws Exception {
-        setUp("jpa://" + Customer.class.getName() + "?usePersist=true");
-        
-        Customer customer = createDefaultCustomer();
-        save(customer);
-        long id = customer.getId();
+        setUp("jpa://" + Order.class.getName() + "?usePersist=true");
 
-        // and adjust some values
-        customer = createDefaultCustomer();
-        customer.setId(id);
-        customer.setName("Max Mustermann");
-        customer.getAddress().setAddressLine1("Musterstr. 1");
-        customer.getAddress().setAddressLine2("11111 Enterhausen");
+        long id = new Random().nextLong();
+        Order order2 = new Order();
+        order2.setId(id);
+        order2.setProductName("Beer");
+        order2.setProductSku("12345");
+        order2.setQuantity(5);
+        save(order2);
 
-        try {
-            // we cannot store the 2nd customer as its using the same id as the 1st
-            template.requestBody(endpoint, customer);
-            fail("Should throw exception");
-        } catch (Exception e) {
-            // expected
-        }
-        
-        assertEntitiesInDatabase(1, Customer.class.getName());
-        assertEntitiesInDatabase(1, Address.class.getName());
+        // we cannot store the 2nd order as its using the same id as the 1st
+        Order order = new Order();
+        order.setId(id);
+        order.setProductName("Cheese");
+        order.setProductSku("54321");
+        order.setQuantity(2);
+        assertIsInstanceOf(PersistenceException.class, assertThrows(CamelExecutionException.class,
+                () -> template.requestBody(endpoint, order)).getCause());
+
+        assertEntitiesInDatabase(1, Order.class.getName());
     }
+
+    @Override
+    protected void setUp(String endpointUri) throws Exception {
+        super.setUp(endpointUri);
+        transactionTemplate.execute(new TransactionCallback<Object>() {
+            public Object doInTransaction(TransactionStatus status) {
+                entityManager.joinTransaction();
+                entityManager.createQuery("delete from " + Order.class.getName()).executeUpdate();
+                return null;
+            }
+        });
+    }
+
 }

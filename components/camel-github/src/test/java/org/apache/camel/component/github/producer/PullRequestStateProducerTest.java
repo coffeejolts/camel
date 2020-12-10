@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,15 +24,16 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.github.GitHubComponent;
 import org.apache.camel.component.github.GitHubComponentTestBase;
+import org.apache.camel.component.github.GitHubConstants;
 import org.eclipse.egit.github.core.CommitStatus;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class PullRequestStateProducerTest extends GitHubComponentTestBase {
-    protected static final Logger LOG = LoggerFactory.getLogger(PullRequestStateProducerTest.class);
     private String commitsha;
 
     @Override
@@ -41,16 +42,13 @@ public class PullRequestStateProducerTest extends GitHubComponentTestBase {
 
             @Override
             public void configure() throws Exception {
-                context.addComponent("github", new GitHubComponent());
                 from("direct:validPullRequest")
                         .process(new MockPullRequestStateProducerProcessor())
-                        .to("github://pullRequestState?state=success&" + GITHUB_CREDENTIALS_STRING);
+                        .to("github://pullRequestState?state=success&repoOwner=anotherguy&repoName=somerepo");
             } // end of configure
-
 
         };
     }
-
 
     @Test
     public void testPullRequestStateProducer() throws Exception {
@@ -62,33 +60,31 @@ public class PullRequestStateProducerTest extends GitHubComponentTestBase {
         exchange.getIn().setBody(text);
         Exchange response = template.send(stateProducerEndpoint, exchange);
 
-        assertNotNull(response.getOut().getBody());
+        assertNotNull(response.getMessage().getBody());
 
-        if (!(response.getOut().getBody() instanceof CommitStatus)) {
+        if (!(response.getMessage().getBody() instanceof CommitStatus)) {
             fail("Expecting CommitStatus");
         }
 
-        CommitStatus status = response.getOut().getBody(CommitStatus.class);
+        CommitStatus status = response.getMessage().getBody(CommitStatus.class);
 
         // Check status set on commit service
         if (commitService.getCommitStatus(commitsha) != status) {
             fail("Commit status sent to service is different from response");
         }
 
-        assertEquals(status.getState(), "success");
+        assertEquals("success", status.getState());
 
         assertEquals(status.getDescription(), text);
     }
-
 
     public class MockPullRequestStateProducerProcessor implements Processor {
         @Override
         public void process(Exchange exchange) throws Exception {
             Message in = exchange.getIn();
             Map<String, Object> headers = in.getHeaders();
-            headers.put("GitHubPullRequestHeadCommitSHA", commitsha);
+            headers.put(GitHubConstants.GITHUB_PULLREQUEST_HEAD_COMMIT_SHA, commitsha);
         }
     }
-
 
 }

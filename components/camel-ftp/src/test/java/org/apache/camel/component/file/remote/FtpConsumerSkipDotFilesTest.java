@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,8 @@ package org.apache.camel.component.file.remote;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit test that ftp consumer will skip any files starting with a dot
@@ -27,11 +27,11 @@ import org.junit.Test;
 public class FtpConsumerSkipDotFilesTest extends FtpServerTestSupport {
 
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/dotfiles?password=admin";
+        return "ftp://admin@localhost:{{ftp.server.port}}/dotfiles?password=admin";
     }
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         prepareFtpServer();
@@ -46,14 +46,16 @@ public class FtpConsumerSkipDotFilesTest extends FtpServerTestSupport {
     }
 
     private void prepareFtpServer() throws Exception {
-        // prepares the FTP Server by creating files on the server that we want to unit
-        // test that we can pool and store as a local file        
+        // prepares the FTP Server by creating files on the server that we want
+        // to unit
+        // test that we can pool and store as a local file
         sendFile(getFtpUrl(), "Hello World", ".skipme");
         sendFile(getFtpUrl(), "Reports", "report1.txt");
         sendFile(getFtpUrl(), "Bye World", ".camel");
         sendFile(getFtpUrl(), "Reports", "report2.txt");
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {

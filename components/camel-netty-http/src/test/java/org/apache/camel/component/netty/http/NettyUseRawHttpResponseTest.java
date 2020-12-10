@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,16 +16,16 @@
  */
 package org.apache.camel.component.netty.http;
 
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import org.apache.camel.builder.RouteBuilder;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.junit.Test;
+import org.apache.camel.component.netty.NettyConverter;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NettyUseRawHttpResponseTest extends BaseNettyTest {
 
@@ -45,17 +45,15 @@ public class NettyUseRawHttpResponseTest extends BaseNettyTest {
             @Override
             public void configure() throws Exception {
                 from("netty-http:http://0.0.0.0:{{port}}/foo")
-                    .to("mock:input")
-                    .process(new Processor() {
-                        @Override
-                        public void process(Exchange exchange) throws Exception {
-                            HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-                            response.setContent(ChannelBuffers.copiedBuffer("Bye World".getBytes()));
-                            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, 9);
+                        .to("mock:input")
+                        .process(exchange -> {
+                            HttpResponse response = new DefaultFullHttpResponse(
+                                    HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                                    NettyConverter.toByteBuffer("Bye World".getBytes()));
+                            response.headers().set(HttpHeaderNames.CONTENT_LENGTH.toString(), 9);
 
-                            exchange.getOut().setBody(response);
-                        }
-                    });
+                            exchange.getMessage().setBody(response);
+                        });
             }
         };
     }

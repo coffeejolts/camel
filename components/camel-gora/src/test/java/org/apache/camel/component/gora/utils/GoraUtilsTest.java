@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,41 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.gora.utils;
 
 import org.apache.camel.component.gora.GoraAttribute;
 import org.apache.camel.component.gora.GoraConfiguration;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * GORA Utils Tests
- *
  */
 public class GoraUtilsTest {
 
     @Test
     public void configurationExistShouldSucceedtIfMethodExist() throws Exception {
-
         final GoraConfiguration conf = new GoraConfiguration();
         assertTrue(GoraUtils.configurationExist(GoraAttribute.GORA_QUERY_LIMIT, conf));
     }
 
-    @Test(expected = NoSuchMethodException.class)
+    @Test
     public void configurationExistShouldThrowExceptionIfMethodDoesNotExist() throws Exception {
-
         final GoraConfiguration conf = new GoraConfiguration();
-        GoraUtils.configurationExist(GoraAttribute.GORA_KEY, conf);
+        assertThrows(NoSuchMethodException.class,
+                () -> GoraUtils.configurationExist(GoraAttribute.GORA_KEY, conf));
     }
 
     @Test
     public void getAttributeAsLongShouldSReturnTheCorrectValue() throws Exception {
-
         final GoraConfiguration conf = new GoraConfiguration();
         conf.setLimit(3L);
-        assertEquals(new Long(3), GoraUtils.getAttributeAsLong(GoraAttribute.GORA_QUERY_LIMIT, conf));
+        assertEquals(Long.valueOf(3), GoraUtils.getAttributeAsLong(GoraAttribute.GORA_QUERY_LIMIT, conf));
     }
 }

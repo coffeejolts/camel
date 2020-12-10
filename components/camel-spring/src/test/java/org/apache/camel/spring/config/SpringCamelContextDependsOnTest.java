@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,12 @@
 package org.apache.camel.spring.config;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class SpringCamelContextDependsOnTest extends SpringTestSupport {
 
     @Override
@@ -30,6 +30,7 @@ public class SpringCamelContextDependsOnTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/config/SpringCamelContextDependsOnTest.xml");
     }
 
+    @Test
     public void testDependsOn() throws Exception {
         getMockEndpoint("mock:result").expectedMessageCount(1);
 
@@ -40,7 +41,7 @@ public class SpringCamelContextDependsOnTest extends SpringTestSupport {
         long time1 = context.getRegistry().lookupByNameAndType("myDependsOnBean", MyDependsOnBean.class).getTime();
         long time2 = context.getRegistry().lookupByNameAndType("myRouteBuilder", MyDependsOnRouteBuilder.class).getTime();
 
-        assertTrue("myDependsOnBean should be created before myRouteBuilder", time1 < time2);
+        assertTrue(time1 < time2, "myDependsOnBean should be created before myRouteBuilder");
     }
 
 }

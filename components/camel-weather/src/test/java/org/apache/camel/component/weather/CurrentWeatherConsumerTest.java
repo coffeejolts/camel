@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,25 @@ package org.apache.camel.component.weather;
 
 import org.apache.camel.builder.RouteBuilder;
 
+import static org.apache.camel.test.junit5.TestSupport.assertStringContains;
+
 public class CurrentWeatherConsumerTest extends BaseWeatherConsumerTest {
+
+    @Override
+    protected void checkWeatherContent(String weather) {
+        log.debug("The weather in {} format is {}{}", WeatherMode.XML, LS, weather);
+
+        //assertStringContains(weather, "<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        assertStringContains(weather, "<coord");
+        assertStringContains(weather, "<temperature");
+    }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("weather:foo").to("mock:result");
+                from("weather:foo?appid=9162755b2efa555823cfe0451d7fff38&lon=4&lat=52&mode=xml").to("mock:result");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,13 +20,12 @@ import org.apache.camel.EndpointInject;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringRunWithTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 @ContextConfiguration
 public class NamespacePrefixTest extends SpringRunWithTestSupport {
     protected String body = "Hello";
@@ -34,13 +33,13 @@ public class NamespacePrefixTest extends SpringRunWithTestSupport {
     @Autowired
     private ProducerTemplate template;
 
-    @EndpointInject(uri = "mock:results")
+    @EndpointInject("mock:results")
     private MockEndpoint endpoint;
 
     @Test
     public void testAssertThatInjectionWorks() throws Exception {
-        assertNotNull("Bean should be injected", template);
-        assertNotNull("endpoint should be injected", endpoint);
+        assertNotNull(template, "Bean should be injected");
+        assertNotNull(endpoint, "endpoint should be injected");
     }
 
 }

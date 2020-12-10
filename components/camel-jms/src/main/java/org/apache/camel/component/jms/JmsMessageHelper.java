@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,25 +20,25 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import javax.jms.DeliveryMode;
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
+import javax.jms.Session;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.support.ExchangeHelper;
 import org.apache.camel.util.ObjectHelper;
 
 import static org.apache.camel.component.jms.JmsConfiguration.QUEUE_PREFIX;
 import static org.apache.camel.component.jms.JmsConfiguration.TEMP_QUEUE_PREFIX;
 import static org.apache.camel.component.jms.JmsConfiguration.TEMP_TOPIC_PREFIX;
 import static org.apache.camel.component.jms.JmsConfiguration.TOPIC_PREFIX;
-import static org.apache.camel.util.ObjectHelper.removeStartingCharacters;
+import static org.apache.camel.util.StringHelper.removeStartingCharacters;
 
 /**
  * Utility class for {@link javax.jms.Message}.
- *
- * @version 
  */
 public final class JmsMessageHelper {
 
@@ -48,9 +48,9 @@ public final class JmsMessageHelper {
     /**
      * Removes the property from the JMS message.
      *
-     * @param jmsMessage the JMS message
-     * @param name       name of the property to remove
-     * @return the old value of the property or <tt>null</tt> if not exists
+     * @param  jmsMessage   the JMS message
+     * @param  name         name of the property to remove
+     * @return              the old value of the property or <tt>null</tt> if not exists
      * @throws JMSException can be thrown
      */
     public static Object removeJmsProperty(Message jmsMessage, String name) throws JMSException {
@@ -65,7 +65,7 @@ public final class JmsMessageHelper {
         // as the JMS API is a bit strict as we are not allowed to
         // clear a single property, but must clear them all and redo
         // the properties
-        Map<String, Object> map = new LinkedHashMap<String, Object>();
+        Map<String, Object> map = new LinkedHashMap<>();
         Enumeration<?> en = jmsMessage.getPropertyNames();
         while (en.hasMoreElements()) {
             String key = (String) en.nextElement();
@@ -88,9 +88,9 @@ public final class JmsMessageHelper {
     /**
      * Tests whether a given property with the name exists
      *
-     * @param jmsMessage the JMS message
-     * @param name       name of the property to test if exists
-     * @return <tt>true</tt> if the property exists, <tt>false</tt> if not.
+     * @param  jmsMessage   the JMS message
+     * @param  name         name of the property to test if exists
+     * @return              <tt>true</tt> if the property exists, <tt>false</tt> if not.
      * @throws JMSException can be thrown
      */
     public static boolean hasProperty(Message jmsMessage, String name) throws JMSException {
@@ -107,9 +107,9 @@ public final class JmsMessageHelper {
     /**
      * Gets a JMS property
      *
-     * @param jmsMessage the JMS message
-     * @param name       name of the property to get
-     * @return the property value, or <tt>null</tt> if does not exists
+     * @param  jmsMessage   the JMS message
+     * @param  name         name of the property to get
+     * @return              the property value, or <tt>null</tt> if does not exists
      * @throws JMSException can be thrown
      */
     public static Object getProperty(Message jmsMessage, String name) throws JMSException {
@@ -121,11 +121,43 @@ public final class JmsMessageHelper {
     }
 
     /**
+     * Gets a JMS property in a safe way
+     *
+     * @param  jmsMessage the JMS message
+     * @param  name       name of the property to get
+     * @return            the property value, or <tt>null</tt> if does not exists or failure to get the value
+     */
+    public static Long getSafeLongProperty(Message jmsMessage, String name) {
+        try {
+            return jmsMessage.getLongProperty(name);
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
+    /**
+     * Is the JMS session from a given vendor
+     *
+     * @param  session the JMS session
+     * @param  vendor  the vendor, such as <tt>ActiveMQ</tt>, or <tt>Artemis</tt>
+     * @return         <tt>true</tt> if from the vendor, <tt>false</tt> if not or not possible to determine
+     */
+    public static boolean isVendor(Session session, String vendor) {
+        if ("Artemis".equals(vendor)) {
+            return session.getClass().getName().startsWith("org.apache.activemq.artemis");
+        } else if ("ActiveMQ".equals(vendor)) {
+            return !isVendor(session, "Artemis") && session.getClass().getName().startsWith("org.apache.activemq");
+        }
+        return false;
+    }
+
+    /**
      * Sets the property on the given JMS message.
      *
-     * @param jmsMessage  the JMS message
-     * @param name        name of the property to set
-     * @param value       the value
+     * @param  jmsMessage   the JMS message
+     * @param  name         name of the property to set
+     * @param  value        the value
      * @throws JMSException can be thrown
      */
     public static void setProperty(Message jmsMessage, String name, Object value) throws JMSException {
@@ -159,7 +191,7 @@ public final class JmsMessageHelper {
      * <p/>
      * Will ignore exception thrown
      *
-     * @param message  the JMS message
+     * @param message       the JMS message
      * @param correlationId the correlation id
      */
     public static void setCorrelationId(Message message, String correlationId) {
@@ -173,8 +205,8 @@ public final class JmsMessageHelper {
     /**
      * Whether the destination name has either queue or temp queue prefix.
      *
-     * @param destination the destination
-     * @return <tt>true</tt> if queue or temp-queue prefix, <tt>false</tt> otherwise
+     * @param  destination the destination
+     * @return             <tt>true</tt> if queue or temp-queue prefix, <tt>false</tt> otherwise
      */
     public static boolean isQueuePrefix(String destination) {
         if (ObjectHelper.isEmpty(destination)) {
@@ -187,8 +219,8 @@ public final class JmsMessageHelper {
     /**
      * Whether the destination name has either topic or temp topic prefix.
      *
-     * @param destination the destination
-     * @return <tt>true</tt> if topic or temp-topic prefix, <tt>false</tt> otherwise
+     * @param  destination the destination
+     * @return             <tt>true</tt> if topic or temp-topic prefix, <tt>false</tt> otherwise
      */
     public static boolean isTopicPrefix(String destination) {
         if (ObjectHelper.isEmpty(destination)) {
@@ -204,8 +236,8 @@ public final class JmsMessageHelper {
      * This ensures the destination name is correct, and we do not create queues as <tt>queue://queue:foo</tt>, which
      * was intended as <tt>queue://foo</tt>.
      *
-     * @param destination the destination
-     * @return the normalized destination
+     * @param  destination the destination
+     * @return             the normalized destination
      */
     public static String normalizeDestinationName(String destination) {
         // do not include prefix which is the current behavior when using this method.
@@ -218,9 +250,10 @@ public final class JmsMessageHelper {
      * This ensures the destination name is correct, and we do not create queues as <tt>queue://queue:foo</tt>, which
      * was intended as <tt>queue://foo</tt>.
      *
-     * @param destination the destination
-     * @param includePrefix whether to include <tt>queue://</tt>, or <tt>topic://</tt> prefix in the normalized destination name
-     * @return the normalized destination
+     * @param  destination   the destination
+     * @param  includePrefix whether to include <tt>queue://</tt>, or <tt>topic://</tt> prefix in the normalized
+     *                       destination name
+     * @return               the normalized destination
      */
     public static String normalizeDestinationName(String destination, boolean includePrefix) {
         if (ObjectHelper.isEmpty(destination)) {
@@ -258,8 +291,8 @@ public final class JmsMessageHelper {
     /**
      * Sets the JMSReplyTo on the message.
      *
-     * @param message  the message
-     * @param replyTo  the reply to destination
+     * @param message the message
+     * @param replyTo the reply to destination
      */
     public static void setJMSReplyTo(Message message, Destination replyTo) {
         try {
@@ -272,8 +305,8 @@ public final class JmsMessageHelper {
     /**
      * Gets the JMSReplyTo from the message.
      *
-     * @param message  the message
-     * @return the reply to, can be <tt>null</tt>
+     * @param  message the message
+     * @return         the reply to, can be <tt>null</tt>
      */
     public static Destination getJMSReplyTo(Message message) {
         try {
@@ -288,8 +321,8 @@ public final class JmsMessageHelper {
     /**
      * Gets the JMSType from the message.
      *
-     * @param message  the message
-     * @return the type, can be <tt>null</tt>
+     * @param  message the message
+     * @return         the type, can be <tt>null</tt>
      */
     public static String getJMSType(Message message) {
         try {
@@ -300,12 +333,12 @@ public final class JmsMessageHelper {
 
         return null;
     }
-    
+
     /**
      * Gets the String Properties from the message.
      *
-     * @param message  the message
-     * @return the type, can be <tt>null</tt>
+     * @param  message the message
+     * @return         the type, can be <tt>null</tt>
      */
     public static String getStringProperty(Message message, String propertyName) {
         try {
@@ -320,8 +353,8 @@ public final class JmsMessageHelper {
     /**
      * Gets the JMSRedelivered from the message.
      *
-     * @param message  the message
-     * @return <tt>true</tt> if redelivered, <tt>false</tt> if not, <tt>null</tt> if not able to determine
+     * @param  message the message
+     * @return         <tt>true</tt> if redelivered, <tt>false</tt> if not, <tt>null</tt> if not able to determine
      */
     public static Boolean getJMSRedelivered(Message message) {
         try {
@@ -336,8 +369,8 @@ public final class JmsMessageHelper {
     /**
      * Gets the JMSMessageID from the message.
      *
-     * @param message  the message
-     * @return the JMSMessageID, or <tt>null</tt> if not able to get
+     * @param  message the message
+     * @return         the JMSMessageID, or <tt>null</tt> if not able to get
      */
     public static String getJMSMessageID(Message message) {
         try {
@@ -350,11 +383,27 @@ public final class JmsMessageHelper {
     }
 
     /**
+     * Gets the JMSDestination from the message.
+     *
+     * @param  message the message
+     * @return         the JMSDestination, or <tt>null</tt> if not able to get
+     */
+    public static Destination getJMSDestination(Message message) {
+        try {
+            return message.getJMSDestination();
+        } catch (Exception e) {
+            // ignore if JMS broker do not support this
+        }
+
+        return null;
+    }
+
+    /**
      * Sets the JMSDeliveryMode on the message.
      *
-     * @param exchange the exchange
-     * @param message  the message
-     * @param deliveryMode  the delivery mode, either as a String or integer
+     * @param  exchange               the exchange
+     * @param  message                the message
+     * @param  deliveryMode           the delivery mode, either as a String or integer
      * @throws javax.jms.JMSException is thrown if error setting the delivery mode
      */
     public static void setJMSDeliveryMode(Exchange exchange, Message message, Object deliveryMode) throws JMSException {
@@ -389,4 +438,27 @@ public final class JmsMessageHelper {
         }
     }
 
+    /**
+     * Gets the JMSCorrelationIDAsBytes from the message.
+     *
+     * @param  message the message
+     * @return         the JMSCorrelationIDAsBytes, or <tt>null</tt> if not able to get
+     */
+    public static String getJMSCorrelationIDAsBytes(Message message) {
+        try {
+            byte[] bytes = message.getJMSCorrelationIDAsBytes();
+            boolean isNull = true;
+            if (bytes != null) {
+                for (byte b : bytes) {
+                    if (b != 0) {
+                        isNull = false;
+                    }
+                }
+            }
+            return isNull ? null : new String(bytes);
+        } catch (Exception e) {
+            // ignore if JMS broker do not support this
+        }
+        return null;
+    }
 }

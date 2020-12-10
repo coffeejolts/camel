@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,20 @@
  */
 package org.apache.camel.component.salesforce;
 
+import java.time.ZonedDateTime;
+
 import org.apache.camel.Message;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.component.salesforce.api.dto.CreateSObjectResult;
+import org.apache.camel.component.salesforce.api.dto.UpsertSObjectResult;
 import org.apache.camel.component.salesforce.dto.generated.Merchandise__c;
 import org.apache.camel.component.salesforce.internal.dto.QueryRecordsPushTopic;
-import org.joda.time.DateTime;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class StreamingApiIntegrationTest extends AbstractSalesforceTestBase {
 
@@ -35,29 +41,41 @@ public class StreamingApiIntegrationTest extends AbstractSalesforceTestBase {
         mock.expectedHeaderReceived("CamelSalesforceTopicName", "CamelTestTopic");
         mock.expectedHeaderReceived("CamelSalesforceChannel", "/topic/CamelTestTopic");
 
+        MockEndpoint rawPayloadMock = getMockEndpoint("mock:RawPayloadCamelTestTopic");
+        rawPayloadMock.expectedMessageCount(1);
+        // assert expected static headers
+        rawPayloadMock.expectedHeaderReceived("CamelSalesforceTopicName", "CamelTestTopic");
+        rawPayloadMock.expectedHeaderReceived("CamelSalesforceChannel", "/topic/CamelTestTopic");
+
         Merchandise__c merchandise = new Merchandise__c();
         merchandise.setName("TestNotification");
-        merchandise.setDescription__c("Merchandise for testing Streaming API updated on " + new DateTime().toString());
+        merchandise.setDescription__c("Merchandise for testing Streaming API updated on " +
+                                      ZonedDateTime.now().toString());
         merchandise.setPrice__c(9.99);
         merchandise.setTotal_Inventory__c(1000.0);
-        CreateSObjectResult result = template().requestBody(
-            "direct:upsertSObject", merchandise, CreateSObjectResult.class);
-        assertTrue("Merchandise test record not created",  result == null || result.getSuccess());
+        UpsertSObjectResult result = template().requestBody("direct:upsertSObject", merchandise,
+                UpsertSObjectResult.class);
+        assertTrue(result == null || result.getSuccess(), "Merchandise test record not created");
 
         try {
             // wait for Salesforce notification
             mock.assertIsSatisfied();
             final Message in = mock.getExchanges().get(0).getIn();
             merchandise = in.getMandatoryBody(Merchandise__c.class);
-            assertNotNull("Missing event body", merchandise);
-            log.info("Merchandise notification: {}", merchandise.toString());
-            assertNotNull("Missing field Id", merchandise.getId());
-            assertNotNull("Missing field Name", merchandise.getName());
+
+            assertNotNull(merchandise, "Missing event body");
+            log.info("Merchandise notification: {}", merchandise);
+            assertNotNull(merchandise.getId(), "Missing field Id");
+            assertNotNull(merchandise.getName(), "Missing field Name");
 
             // validate dynamic message headers
-            assertNotNull("Missing header CamelSalesforceClientId", in.getHeader("CamelSalesforceClientId"));
-            assertNotNull("Missing header CamelSalesforceEventType", in.getHeader("CamelSalesforceEventType"));
-            assertNotNull("Missing header CamelSalesforceCreatedDate", in.getHeader("CamelSalesforceCreatedDate"));
+            assertNotNull(in.getHeader("CamelSalesforceEventType"), "Missing header CamelSalesforceEventType");
+            assertNotNull(in.getHeader("CamelSalesforceCreatedDate"), "Missing header CamelSalesforceCreatedDate");
+
+            // validate raw payload message
+            rawPayloadMock.assertIsSatisfied();
+            final Message inRaw = rawPayloadMock.getExchanges().get(0).getIn();
+            assertTrue(inRaw.getBody() instanceof String, "Expected String message body for Raw Payload");
 
         } finally {
             // remove the test record
@@ -65,11 +83,9 @@ public class StreamingApiIntegrationTest extends AbstractSalesforceTestBase {
 
             // remove the test topic
             // find it using SOQL first
-            QueryRecordsPushTopic records = template().requestBody("direct:query", null,
-                QueryRecordsPushTopic.class);
-            assertEquals("Test topic not found", 1, records.getTotalSize());
-            assertNull(template().requestBody("direct:deleteSObject",
-                records.getRecords().get(0)));
+            QueryRecordsPushTopic records = template().requestBody("direct:query", null, QueryRecordsPushTopic.class);
+            assertEquals(1, records.getTotalSize(), "Test topic not found");
+            assertNull(template().requestBody("direct:deleteSObject", records.getRecords().get(0)));
 
         }
     }
@@ -81,29 +97,29 @@ public class StreamingApiIntegrationTest extends AbstractSalesforceTestBase {
             public void configure() throws Exception {
 
                 // test topic subscription
-                //from("salesforce:CamelTestTopic?notifyForFields=ALL&notifyForOperations=ALL&"
+                // from("salesforce:CamelTestTopic?notifyForFields=ALL&notifyForOperations=ALL&"
                 from("salesforce:CamelTestTopic?notifyForFields=ALL&"
-                    + "notifyForOperationCreate=true&notifyForOperationDelete=true&notifyForOperationUpdate=true&"
-                    + "sObjectName=Merchandise__c&"
-                    + "updateTopic=true&sObjectQuery=SELECT Id, Name FROM Merchandise__c").
-                    to("mock:CamelTestTopic");
+                     + "notifyForOperationCreate=true&notifyForOperationDelete=true&notifyForOperationUpdate=true&"
+                     + "sObjectName=Merchandise__c&" + "updateTopic=true&sObjectQuery=SELECT Id, Name FROM Merchandise__c")
+                             .to("mock:CamelTestTopic");
+
+                from("salesforce:CamelTestTopic?rawPayload=true&notifyForFields=ALL&"
+                     + "notifyForOperationCreate=true&notifyForOperationDelete=true&notifyForOperationUpdate=true&"
+                     + "updateTopic=true&sObjectQuery=SELECT Id, Name FROM Merchandise__c").to("mock:RawPayloadCamelTestTopic");
 
                 // route for creating test record
-                from("direct:upsertSObject").
-                    to("salesforce:upsertSObject?SObjectIdName=Name");
+                from("direct:upsertSObject").to("salesforce:upsertSObject?SObjectIdName=Name");
 
                 // route for finding test topic
-                from("direct:query").
-                    to("salesforce:query?sObjectQuery=SELECT Id FROM PushTopic WHERE Name = 'CamelTestTopic'&"
-                        + "sObjectClass=" + QueryRecordsPushTopic.class.getName());
+                from("direct:query")
+                        .to("salesforce:query?sObjectQuery=SELECT Id FROM PushTopic WHERE Name = 'CamelTestTopic'&"
+                            + "sObjectClass=" + QueryRecordsPushTopic.class.getName());
 
                 // route for removing test record
-                from("direct:deleteSObjectWithId").
-                    to("salesforce:deleteSObjectWithId?sObjectIdName=Name");
+                from("direct:deleteSObjectWithId").to("salesforce:deleteSObjectWithId?sObjectIdName=Name");
 
                 // route for removing topic
-                from("direct:deleteSObject").
-                    to("salesforce:deleteSObject");
+                from("direct:deleteSObject").to("salesforce:deleteSObject");
 
             }
         };

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,12 @@
 package org.apache.camel.spring.issues;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class ProduceSplitMethodCallIssueTest extends SpringTestSupport {
 
     @Override
@@ -30,6 +30,7 @@ public class ProduceSplitMethodCallIssueTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/issues/ProduceSplitMethodCallIssueTest.xml");
     }
 
+    @Test
     public void testProduceSplitMethodCallIssue() throws Exception {
         getMockEndpoint("mock:split").expectedBodiesReceived("Hello A", "Hello B");
 

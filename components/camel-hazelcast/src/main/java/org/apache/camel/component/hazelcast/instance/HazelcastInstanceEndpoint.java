@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,24 +17,36 @@
 package org.apache.camel.component.hazelcast.instance;
 
 import com.hazelcast.core.HazelcastInstance;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.component.hazelcast.HazelcastComponent;
+import org.apache.camel.component.hazelcast.HazelcastCommand;
+import org.apache.camel.component.hazelcast.HazelcastDefaultComponent;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
+import org.apache.camel.spi.UriEndpoint;
 
+/**
+ * Consume join/leave events of a cache instance in a Hazelcast cluster.
+ */
+@UriEndpoint(firstVersion = "2.7.0", scheme = "hazelcast-instance", title = "Hazelcast Instance",
+             syntax = "hazelcast-instance:cacheName",
+             consumerOnly = true, category = { Category.CACHE, Category.DATAGRID })
 public class HazelcastInstanceEndpoint extends HazelcastDefaultEndpoint {
 
-    public HazelcastInstanceEndpoint(HazelcastInstance hazelcastInstance, String uri, HazelcastComponent component) {
+    public HazelcastInstanceEndpoint(HazelcastInstance hazelcastInstance, String uri, HazelcastDefaultComponent component) {
         super(hazelcastInstance, uri, component);
+        setCommand(HazelcastCommand.instance);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         HazelcastInstanceConsumer answer = new HazelcastInstanceConsumer(hazelcastInstance, this, processor);
         configureConsumer(answer);
         return answer;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         throw new UnsupportedOperationException("You cannot send messages to this endpoint: " + getEndpointUri());
     }

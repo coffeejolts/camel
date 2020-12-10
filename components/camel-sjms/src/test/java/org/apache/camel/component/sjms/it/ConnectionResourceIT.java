@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -30,19 +30,18 @@ import org.apache.camel.component.sjms.jms.ConnectionResource;
 import org.apache.camel.component.sjms.support.JmsTestSupport;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.util.StopWatch;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.body;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Integration test that verifies we can replace the internal
- * ConnectionFactoryResource with another provider.
- * 
+ * Integration test that verifies we can replace the internal ConnectionFactoryResource with another provider.
  */
 public class ConnectionResourceIT extends JmsTestSupport {
 
     /**
-     * Test method for
-     * {@link org.apache.commons.pool.ObjectPool#returnObject(java.lang.Object)}
-     * .
+     * Test method for {@link org.apache.commons.pool.ObjectPool#returnObject(java.lang.Object)} .
      * 
      * @throws Exception
      */
@@ -73,11 +72,11 @@ public class ConnectionResourceIT extends JmsTestSupport {
         // just in case we run on slow boxes
         assertMockEndpointsSatisfied(20, TimeUnit.SECONDS);
 
-        log.info("Took " + watch.stop() + " ms. to process 100 messages request/reply over JMS");
+        log.info("Took " + watch.taken() + " ms. to process 100 messages request/reply over JMS");
     }
 
     /*
-     * @see org.apache.camel.test.junit4.CamelTestSupport#createCamelContext()
+     * @see org.apache.camel.test.junit5.CamelTestSupport#createCamelContext()
      * @return
      * @throws Exception
      */
@@ -98,12 +97,12 @@ public class ConnectionResourceIT extends JmsTestSupport {
             public void configure() throws Exception {
 
                 from("seda:start")
-                    .to("sjms:queue:in.foo?namedReplyTo=out.bar&exchangePattern=InOut&producerCount=5")
-                    .to("mock:result");
+                        .to("sjms:queue:in.foo?namedReplyTo=out.bar&exchangePattern=InOut&producerCount=5")
+                        .to("mock:result");
 
                 from("sjms:queue:in.foo?exchangePattern=InOut&consumerCount=20")
-                    .log("Using ${threadName} to process ${body}")
-                    .transform(body().prepend("Bye "));
+                        .log("Using ${threadName} to process ${body}")
+                        .transform(body().prepend("Bye "));
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,9 @@ package org.apache.camel.component.solr;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.solr.client.solrj.SolrServerException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SolrServerMissingTest extends SolrTestSupport {
 
@@ -28,8 +29,10 @@ public class SolrServerMissingTest extends SolrTestSupport {
         Exchange exchange = createExchangeWithBody(null);
         exchange.getIn().setHeader(SolrConstants.OPERATION, SolrConstants.OPERATION_INSERT);
         exchange.getIn().setHeader("SolrField.id", "MA147LL/A");
+
         template.send("direct:start", exchange);
-        assertEquals(SolrServerException.class, exchange.getException().getClass());
+
+        assertTrue(exchange.isFailed());
     }
 
     @Override

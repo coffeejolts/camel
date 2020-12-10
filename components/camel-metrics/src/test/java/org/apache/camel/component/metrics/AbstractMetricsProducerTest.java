@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,24 +19,26 @@ package org.apache.camel.component.metrics;
 import com.codahale.metrics.MetricRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultMessage;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.apache.camel.impl.DefaultCamelContext;
+import org.apache.camel.support.DefaultMessage;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.apache.camel.component.metrics.AbstractMetricsProducer.HEADER_PATTERN;
 import static org.apache.camel.component.metrics.MetricsConstants.HEADER_HISTOGRAM_VALUE;
 import static org.apache.camel.component.metrics.MetricsConstants.HEADER_METRIC_NAME;
-import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class AbstractMetricsProducerTest {
 
     public static final String METRIC_NAME = "a metric";
@@ -59,24 +61,26 @@ public class AbstractMetricsProducerTest {
 
     private InOrder inOrder;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         okProducer = new AbstractMetricsProducer(endpoint) {
             @Override
-            protected void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName) throws Exception {
+            protected void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName)
+                    throws Exception {
             }
         };
         failProducer = new AbstractMetricsProducer(endpoint) {
 
             @Override
-            protected void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName) throws Exception {
+            protected void doProcess(Exchange exchange, MetricsEndpoint endpoint, MetricRegistry registry, String metricsName)
+                    throws Exception {
                 throw new Exception("Muchos problemos");
             }
         };
         inOrder = Mockito.inOrder(endpoint, exchange, in, registry);
-        when(exchange.getIn()).thenReturn(in);
-        when(endpoint.getMetricsName()).thenReturn(METRIC_NAME);
-        when(endpoint.getRegistry()).thenReturn(registry);
+        lenient().when(exchange.getIn()).thenReturn(in);
+        lenient().when(endpoint.getMetricsName()).thenReturn(METRIC_NAME);
+        lenient().when(endpoint.getRegistry()).thenReturn(registry);
     }
 
     @Test
@@ -171,7 +175,7 @@ public class AbstractMetricsProducerTest {
 
     @Test
     public void testClearRealHeaders() throws Exception {
-        Message msg = new DefaultMessage();
+        Message msg = new DefaultMessage(new DefaultCamelContext());
         Object val = new Object();
         msg.setHeader(HEADER_HISTOGRAM_VALUE, 109L);
         msg.setHeader(HEADER_METRIC_NAME, "the metric");

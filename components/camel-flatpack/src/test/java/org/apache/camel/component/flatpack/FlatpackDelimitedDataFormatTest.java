@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,8 +26,10 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.converter.IOConverter;
 import org.apache.camel.dataformat.flatpack.FlatpackDataFormat;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for delimited DataFormat.
@@ -58,15 +60,15 @@ public class FlatpackDelimitedDataFormatTest extends CamelTestSupport {
         // by default we get on big message
         mock.expectedMessageCount(1);
 
-        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
-        Map<String, Object> row = new LinkedHashMap<String, Object>();
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> row = new LinkedHashMap<>();
         row.put("ITEM_DESC", "SOME VALVE");
         row.put("IN_STOCK", "2");
         row.put("PRICE", "5.00");
         row.put("LAST_RECV_DT", "20050101");
         data.add(row);
 
-        Map<String, Object> row2 = new LinkedHashMap<String, Object>();
+        Map<String, Object> row2 = new LinkedHashMap<>();
         row2.put("ITEM_DESC", "AN ENGINE");
         row2.put("IN_STOCK", "100");
         row2.put("PRICE", "1000.00");
@@ -83,15 +85,15 @@ public class FlatpackDelimitedDataFormatTest extends CamelTestSupport {
         // by default we get on big message
         mock.expectedMessageCount(1);
 
-        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
-        Map<String, Object> row = new LinkedHashMap<String, Object>();
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> row = new LinkedHashMap<>();
         row.put("ITEM_DESC", "SOME VALVE");
         row.put("IN_STOCK", "2");
         row.put("PRICE", "5.00");
         row.put("LAST_RECV_DT", "20050101");
         data.add(row);
 
-        Map<String, Object> row2 = new LinkedHashMap<String, Object>();
+        Map<String, Object> row2 = new LinkedHashMap<>();
         row2.put("ITEM_DESC", "AN ENGINE");
         row2.put("IN_STOCK", "100");
         row2.put("PRICE", "1000.00");
@@ -114,7 +116,7 @@ public class FlatpackDelimitedDataFormatTest extends CamelTestSupport {
                 // with the definition
                 from("direct:marshal").marshal(df).convertBodyTo(String.class).to("mock:marshal");
 
-                // without the definition (will auto add column names from the recieved data)
+                // without the definition (will auto add column names from the received data)
                 FlatpackDataFormat df2 = new FlatpackDataFormat();
                 from("direct:marshal2").marshal(df2).convertBodyTo(String.class).to("mock:marshal2");
             }

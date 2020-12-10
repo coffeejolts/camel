@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,18 +20,18 @@ import java.net.URI;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 import org.apache.camel.util.ObjectHelper;
 
-/**
- * @version 
- */
-public class NagiosComponent extends UriEndpointComponent {
+@Component("nagios")
+public class NagiosComponent extends DefaultComponent {
 
+    @Metadata(label = "advanced")
     private NagiosConfiguration configuration;
 
     public NagiosComponent() {
-        super(NagiosEndpoint.class);
         configuration = new NagiosConfiguration();
     }
 
@@ -43,7 +43,6 @@ public class NagiosComponent extends UriEndpointComponent {
         ObjectHelper.notNull(configuration, "configuration");
         NagiosConfiguration config = configuration.copy();
         config.configure(url);
-        setProperties(config, parameters);
 
         NagiosEndpoint endpoint = new NagiosEndpoint(uri, this);
         endpoint.setConfiguration(config);

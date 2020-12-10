@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,8 +24,10 @@ import org.apache.camel.Producer;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.converter.IOConverter;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test to verify that we can pool a BINARY file from the FTP Server and store it on a local file path
@@ -34,12 +36,12 @@ public class FromFtpToBinaryFileTest extends FtpServerTestSupport {
 
     // must user "consumer." prefix on the parameters to the file component
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/tmp4/camel?password=admin&binary=true"
-                + "&consumer.delay=5000&recursive=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/tmp4/camel?password=admin&binary=true"
+               + "&delay=5000&recursive=false";
     }
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         prepareFtpServer();
@@ -52,16 +54,17 @@ public class FromFtpToBinaryFileTest extends FtpServerTestSupport {
         resultEndpoint.assertIsSatisfied();
         Exchange ex = resultEndpoint.getExchanges().get(0);
         byte[] bytes = ex.getIn().getBody(byte[].class);
-        assertTrue("Logo size wrong", bytes.length > 10000);
+        assertTrue(bytes.length > 10000, "Logo size wrong");
 
         // assert the file
         File file = new File("target/ftptest/deleteme.jpg");
-        assertTrue("The binary file should exists", file.exists());
-        assertTrue("Logo size wrong", file.length() > 10000);
+        assertTrue(file.exists(), "The binary file should exists");
+        assertTrue(file.length() > 10000, "Logo size wrong");
     }
 
     private void prepareFtpServer() throws Exception {
-        // prepares the FTP Server by creating a file on the server that we want to unit
+        // prepares the FTP Server by creating a file on the server that we want
+        // to unit
         // test that we can pool and store as a local file
         Endpoint endpoint = context.getEndpoint(getFtpUrl());
         Exchange exchange = endpoint.createExchange();
@@ -73,12 +76,12 @@ public class FromFtpToBinaryFileTest extends FtpServerTestSupport {
         producer.stop();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 String fileUrl = "file:target/ftptest/?noop=true&fileExist=Override";
-                from(getFtpUrl()).setHeader(Exchange.FILE_NAME, constant("deleteme.jpg"))
-                        .to(fileUrl, "mock:result");
+                from(getFtpUrl()).setHeader(Exchange.FILE_NAME, constant("deleteme.jpg")).to(fileUrl, "mock:result");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,20 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.spring.processor;
-
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.ContextTestSupport;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+
 /**
  * Spring basesd XPathHeaderTest.
  */
 public class SpringXPathHeaderTest extends ContextTestSupport {
 
+    @Test
     public void testChoiceWithHeaderSelectCamel() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:camel");
         mock.expectedBodiesReceived("<name>King</name>");
@@ -38,6 +39,7 @@ public class SpringXPathHeaderTest extends ContextTestSupport {
         mock.assertIsSatisfied();
     }
 
+    @Test
     public void testChoiceWithNoHeaderSelectDonkey() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:donkey");
         mock.expectedBodiesReceived("<name>Kong</name>");
@@ -47,6 +49,7 @@ public class SpringXPathHeaderTest extends ContextTestSupport {
         mock.assertIsSatisfied();
     }
 
+    @Test
     public void testChoiceWithNoHeaderSelectOther() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:other");
         mock.expectedBodiesReceived("<name>Other</name>");
@@ -56,6 +59,7 @@ public class SpringXPathHeaderTest extends ContextTestSupport {
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/SpringXPathHeaderTest-context.xml");
     }

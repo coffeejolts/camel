@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,25 +23,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.querybuilder.Delete;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.querybuilder.delete.Delete;
+import com.datastax.oss.driver.api.querybuilder.insert.Insert;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.spi.AggregationRepository;
 import org.apache.camel.spi.RecoverableAggregationRepository;
-import org.apache.camel.support.ServiceSupport;
+import org.apache.camel.support.service.ServiceSupport;
 import org.apache.camel.utils.cassandra.CassandraSessionHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
 import static org.apache.camel.utils.cassandra.CassandraUtils.append;
 import static org.apache.camel.utils.cassandra.CassandraUtils.applyConsistencyLevel;
 import static org.apache.camel.utils.cassandra.CassandraUtils.concat;
@@ -50,11 +49,9 @@ import static org.apache.camel.utils.cassandra.CassandraUtils.generateInsert;
 import static org.apache.camel.utils.cassandra.CassandraUtils.generateSelect;
 
 /**
- * Implementation of {@link AggregationRepository} using Cassandra table to store
- * exchanges.
- * Advice: use LeveledCompaction for this table and tune read/write consistency levels.
- * Warning: Cassandra is not the best tool for queuing use cases
- * See: http://www.datastax.com/dev/blog/cassandra-anti-patterns-queues-and-queue-like-datasets
+ * Implementation of {@link AggregationRepository} using Cassandra table to store exchanges. Advice: use
+ * LeveledCompaction for this table and tune read/write consistency levels. Warning: Cassandra is not the best tool for
+ * queuing use cases See: http://www.datastax.com/dev/blog/cassandra-anti-patterns-queues-and-queue-like-datasets
  */
 public class CassandraAggregationRepository extends ServiceSupport implements RecoverableAggregationRepository {
     /**
@@ -84,7 +81,7 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     /**
      * Primary key columns
      */
-    private String[] pkColumns = {"KEY"};
+    private String[] pkColumns = { "KEY" };
     /**
      * Exchange marshaller/unmarshaller
      */
@@ -122,15 +119,13 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
 
     private int maximumRedeliveries;
 
+    private boolean allowSerializedHeaders;
+
     public CassandraAggregationRepository() {
     }
 
-    public CassandraAggregationRepository(Session session) {
+    public CassandraAggregationRepository(CqlSession session) {
         this.sessionHolder = new CassandraSessionHolder(session);
-    }
-
-    public CassandraAggregationRepository(Cluster cluster, String keyspace) {
-        this.sessionHolder = new CassandraSessionHolder(cluster, keyspace);
     }
 
     /**
@@ -150,7 +145,7 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     private String[] getAllColumns() {
         return append(pkColumns, exchangeIdColumn, exchangeColumn);
     }
-    //--------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
     // Service support
 
     @Override
@@ -172,12 +167,10 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     // Add exchange to repository
 
     private void initInsertStatement() {
-        Insert insert = generateInsert(table,
-                getAllColumns(),
-                false, ttl);
-        insert = applyConsistencyLevel(insert, writeConsistencyLevel);
-        LOGGER.debug("Generated Insert {}", insert);
-        insertStatement = getSession().prepare(insert);
+        Insert insert = generateInsert(table, getAllColumns(), false, ttl);
+        SimpleStatement statement = applyConsistencyLevel(insert.build(), writeConsistencyLevel);
+        LOGGER.debug("Generated Insert {}", statement);
+        insertStatement = getSession().prepare(statement);
     }
 
     /**
@@ -188,8 +181,8 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
         final Object[] idValues = getPKValues(key);
         LOGGER.debug("Inserting key {} exchange {}", idValues, exchange);
         try {
-            ByteBuffer marshalledExchange = exchangeCodec.marshallExchange(camelContext, exchange);
-            Object[] cqlParams = concat(idValues, new Object[]{exchange.getExchangeId(), marshalledExchange});
+            ByteBuffer marshalledExchange = exchangeCodec.marshallExchange(camelContext, exchange, allowSerializedHeaders);
+            Object[] cqlParams = concat(idValues, new Object[] { exchange.getExchangeId(), marshalledExchange });
             getSession().execute(insertStatement.bind(cqlParams));
             return exchange;
         } catch (IOException iOException) {
@@ -201,12 +194,10 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     // Get exchange from repository
 
     protected void initSelectStatement() {
-        Select select = generateSelect(table,
-                getAllColumns(),
-                pkColumns);
-        select = (Select) applyConsistencyLevel(select, readConsistencyLevel);
-        LOGGER.debug("Generated Select {}", select);
-        selectStatement = getSession().prepare(select);
+        Select select = generateSelect(table, getAllColumns(), pkColumns);
+        SimpleStatement statement = applyConsistencyLevel(select.build(), readConsistencyLevel);
+        LOGGER.debug("Generated Select {}", statement);
+        selectStatement = getSession().prepare(statement);
     }
 
     /**
@@ -215,12 +206,12 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     @Override
     public Exchange get(CamelContext camelContext, String key) {
         Object[] pkValues = getPKValues(key);
-        LOGGER.debug("Selecting key {} ", pkValues);
+        LOGGER.debug("Selecting key {}", pkValues);
         Row row = getSession().execute(selectStatement.bind(pkValues)).one();
         Exchange exchange = null;
         if (row != null) {
             try {
-                exchange = exchangeCodec.unmarshallExchange(camelContext, row.getBytes(exchangeColumn));
+                exchange = exchangeCodec.unmarshallExchange(camelContext, row.getByteBuffer(exchangeColumn));
             } catch (IOException iOException) {
                 throw new CassandraAggregationException("Failed to read exchange", exchange, iOException);
             } catch (ClassNotFoundException classNotFoundException) {
@@ -234,10 +225,10 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     // Confirm exchange in repository
     private void initDeleteIfIdStatement() {
         Delete delete = generateDelete(table, pkColumns, false);
-        Delete.Conditions deleteIf = delete.onlyIf(eq(exchangeIdColumn, bindMarker()));
-        deleteIf = applyConsistencyLevel(deleteIf, writeConsistencyLevel);
-        LOGGER.debug("Generated Delete If Id {}", deleteIf);
-        deleteIfIdStatement = getSession().prepare(deleteIf);
+        Delete deleteIf = delete.ifColumn(exchangeIdColumn).isEqualTo(bindMarker());
+        SimpleStatement statement = applyConsistencyLevel(deleteIf.build(), writeConsistencyLevel);
+        LOGGER.debug("Generated Delete If Id {}", statement);
+        deleteIfIdStatement = getSession().prepare(statement);
     }
 
     /**
@@ -252,7 +243,7 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
             if (row.getString(exchangeIdColumn).equals(exchangeId)) {
                 String key = row.getString(keyColumn);
                 Object[] cqlParams = append(getPKValues(key), exchangeId);
-                LOGGER.debug("Deleting If Id {} ", cqlParams);
+                LOGGER.debug("Deleting If Id {}", cqlParams);
                 getSession().execute(deleteIfIdStatement.bind(cqlParams));
             }
         }
@@ -263,9 +254,9 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
 
     private void initDeleteStatement() {
         Delete delete = generateDelete(table, pkColumns, false);
-        delete = applyConsistencyLevel(delete, writeConsistencyLevel);
-        LOGGER.debug("Generated Delete {}", delete);
-        deleteStatement = getSession().prepare(delete);
+        SimpleStatement statement = applyConsistencyLevel(delete.build(), writeConsistencyLevel);
+        LOGGER.debug("Generated Delete {}", statement);
+        deleteStatement = getSession().prepare(statement);
     }
 
     /**
@@ -280,12 +271,18 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
 
     // -------------------------------------------------------------------------
     private void initSelectKeyIdStatement() {
-        Select select = generateSelect(table,
-                new String[]{getKeyColumn(), exchangeIdColumn}, // Key + Exchange Id columns
-                pkColumns, pkColumns.length - 1); // Where fixed PK columns
-        select = applyConsistencyLevel(select, readConsistencyLevel);
-        LOGGER.debug("Generated Select keys {}", select);
-        selectKeyIdStatement = getSession().prepare(select);
+        Select select = generateSelect(table, new String[] { getKeyColumn(), exchangeIdColumn }, // Key
+                // +
+                // Exchange
+                // Id
+                // columns
+                pkColumns, pkColumns.length - 1); // Where
+                                                 // fixed
+                                                 // PK
+                                                 // columns
+        SimpleStatement statement = applyConsistencyLevel(select.build(), readConsistencyLevel);
+        LOGGER.debug("Generated Select keys {}", statement);
+        selectKeyIdStatement = getSession().prepare(statement);
     }
 
     protected List<Row> selectKeyIds() {
@@ -299,14 +296,13 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     @Override
     public Set<String> getKeys() {
         List<Row> rows = selectKeyIds();
-        Set<String> keys = new HashSet<String>(rows.size());
+        Set<String> keys = new HashSet<>(rows.size());
         String keyColumnName = getKeyColumn();
         for (Row row : rows) {
             keys.add(row.getString(keyColumnName));
         }
         return keys;
     }
-
 
     /**
      * Get exchange IDs to be recovered
@@ -316,7 +312,7 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     @Override
     public Set<String> scan(CamelContext camelContext) {
         List<Row> rows = selectKeyIds();
-        Set<String> exchangeIds = new HashSet<String>(rows.size());
+        Set<String> exchangeIds = new HashSet<>(rows.size());
         for (Row row : rows) {
             exchangeIds.add(row.getString(exchangeIdColumn));
         }
@@ -324,8 +320,7 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
     }
 
     /**
-     * Get exchange by exchange ID.
-     * This is far from optimal.
+     * Get exchange by exchange ID. This is far from optimal.
      */
     @Override
     public Exchange recover(CamelContext camelContext, String exchangeId) {
@@ -342,15 +337,14 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
         return lKey == null ? null : get(camelContext, lKey);
     }
 
-
     // -------------------------------------------------------------------------
     // Getters and Setters
 
-    public Session getSession() {
+    public CqlSession getSession() {
         return sessionHolder.getSession();
     }
 
-    public void setSession(Session session) {
+    public void setSession(CqlSession session) {
         this.sessionHolder = new CassandraSessionHolder(session);
     }
 
@@ -467,4 +461,11 @@ public class CassandraAggregationRepository extends ServiceSupport implements Re
         this.maximumRedeliveries = maximumRedeliveries;
     }
 
+    public boolean isAllowSerializedHeaders() {
+        return allowSerializedHeaders;
+    }
+
+    public void setAllowSerializedHeaders(boolean allowSerializedHeaders) {
+        this.allowSerializedHeaders = allowSerializedHeaders;
+    }
 }

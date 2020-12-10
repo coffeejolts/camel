@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,23 +16,25 @@
  */
 package org.apache.camel.component.vertx;
 
+import io.vertx.core.Handler;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.Exchange;
 import org.apache.camel.ExchangePattern;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
+import org.apache.camel.support.DefaultConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.eventbus.Message;
-
-import static org.apache.camel.component.vertx.VertxHelper.getVertxBody;
 
 public class VertxConsumer extends DefaultConsumer {
-    private static final Logger LOG = LoggerFactory.getLogger(VertxConsumer.class);
-    private final VertxEndpoint endpoint;
 
-    private Handler<? extends Message> handler = new Handler<Message>() {
+    private static final Logger LOG = LoggerFactory.getLogger(VertxConsumer.class);
+
+    private final VertxEndpoint endpoint;
+    private transient MessageConsumer messageConsumer;
+
+    private Handler<Message<Object>> handler = new Handler<Message<Object>>() {
         public void handle(Message event) {
             onEventBusEvent(event);
         }
@@ -55,7 +57,7 @@ public class VertxConsumer extends DefaultConsumer {
                 @Override
                 public void done(boolean doneSync) {
                     if (reply) {
-                        Object body = getVertxBody(exchange);
+                        Object body = exchange.getMessage().getBody();
                         if (body != null) {
                             LOG.debug("Sending reply to: {} with body: {}", event.replyAddress(), body);
                             event.reply(body);
@@ -68,25 +70,28 @@ public class VertxConsumer extends DefaultConsumer {
         }
     }
 
+    @Override
     protected void doStart() throws Exception {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Registering EventBus handler on address {}", endpoint.getAddress());
         }
 
         if (endpoint.getEventBus() != null) {
-            endpoint.getEventBus().registerHandler(endpoint.getAddress(), handler);
+            messageConsumer = endpoint.getEventBus().consumer(endpoint.getAddress(), handler);
         }
         super.doStart();
     }
 
+    @Override
     protected void doStop() throws Exception {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Unregistering EventBus handler on address {}", endpoint.getAddress());
         }
 
         try {
-            if (endpoint.getEventBus() != null) {
-                endpoint.getEventBus().unregisterHandler(endpoint.getAddress(), handler);
+            if (messageConsumer != null && messageConsumer.isRegistered()) {
+                messageConsumer.unregister();
+                messageConsumer = null;
             }
         } catch (IllegalStateException e) {
             LOG.warn("EventBus already stopped on address {}", endpoint.getAddress());

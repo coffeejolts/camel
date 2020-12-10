@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,18 +18,22 @@ package org.apache.camel.spring.postprocessor;
 
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class CamelCustomPostProcessorOnRouteBuilderTest extends SpringTestSupport {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/spring/postprocessor/camelCustomPostProcessorOnRouteBuilderTest.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/spring/postprocessor/camelCustomPostProcessorOnRouteBuilderTest.xml");
     }
 
+    @Test
     public void testShouldProcessAnnotatedFields() throws Exception {
         getMockEndpoint("mock:injected").expectedMessageCount(1);
         getMockEndpoint("mock:result").expectedMessageCount(1);
@@ -39,9 +43,9 @@ public class CamelCustomPostProcessorOnRouteBuilderTest extends SpringTestSuppor
         assertMockEndpointsSatisfied();
 
         TestPojo pojo = (TestPojo) context.getRegistry().lookupByName("testPojo");
-        assertNotNull("Test pojo not registered", pojo);
+        assertNotNull(pojo, "Test pojo not registered");
 
-        assertEquals("Processor has not changed field value", "Changed Value", pojo.getTestValue());
+        assertEquals("Changed Value", pojo.getTestValue(), "Processor has not changed field value");
 
         // and test that the injected camel annotation on TestPojo also works
         MockEndpoint foo = getMockEndpoint("mock:foo");

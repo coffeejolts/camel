@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,9 +27,11 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.cxf.common.message.CxfConstants;
 import org.apache.cxf.endpoint.Client;
-import org.apache.cxf.helpers.CastUtils;
 import org.apache.cxf.message.Message;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 // We use context to change the producer's endpoint address here
 public class CxfProducerContextTest extends CxfProducerTest {
@@ -47,32 +49,32 @@ public class CxfProducerContextTest extends CxfProducerTest {
         // No direct access to native CXF Message but we can verify the 
         // request context from the Camel exchange
         assertNotNull(exchange);
-        Map<String, Object> requestContext = CastUtils.cast((Map<?, ?>)exchange.getProperty(Client.REQUEST_CONTEXT));
-        assertNotNull(requestContext);
-        String actualValue = (String)requestContext.get(TEST_KEY);
-        assertEquals("exchange property should get propagated to the request context", TEST_VALUE, actualValue);
+        String actualValue = (String) exchange.getProperties().get(TEST_KEY);
+        assertEquals(TEST_VALUE, actualValue, "exchange property should get propagated to the request context");
     }
 
-    @Override   
+    @Override
     protected String getSimpleEndpointUri() {
-        return "cxf://http://localhost:" + CXFTestSupport.getPort4() + "/CxfProducerContextTest/simple?serviceClass=org.apache.camel.component.cxf.HelloService";
+        return "cxf://http://localhost:" + CXFTestSupport.getPort4()
+               + "/CxfProducerContextTest/simple?serviceClass=org.apache.camel.component.cxf.HelloService";
     }
 
-    @Override   
+    @Override
     protected String getJaxwsEndpointUri() {
-        return "cxf://http://localhost:" + CXFTestSupport.getPort4() + "/CxfProducerContextTest/jaxws?serviceClass=org.apache.hello_world_soap_http.Greeter";
+        return "cxf://http://localhost:" + CXFTestSupport.getPort4()
+               + "/CxfProducerContextTest/jaxws?serviceClass=org.apache.hello_world_soap_http.Greeter";
     }
-    
-    @Override   
+
+    @Override
     protected Exchange sendSimpleMessage() {
         Exchange exchange = template.send(getSimpleEndpointUri(), new Processor() {
             public void process(final Exchange exchange) {
-                final List<String> params = new ArrayList<String>();
+                final List<String> params = new ArrayList<>();
                 params.add(TEST_MESSAGE);
-                Map<String, Object> requestContext = new HashMap<String, Object>();
+                Map<String, Object> requestContext = new HashMap<>();
                 requestContext.put(Message.ENDPOINT_ADDRESS, getSimpleServerAddress());
                 exchange.getIn().setBody(params);
-                exchange.getIn().setHeader(Client.REQUEST_CONTEXT , requestContext);
+                exchange.getIn().setHeader(Client.REQUEST_CONTEXT, requestContext);
                 exchange.getIn().setHeader(CxfConstants.OPERATION_NAME, ECHO_OPERATION);
                 exchange.getIn().setHeader(Exchange.FILE_NAME, "testFile");
                 exchange.getIn().setHeader("requestObject", new DefaultCxfBinding());
@@ -82,22 +84,22 @@ public class CxfProducerContextTest extends CxfProducerTest {
         return exchange;
 
     }
-    
-    @Override   
+
+    @Override
     protected Exchange sendJaxWsMessage() {
         Exchange exchange = template.send(getJaxwsEndpointUri(), new Processor() {
             public void process(final Exchange exchange) {
-                final List<String> params = new ArrayList<String>();
+                final List<String> params = new ArrayList<>();
                 params.add(TEST_MESSAGE);
-                Map<String, Object> requestContext = new HashMap<String, Object>();
+                Map<String, Object> requestContext = new HashMap<>();
                 requestContext.put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY, getJaxWsServerAddress());
                 exchange.getIn().setBody(params);
-                exchange.getIn().setHeader(Client.REQUEST_CONTEXT , requestContext);
+                exchange.getIn().setHeader(Client.REQUEST_CONTEXT, requestContext);
                 exchange.getIn().setHeader(CxfConstants.OPERATION_NAME, GREET_ME_OPERATION);
                 exchange.getIn().setHeader(Exchange.FILE_NAME, "testFile");
             }
         });
         return exchange;
     }
-    
+
 }

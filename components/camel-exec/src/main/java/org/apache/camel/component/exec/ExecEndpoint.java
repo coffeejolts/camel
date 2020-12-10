@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,27 +16,25 @@
  */
 package org.apache.camel.component.exec;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.component.exec.impl.DefaultExecBinding;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.util.StringHelper;
 
 /**
- * The endpoint utilizes an {@link ExecCommandExecutor} to execute a system
- * command when it receives message exchanges.
- *
- * @see ExecBinding
- * @see ExecCommandExecutor
- * @see ExecCommand
- * @see ExecResult
+ * Execute commands on the underlying operating system.
  */
-@UriEndpoint(scheme = "exec", title = "Exec", syntax = "exec:executable", producerOnly = true, label = "system")
+@UriEndpoint(firstVersion = "2.3.0", scheme = "exec", title = "Exec", syntax = "exec:executable", producerOnly = true,
+             category = { Category.SYSTEM })
 public class ExecEndpoint extends DefaultEndpoint {
 
     /**
@@ -44,13 +42,14 @@ public class ExecEndpoint extends DefaultEndpoint {
      */
     public static final long NO_TIMEOUT = Long.MAX_VALUE;
 
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private String executable;
     @UriParam
     private String args;
     @UriParam
     private String workingDir;
-    @UriParam
+    @UriParam(javaType = "java.time.Duration")
     private long timeout;
     @UriParam
     private String outFile;
@@ -60,6 +59,8 @@ public class ExecEndpoint extends DefaultEndpoint {
     private ExecBinding binding;
     @UriParam
     private boolean useStderrOnEmptyStdout;
+    @UriParam(defaultValue = "DEBUG")
+    private LoggingLevel commandLogLevel = LoggingLevel.DEBUG;
 
     public ExecEndpoint(String uri, ExecComponent component) {
         super(uri, component);
@@ -67,16 +68,14 @@ public class ExecEndpoint extends DefaultEndpoint {
         this.binding = new DefaultExecBinding();
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new ExecProducer(this);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         throw new UnsupportedOperationException("Consumer not supported for ExecEndpoint!");
-    }
-
-    public boolean isSingleton() {
-        return true;
     }
 
     public String getExecutable() {
@@ -84,11 +83,10 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Sets the executable to be executed. The executable must not be empty or
-     * <code>null</code>.
+     * Sets the executable to be executed. The executable must not be empty or <code>null</code>.
      */
     public void setExecutable(String executable) {
-        ObjectHelper.notEmpty(executable, "executable");
+        StringHelper.notEmpty(executable, "executable");
         this.executable = executable;
     }
 
@@ -108,7 +106,8 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The directory in which the command should be executed. If null, the working directory of the current process will be used.
+     * The directory in which the command should be executed. If null, the working directory of the current process will
+     * be used.
      */
     public void setWorkingDir(String dir) {
         this.workingDir = dir;
@@ -119,7 +118,8 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The timeout, in milliseconds, after which the executable should be terminated. If execution has not completed within the timeout, the component will send a termination request.
+     * The timeout, in milliseconds, after which the executable should be terminated. If execution has not completed
+     * within the timeout, the component will send a termination request.
      */
     public void setTimeout(long timeout) {
         if (timeout <= 0) {
@@ -133,11 +133,11 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * The name of a file, created by the executable, that should be considered as its output.
-     * If no outFile is set, the standard output (stdout) of the executable will be used instead.
+     * The name of a file, created by the executable, that should be considered as its output. If no outFile is set, the
+     * standard output (stdout) of the executable will be used instead.
      */
     public void setOutFile(String outFile) {
-        ObjectHelper.notEmpty(outFile, "outFile");
+        StringHelper.notEmpty(outFile, "outFile");
         this.outFile = outFile;
     }
 
@@ -146,8 +146,9 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * A reference to a org.apache.commons.exec.ExecCommandExecutor in the Registry that customizes the command execution.
-     * The default command executor utilizes the commons-exec library, which adds a shutdown hook for every executed command.
+     * A reference to a org.apache.commons.exec.ExecCommandExecutor in the Registry that customizes the command
+     * execution. The default command executor utilizes the commons-exec library, which adds a shutdown hook for every
+     * executed command.
      */
     public void setCommandExecutor(ExecCommandExecutor commandExecutor) {
         ObjectHelper.notNull(commandExecutor, "commandExecutor");
@@ -171,9 +172,22 @@ public class ExecEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * A boolean indicating that when stdout is empty, this component will populate the Camel Message Body with stderr. This behavior is disabled (false) by default.
+     * A boolean indicating that when stdout is empty, this component will populate the Camel Message Body with stderr.
+     * This behavior is disabled (false) by default.
      */
     public void setUseStderrOnEmptyStdout(boolean useStderrOnEmptyStdout) {
         this.useStderrOnEmptyStdout = useStderrOnEmptyStdout;
+    }
+
+    public LoggingLevel getCommandLogLevel() {
+        return commandLogLevel;
+    }
+
+    /**
+     * Logging level to be used for commands during execution. The default value is DEBUG. Possible values are TRACE,
+     * DEBUG, INFO, WARN, ERROR or OFF. (Values of ExecCommandLogLevelType enum)
+     */
+    public void setCommandLogLevel(LoggingLevel commandLogLevel) {
+        this.commandLogLevel = commandLogLevel;
     }
 }

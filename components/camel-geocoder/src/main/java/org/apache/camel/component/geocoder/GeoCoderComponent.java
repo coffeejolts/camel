@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,20 +18,26 @@ package org.apache.camel.component.geocoder;
 
 import java.util.Map;
 
+import com.google.maps.GeoApiContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Represents the component that manages {@link GeoCoderEndpoint}.
  */
-public class GeoCoderComponent extends UriEndpointComponent {
+@Component("geocoder")
+public class GeoCoderComponent extends DefaultComponent {
+
+    @Metadata(label = "advanced")
+    private GeoApiContext geoApiContext;
 
     public GeoCoderComponent() {
-        super(GeoCoderEndpoint.class);
     }
 
-    protected Endpoint createEndpoint(String uri, String remaining,
-                                      Map<String, Object> parameters) throws Exception {
+    @Override
+    protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         GeoCoderEndpoint endpoint = new GeoCoderEndpoint(uri, this);
 
         // remaining can either be address or latlng
@@ -47,5 +53,18 @@ public class GeoCoderComponent extends UriEndpointComponent {
 
         setProperties(endpoint, parameters);
         return endpoint;
+    }
+
+    public GeoApiContext getGeoApiContext() {
+        return geoApiContext;
+    }
+
+    /**
+     * Configuration for Google maps API
+     *
+     * @param geoApiContext
+     */
+    public void setGeoApiContext(GeoApiContext geoApiContext) {
+        this.geoApiContext = geoApiContext;
     }
 }

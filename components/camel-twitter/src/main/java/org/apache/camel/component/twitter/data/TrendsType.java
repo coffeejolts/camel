@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,17 @@
  */
 package org.apache.camel.component.twitter.data;
 
-public enum TrendsType {
-    DAILY, WEEKLY, UNKNOWN;
+import org.apache.camel.component.twitter.TwitterHelper;
 
-    public static TrendsType fromUri(String uri) {
-        for (TrendsType trendType : TrendsType.values()) {
-            if (trendType.name().equalsIgnoreCase(uri)) {
-                return trendType;
-            }
-        }
-        return TrendsType.UNKNOWN;
+@Deprecated
+public enum TrendsType {
+    DAILY,
+    WEEKLY,
+    UNKNOWN;
+
+    private static final TrendsType[] VALUES = values();
+
+    public static TrendsType fromString(String uri) {
+        return TwitterHelper.enumFromString(VALUES, uri, TrendsType.UNKNOWN);
     }
 }

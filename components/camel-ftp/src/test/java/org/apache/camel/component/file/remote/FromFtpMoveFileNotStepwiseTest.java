@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,9 +21,10 @@ package org.apache.camel.component.file.remote;
  */
 public class FromFtpMoveFileNotStepwiseTest extends FromFtpMoveFileTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/movefile?password=admin&binary=false"
-                + "&move=done/sub2/${file:name}.old&consumer.delay=5000&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/movefile?password=admin&binary=false"
+               + "&move=done/sub2/${file:name}.old&delay=5000&stepwise=false";
     }
 
 }

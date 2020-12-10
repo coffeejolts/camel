@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,8 +27,9 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import org.apache.http.conn.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.solr.client.solrj.embedded.JettyConfig;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.embedded.SSLConfig;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -42,24 +43,26 @@ public final class JettySolrFactory {
     private static final String TEST_KEYSTORE_PASSWORD = "secret";
     private static boolean mockedSslClient;
     private static int dataDirNo;
-    
+
     private JettySolrFactory() {
-        // Util classs
+        // Util class
     }
 
     private static SSLConfig buildSSLConfig(boolean useSsl, boolean sslClientAuth) {
-        SSLConfig sslConfig = new SSLConfig(useSsl, false, TEST_KEYSTORE_PATH, TEST_KEYSTORE_PASSWORD,
-                                            TEST_KEYSTORE_PATH, TEST_KEYSTORE_PASSWORD);
+        SSLConfig sslConfig = new SSLConfig(
+                useSsl, false, TEST_KEYSTORE_PATH, TEST_KEYSTORE_PASSWORD,
+                TEST_KEYSTORE_PATH, TEST_KEYSTORE_PASSWORD);
         return sslConfig;
     }
 
-    private static void installAllTrustingClientSsl() throws KeyManagementException,
-        NoSuchAlgorithmException, KeyStoreException {
+    private static void installAllTrustingClientSsl()
+            throws KeyManagementException,
+            NoSuchAlgorithmException, KeyStoreException {
         SSLContextBuilder builder = new SSLContextBuilder();
         builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
-        
+
         // // Create a trust manager that does not validate certificate chains
-        final TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
+        final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
             @Override
             public void checkClientTrusted(final X509Certificate[] chain, final String authType) {
             }
@@ -72,7 +75,7 @@ public final class JettySolrFactory {
             public X509Certificate[] getAcceptedIssuers() {
                 return null;
             }
-        }};
+        } };
         final SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
         SSLContext.setDefault(sslContext);
@@ -87,10 +90,11 @@ public final class JettySolrFactory {
         // HttpsURLConnection.setDefaultSSLSocketFactory(sslSocketFactory);
     }
 
-    private static JettySolrRunner createJetty(String solrHome, String configFile, String schemaFile,
-                                               String context, boolean stopAtShutdown,
-                                               SortedMap<ServletHolder, String> extraServlets, boolean ssl)
-        throws Exception {
+    private static JettySolrRunner createJetty(
+            String solrHome, String configFile, String schemaFile,
+            String context, boolean stopAtShutdown,
+            SortedMap<ServletHolder, String> extraServlets, boolean ssl)
+            throws Exception {
         if (!mockedSslClient) {
             installAllTrustingClientSsl();
             mockedSslClient = true;
@@ -99,6 +103,7 @@ public final class JettySolrFactory {
         System.setProperty("solr.solr.home", solrHome);
         System.setProperty("jetty.testMode", "true");
         System.setProperty("solr.data.dir", "target/test-classes/solr/data" + (dataDirNo++));
+        System.setProperty("solr.log.dir", "target/");
 
         // Instruct Solr to keep the index in memory, for faster testing.
         System.setProperty("solr.directoryFactory", "solr.RAMDirectoryFactory");
@@ -106,18 +111,19 @@ public final class JettySolrFactory {
         SSLConfig sslConfig = buildSSLConfig(ssl, false);
 
         context = context == null ? "/solr" : context;
-        JettySolrRunner jetty = new JettySolrRunner(solrHome, context, 0, configFile, schemaFile,
-                                                    stopAtShutdown, extraServlets, sslConfig);
+        JettyConfig jettyConfig = new JettyConfig.Builder().setContext(context).setPort(0).stopAtShutdown(false)
+                .withServlets(extraServlets).withSSLConfig(sslConfig).build();
+        JettySolrRunner jetty = new JettySolrRunner(solrHome, jettyConfig);
 
         jetty.start();
-        
+
         return jetty;
     }
 
     public static JettySolrRunner createJettyTestFixture(boolean useSsl) throws Exception {
         String solrHome = "src/test/resources/solr";
-        String configFile = null;
-        String schemaFile = null;
+        String configFile = solrHome + "/solr-no-core.xml";
+        String schemaFile = solrHome + "/collection1/conf/schema.xml";
         String context = "/solr";
         boolean stopAtShutdown = true;
         SortedMap<ServletHolder, String> extraServlets = null;

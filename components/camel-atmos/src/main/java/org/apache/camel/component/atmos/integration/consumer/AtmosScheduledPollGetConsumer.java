@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,7 +31,8 @@ public class AtmosScheduledPollGetConsumer extends AtmosScheduledPollConsumer {
 
     /**
      * Poll from an atmos remote path and put the result in the message exchange
-     * @return number of messages polled
+     * 
+     * @return           number of messages polled
      * @throws Exception
      */
     @Override
@@ -40,7 +41,6 @@ public class AtmosScheduledPollGetConsumer extends AtmosScheduledPollConsumer {
         AtmosResult result = AtmosAPIFacade.getInstance(configuration.getClient())
                 .get(configuration.getRemotePath());
         result.populateExchange(exchange);
-        LOG.info("consumer --> downloaded: " + result.toString());
 
         try {
             // send message to next processor in the route

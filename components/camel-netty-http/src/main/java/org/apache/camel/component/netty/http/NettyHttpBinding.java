@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,13 @@ package org.apache.camel.component.netty.http;
 
 import java.util.Map;
 
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.spi.HeaderFilterStrategy;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
  * To bind Netty http codec with the Camel {@link org.apache.camel.Message} api.
@@ -32,71 +34,101 @@ public interface NettyHttpBinding {
     /**
      * Binds from Netty {@link HttpRequest} to Camel {@link Message}.
      * <p/>
-     * Will use {@link #populateCamelHeaders(org.jboss.netty.handler.codec.http.HttpRequest, java.util.Map, org.apache.camel.Exchange, NettyHttpConfiguration)}
-     * for populating the headers.
+     * Will use the <tt>populateCamelHeaders</tt> method for populating the headers.
      *
-     * @param request       the netty http request
-     * @param exchange      the exchange that should contain the returned message.
-     * @param configuration the endpoint configuration
-     * @return the message to store on the given exchange
-     * @throws Exception is thrown if error during binding
+     * @param  request       the netty http request
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @return               the message to store on the given exchange
+     * @throws Exception     is thrown if error during binding
      */
-    Message toCamelMessage(HttpRequest request, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
+    Message toCamelMessage(FullHttpRequest request, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
 
     /**
-     * Binds from Netty {@link HttpRequest} to Camel headers as a {@link Map}.
+     * Binds from Netty {@link InboundStreamHttpRequest} to Camel {@link Message}.
+     * <p/>
      *
-     * @param request       the netty http request
-     * @param headers       the Camel headers that should be populated
-     * @param exchange      the exchange that should contain the returned message.
-     * @param configuration the endpoint configuration
-     * @throws Exception is thrown if error during binding
+     * @param  request       the netty http request
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @return               the message to store on the given exchange
+     * @throws Exception     is thrown if error during binding
      */
-    void populateCamelHeaders(HttpRequest request, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
+    Message toCamelMessage(InboundStreamHttpRequest request, Exchange exchange, NettyHttpConfiguration configuration)
+            throws Exception;
+
+    /**
+     * Binds from Netty {@link HttpRequest} to Camel headers as a {@link Map}. Will use the
+     * <tt>populateCamelHeaders</tt> method for populating the headers.
+     *
+     * @param  request       the netty http request
+     * @param  headers       the Camel headers that should be populated
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @throws Exception     is thrown if error during binding
+     */
+    void populateCamelHeaders(
+            HttpRequest request, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration)
+            throws Exception;
 
     /**
      * Binds from Netty {@link HttpResponse} to Camel {@link Message}.
      * <p/>
-     * Will use {@link #populateCamelHeaders(org.jboss.netty.handler.codec.http.HttpResponse, java.util.Map, org.apache.camel.Exchange, NettyHttpConfiguration)}
-     * for populating the headers.
+     * Will use the <tt>populateCamelHeaders</tt> method for populating the headers.
      *
-     * @param response      the netty http response
-     * @param exchange      the exchange that should contain the returned message.
-     * @param configuration the endpoint configuration
-     * @return the message to store on the given exchange
-     * @throws Exception is thrown if error during binding
+     * @param  response      the netty http response
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @return               the message to store on the given exchange
+     * @throws Exception     is thrown if error during binding
      */
-    Message toCamelMessage(HttpResponse response, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
+    Message toCamelMessage(FullHttpResponse response, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
+
+    /**
+     * Binds from Netty {@link InboundStreamHttpResponse} to Camel {@link Message}.
+     * <p/>
+     * Will use the <tt>populateCamelHeaders</tt> method for populating the headers.
+     *
+     * @param  response      the netty http response
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @return               the message to store on the given exchange
+     * @throws Exception     is thrown if error during binding
+     */
+    Message toCamelMessage(InboundStreamHttpResponse response, Exchange exchange, NettyHttpConfiguration configuration)
+            throws Exception;
 
     /**
      * Binds from Netty {@link HttpResponse} to Camel headers as a {@link Map}.
      *
-     * @param response      the netty http response
-     * @param headers       the Camel headers that should be populated
-     * @param exchange      the exchange that should contain the returned message.
-     * @param configuration the endpoint configuration
-     * @throws Exception is thrown if error during binding
+     * @param  response      the netty http response
+     * @param  headers       the Camel headers that should be populated
+     * @param  exchange      the exchange that should contain the returned message.
+     * @param  configuration the endpoint configuration
+     * @throws Exception     is thrown if error during binding
      */
-    void populateCamelHeaders(HttpResponse response, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration) throws Exception;
+    void populateCamelHeaders(
+            HttpResponse response, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration)
+            throws Exception;
 
     /**
      * Binds from Camel {@link Message} to Netty {@link HttpResponse}.
      *
-     * @param message       the Camel message
-     * @param configuration the endpoint configuration
-     * @return the http response
-     * @throws Exception is thrown if error during binding
+     * @param  message       the Camel message
+     * @param  configuration the endpoint configuration
+     * @return               the http response
+     * @throws Exception     is thrown if error during binding
      */
     HttpResponse toNettyResponse(Message message, NettyHttpConfiguration configuration) throws Exception;
 
     /**
-     * Binds from Camel {@link Message} to Netty {@link org.jboss.netty.handler.codec.http.HttpRequest}.
+     * Binds from Camel {@link Message} to Netty {@link io.netty.handler.codec.http.HttpRequest}.
      *
-     * @param message       the Camel message
-     * @param uri           the uri which is the intended uri to call, though the message may override the uri
-     * @param configuration the endpoint configuration
-     * @return the http request
-     * @throws Exception is thrown if error during binding
+     * @param  message       the Camel message
+     * @param  uri           the uri which is the intended uri to call, though the message may override the uri
+     * @param  configuration the endpoint configuration
+     * @return               the http request
+     * @throws Exception     is thrown if error during binding
      */
     HttpRequest toNettyRequest(Message message, String uri, NettyHttpConfiguration configuration) throws Exception;
 

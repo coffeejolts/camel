@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.TypeConverter;
-import org.apache.camel.util.IOHelper;
 import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.ByteWritable;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,77 +34,8 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 
 public class HdfsWritableFactories {
-
-    public enum WritableType {
-        NULL {
-            @Override
-            public Class<NullWritable> getWritableClass() {
-                return NullWritable.class;
-            }
-        },
-
-        BOOLEAN {
-            @Override
-            public Class<BooleanWritable> getWritableClass() {
-                return BooleanWritable.class;
-            }
-        },
-
-        BYTE {
-            @Override
-            public Class<ByteWritable> getWritableClass() {
-                return ByteWritable.class;
-            }
-        },
-
-        INT {
-            @Override
-            public Class<IntWritable> getWritableClass() {
-                return IntWritable.class;
-            }
-        },
-
-        FLOAT {
-            @Override
-            public Class<FloatWritable> getWritableClass() {
-                return FloatWritable.class;
-            }
-        },
-
-        LONG {
-            @Override
-            public Class<LongWritable> getWritableClass() {
-                return LongWritable.class;
-            }
-        },
-
-        DOUBLE {
-            @Override
-            public Class<DoubleWritable> getWritableClass() {
-                return DoubleWritable.class;
-            }
-        },
-
-        TEXT {
-            @Override
-            public Class<Text> getWritableClass() {
-                return Text.class;
-            }
-        },
-
-        BYTES {
-            @Override
-            public Class<BytesWritable> getWritableClass() {
-                return BytesWritable.class;
-            }
-        };
-
-        @SuppressWarnings("rawtypes")
-        public abstract Class<? extends WritableComparable> getWritableClass();
-    }
 
     interface HdfsWritableFactory {
 
@@ -118,13 +48,13 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = 0;
+            size.setValue(0);
             return NullWritable.get();
         }
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = 0;
+            size.setValue(0);
             return null;
         }
     }
@@ -135,7 +65,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             ByteWritable writable = new ByteWritable();
             writable.set(typeConverter.convertTo(Byte.class, value));
             return writable;
@@ -143,7 +73,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((ByteWritable) writable).get();
         }
     }
@@ -154,7 +84,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             BooleanWritable writable = new BooleanWritable();
             writable.set(typeConverter.convertTo(Boolean.class, value));
             return writable;
@@ -162,7 +92,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((BooleanWritable) writable).get();
         }
     }
@@ -174,15 +104,15 @@ public class HdfsWritableFactories {
             BytesWritable writable = new BytesWritable();
             ByteBuffer bb = (ByteBuffer) value;
             writable.set(bb.array(), 0, bb.array().length);
-            size.value = bb.array().length;
+            size.setValue(bb.array().length);
             return writable;
         }
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = ((BytesWritable) writable).getLength();
-            ByteBuffer bb = ByteBuffer.allocate(size.value);
-            bb.put(((BytesWritable) writable).getBytes(), 0, size.value);
+            size.setValue(((BytesWritable) writable).getLength());
+            ByteBuffer bb = ByteBuffer.allocate(size.getValue());
+            bb.put(((BytesWritable) writable).getBytes(), 0, size.getValue());
             return bb;
         }
     }
@@ -193,7 +123,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             DoubleWritable writable = new DoubleWritable();
             writable.set(typeConverter.convertTo(Double.class, value));
             return writable;
@@ -201,7 +131,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((DoubleWritable) writable).get();
         }
     }
@@ -212,7 +142,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             FloatWritable writable = new FloatWritable();
             writable.set(typeConverter.convertTo(Float.class, value));
             return writable;
@@ -220,7 +150,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((FloatWritable) writable).get();
         }
     }
@@ -231,7 +161,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             IntWritable writable = new IntWritable();
             writable.set(typeConverter.convertTo(Integer.class, value));
             return writable;
@@ -239,7 +169,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((IntWritable) writable).get();
         }
     }
@@ -250,7 +180,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             LongWritable writable = new LongWritable();
             writable.set(typeConverter.convertTo(Long.class, value));
             return writable;
@@ -258,7 +188,7 @@ public class HdfsWritableFactories {
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = SIZE;
+            size.setValue(SIZE);
             return ((LongWritable) writable).get();
         }
     }
@@ -269,13 +199,13 @@ public class HdfsWritableFactories {
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
             Text writable = new Text();
             writable.set(typeConverter.convertTo(String.class, value));
-            size.value = writable.getBytes().length;
+            size.setValue(writable.getBytes().length);
             return writable;
         }
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = ((Text) writable).getLength();
+            size.setValue(((Text) writable).getLength());
             return writable.toString();
         }
     }
@@ -284,25 +214,21 @@ public class HdfsWritableFactories {
 
         @Override
         public Writable create(Object value, TypeConverter typeConverter, Holder<Integer> size) {
-            InputStream is = null;
-            try {
-                is = typeConverter.convertTo(InputStream.class, value);
+            try (InputStream is = typeConverter.convertTo(InputStream.class, value)) {
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 IOUtils.copyBytes(is, bos, HdfsConstants.DEFAULT_BUFFERSIZE, false);
                 BytesWritable writable = new BytesWritable();
                 writable.set(bos.toByteArray(), 0, bos.toByteArray().length);
-                size.value = bos.toByteArray().length;
+                size.setValue(bos.toByteArray().length);
                 return writable;
             } catch (IOException ex) {
                 throw new RuntimeCamelException(ex);
-            } finally {
-                IOHelper.close(is);
             }
         }
 
         @Override
         public Object read(Writable writable, Holder<Integer> size) {
-            size.value = 0;
+            size.setValue(0);
             return null;
         }
     }

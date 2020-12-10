@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,8 +23,8 @@ import org.apache.camel.FailedToCreateProducerException;
 import org.apache.camel.Producer;
 import org.apache.camel.component.bean.ProxyHelper;
 import org.apache.camel.spring.util.CamelContextResolverHelper;
+import org.apache.camel.support.service.ServiceHelper;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.camel.util.ServiceHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
@@ -35,10 +35,12 @@ import org.springframework.remoting.support.UrlBasedRemoteAccessor;
 /**
  * A {@link FactoryBean} to create a Proxy to a a Camel Pojo Endpoint.
  */
-public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor implements FactoryBean<Object>, CamelContextAware, DisposableBean, ApplicationContextAware {
+public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor
+        implements FactoryBean<Object>, CamelContextAware, DisposableBean, ApplicationContextAware {
     private String serviceRef;
     private CamelContext camelContext;
     private String camelContextId;
+    private Boolean binding;
     private ApplicationContext applicationContext;
     private Endpoint endpoint;
     private Object serviceProxy;
@@ -53,7 +55,7 @@ public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor implements Fac
             if (camelContext == null) {
                 throw new IllegalArgumentException("camelContext or camelContextId must be specified");
             }
-            
+
             if (getServiceUrl() == null && getServiceRef() == null) {
                 throw new IllegalArgumentException("serviceUrl or serviceRef must be specified.");
             }
@@ -70,35 +72,47 @@ public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor implements Fac
             }
         }
 
+        // binding is enabled by default
+        boolean bind = getBinding() != null ? getBinding() : true;
+
         try {
+            // need to start endpoint before we create producer
+            ServiceHelper.startService(endpoint);
             producer = endpoint.createProducer();
-            ServiceHelper.startService(producer);
-            serviceProxy = ProxyHelper.createProxy(endpoint, producer, getServiceInterface());
+            // add and start producer
+            camelContext.addService(producer, true, false);
+            serviceProxy = ProxyHelper.createProxy(endpoint, bind, producer, getServiceInterface());
         } catch (Exception e) {
             throw new FailedToCreateProducerException(endpoint, e);
         }
     }
 
+    @Override
     public void destroy() throws Exception {
-        ServiceHelper.stopService(producer);
+        // we let CamelContext manage the lifecycle of the producer and shut it down when Camel stops
     }
 
+    @Override
     public Class<?> getServiceInterface() {
         return super.getServiceInterface();
     }
 
+    @Override
     public String getServiceUrl() {
         return super.getServiceUrl();
     }
 
+    @Override
     public Object getObject() throws Exception {
         return serviceProxy;
     }
 
+    @Override
     public Class<?> getObjectType() {
         return getServiceInterface();
     }
 
+    @Override
     public boolean isSingleton() {
         return true;
     }
@@ -111,6 +125,14 @@ public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor implements Fac
         this.serviceRef = serviceRef;
     }
 
+    public Boolean getBinding() {
+        return binding;
+    }
+
+    public void setBinding(Boolean binding) {
+        this.binding = binding;
+    }
+
     public Endpoint getEndpoint() {
         return endpoint;
     }
@@ -119,18 +141,21 @@ public class CamelProxyFactoryBean extends UrlBasedRemoteAccessor implements Fac
         this.endpoint = endpoint;
     }
 
+    @Override
     public CamelContext getCamelContext() {
         return camelContext;
     }
 
+    @Override
     public void setCamelContext(CamelContext camelContext) {
         this.camelContext = camelContext;
     }
-    
+
     public void setCamelContextId(String contextId) {
         this.camelContextId = contextId;
     }
 
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }

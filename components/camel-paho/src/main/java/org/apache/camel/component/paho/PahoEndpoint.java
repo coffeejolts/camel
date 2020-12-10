@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,98 +16,59 @@
  */
 package org.apache.camel.component.paho;
 
-import java.util.Set;
-
-import static java.lang.System.nanoTime;
-
-import org.apache.camel.Component;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
+import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
+import org.apache.camel.util.ObjectHelper;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static org.apache.camel.component.paho.PahoPersistence.MEMORY;
-
-@UriEndpoint(scheme = "paho", title = "Paho", consumerClass = PahoConsumer.class, label = "messaging", syntax = "paho:topic")
+/**
+ * Communicate with MQTT message brokers using Eclipse Paho MQTT Client.
+ */
+@UriEndpoint(firstVersion = "2.16.0", scheme = "paho", title = "Paho", category = { Category.MESSAGING, Category.IOT },
+             syntax = "paho:topic")
 public class PahoEndpoint extends DefaultEndpoint {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PahoEndpoint.class);
-
-    // Constants
-
-    private static final String DEFAULT_BROKER_URL = "tcp://localhost:1883";
-
-    private static final int DEFAULT_QOS = 2;
-
-    private static final String DEFAULT_QOS_STRING = DEFAULT_QOS + "";
-
     // Configuration members
-
-    @UriPath @Metadata(required = "true")
-    private String topic;
+    @UriPath(description = "Name of the topic")
+    @Metadata(required = true)
+    private final String topic;
     @UriParam
-    private String clientId = "camel-" + nanoTime();
-    @UriParam(defaultValue = DEFAULT_BROKER_URL)
-    private String brokerUrl = DEFAULT_BROKER_URL;
-    @UriParam(defaultValue = DEFAULT_QOS_STRING)
-    private int qos = DEFAULT_QOS;
-    @UriParam(defaultValue = "MEMORY")
-    private PahoPersistence persistence = MEMORY;
+    private final PahoConfiguration configuration;
+    @UriParam(label = "advanced")
+    private volatile MqttClient client;
 
-    // Collaboration members
-    @UriParam
-    private MqttConnectOptions connectOptions;
-
-    // Auto-configuration members
-
-    private transient MqttClient client;
-
-    public PahoEndpoint(String uri, Component component) {
+    public PahoEndpoint(String uri, String topic, PahoComponent component, PahoConfiguration configuration) {
         super(uri, component);
-        if (topic == null) {
-            topic = uri.substring(7);
-        }
-    }
-
-    @Override
-    protected void doStart() throws Exception {
-        super.doStart();
-        client = new MqttClient(getBrokerUrl(), getClientId(), resolvePersistence());
-        client.connect(resolveMqttConnectOptions());
-    }
-
-    @Override
-    protected void doStop() throws Exception {
-        if (getClient().isConnected()) {
-            getClient().disconnect();
-        }
-        super.doStop();
+        this.topic = topic;
+        this.configuration = configuration;
     }
 
     @Override
     public Producer createProducer() throws Exception {
-        return new PahoProducer(this);
+        PahoProducer producer = new PahoProducer(this);
+        producer.setClient(client);
+        return producer;
     }
 
     @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        return new PahoConsumer(this, processor);
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
+        PahoConsumer consumer = new PahoConsumer(this, processor);
+        consumer.setClient(client);
+        configureConsumer(consumer);
+        return consumer;
     }
 
     @Override
@@ -115,85 +76,67 @@ public class PahoEndpoint extends DefaultEndpoint {
         return (PahoComponent) super.getComponent();
     }
 
-    // Resolvers
-
-    protected MqttClientPersistence resolvePersistence() {
-        return persistence == MEMORY ? new MemoryPersistence() : new MqttDefaultFilePersistence();
-    }
-
-    protected MqttConnectOptions resolveMqttConnectOptions() {
-        if (connectOptions != null) {
-            return connectOptions;
-        }
-        Set<MqttConnectOptions> connectOptions = getCamelContext().getRegistry().findByType(MqttConnectOptions.class);
-        if (connectOptions.size() == 1) {
-            LOG.info("Single MqttConnectOptions instance found in the registry. It will be used by the endpoint.");
-            return connectOptions.iterator().next();
-        } else if (connectOptions.size() > 1) {
-            LOG.warn("Found {} instances of the MqttConnectOptions in the registry. None of these will be used by the endpoint. "
-                            + "Please use 'connectOptions' endpoint option to select one.",
-                    connectOptions.size());
-        }
-        return new MqttConnectOptions();
-    }
-
-    // Configuration getters & setters
-
-    public String getClientId() {
-        return clientId;
-    }
-
-    /**
-     * MQTT client identifier.
-     */
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
-    }
-
-    public String getBrokerUrl() {
-        return brokerUrl;
-    }
-
-    /**
-     * The URL of the MQTT broker.
-     */
-    public void setBrokerUrl(String brokerUrl) {
-        this.brokerUrl = brokerUrl;
-    }
-
     public String getTopic() {
         return topic;
     }
 
-    /**
-     * Name of the topic
-     */
-    public void setTopic(String topic) {
-        this.topic = topic;
+    public Exchange createExchange(MqttMessage mqttMessage, String topic) {
+        Exchange exchange = createExchange();
+
+        PahoMessage paho = new PahoMessage(exchange.getContext(), mqttMessage);
+        paho.setBody(mqttMessage.getPayload());
+        paho.setHeader(PahoConstants.MQTT_TOPIC, topic);
+        paho.setHeader(PahoConstants.MQTT_QOS, mqttMessage.getQos());
+
+        exchange.setIn(paho);
+        return exchange;
     }
 
-    public int getQos() {
-        return qos;
+    protected static MqttConnectOptions createMqttConnectOptions(PahoConfiguration config) {
+        MqttConnectOptions mq = new MqttConnectOptions();
+        if (ObjectHelper.isNotEmpty(config.getUserName()) && ObjectHelper.isNotEmpty(config.getPassword())) {
+            mq.setUserName(config.getUserName());
+            mq.setPassword(config.getPassword().toCharArray());
+        }
+        mq.setAutomaticReconnect(config.isAutomaticReconnect());
+        mq.setCleanSession(config.isCleanSession());
+        mq.setConnectionTimeout(config.getConnectionTimeout());
+        mq.setExecutorServiceTimeout(config.getExecutorServiceTimeout());
+        mq.setCustomWebSocketHeaders(config.getCustomWebSocketHeaders());
+        mq.setHttpsHostnameVerificationEnabled(config.isHttpsHostnameVerificationEnabled());
+        mq.setKeepAliveInterval(config.getKeepAliveInterval());
+        mq.setMaxInflight(config.getMaxInflight());
+        mq.setMaxReconnectDelay(config.getMaxReconnectDelay());
+        mq.setMqttVersion(config.getMqttVersion());
+        mq.setSocketFactory(config.getSocketFactory());
+        mq.setSSLHostnameVerifier(config.getSslHostnameVerifier());
+        mq.setSSLProperties(config.getSslClientProps());
+        if (config.getWillTopic() != null && config.getWillPayload() != null) {
+            mq.setWill(config.getWillTopic(),
+                    config.getWillPayload().getBytes(),
+                    config.getWillQos(),
+                    config.isWillRetained());
+        }
+        if (config.getServerURIs() != null) {
+            mq.setServerURIs(config.getServerURIs().split(","));
+        }
+        return mq;
     }
 
-    /**
-     * Client quality of service level (0-2).
-     */
-    public void setQos(int qos) {
-        this.qos = qos;
+    protected static MqttClientPersistence createMqttClientPersistence(PahoConfiguration configuration) {
+        if (configuration.getPersistence() == PahoPersistence.MEMORY) {
+            return new MemoryPersistence();
+        } else {
+            if (configuration.getFilePersistenceDirectory() != null) {
+                return new MqttDefaultFilePersistence(configuration.getFilePersistenceDirectory());
+            } else {
+                return new MqttDefaultFilePersistence();
+            }
+        }
     }
 
-    // Auto-configuration getters & setters
-
-    public PahoPersistence getPersistence() {
-        return persistence;
-    }
-
-    /**
-     * Client persistence to be used - memory or file.
-     */
-    public void setPersistence(PahoPersistence persistence) {
-        this.persistence = persistence;
+    public PahoConfiguration getConfiguration() {
+        return configuration;
     }
 
     public MqttClient getClient() {
@@ -201,20 +144,9 @@ public class PahoEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * To use the existing MqttClient instance as client.
+     * To use an existing mqtt client
      */
     public void setClient(MqttClient client) {
         this.client = client;
-    }
-
-    public MqttConnectOptions getConnectOptions() {
-        return connectOptions;
-    }
-
-    /**
-     * Client connection options
-     */
-    public void setConnectOptions(MqttConnectOptions connOpts) {
-        this.connectOptions = connOpts;
     }
 }

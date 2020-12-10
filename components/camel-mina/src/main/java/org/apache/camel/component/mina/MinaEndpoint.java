@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,79 +16,53 @@
  */
 package org.apache.camel.component.mina;
 
-import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-
+import org.apache.camel.Category;
+import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
 import org.apache.camel.MultipleConsumersSupport;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.mina.common.IoAcceptor;
-import org.apache.mina.common.IoAcceptorConfig;
-import org.apache.mina.common.IoConnector;
-import org.apache.mina.common.IoConnectorConfig;
-import org.apache.mina.common.IoSession;
+import org.apache.mina.core.session.IoSession;
 
 /**
- * Endpoint for Camel MINA.
- *
- * @version 
+ * Socket level networking using TCP or UDP with Apache Mina 2.x.
  */
-@UriEndpoint(scheme = "mina", title = "Mina", syntax = "mina:protocol:host:port", consumerClass = MinaConsumer.class, label = "networking,tcp,udp")
+@UriEndpoint(firstVersion = "2.10.0", scheme = "mina", title = "Mina", syntax = "mina:protocol:host:port",
+             category = { Category.NETWORKING, Category.TCP, Category.UDP })
 public class MinaEndpoint extends DefaultEndpoint implements MultipleConsumersSupport {
 
-    /** The key of the IoSession which is stored in the message header*/
-    @Deprecated
-    public static final String HEADER_MINA_IOSESSION = "CamelMinaIoSession";
-    /** The socket address of local machine that received the message. */
-    @Deprecated
-    public static final String HEADER_LOCAL_ADDRESS = "CamelMinaLocalAddress";
-    /** The socket address of the remote machine that send the message. */
-    @Deprecated
-    public static final String HEADER_REMOTE_ADDRESS = "CamelMinaRemoteAddress";
-
-    private SocketAddress address;
-    private IoAcceptor acceptor;
-    private IoConnector connector;
-    private IoAcceptorConfig acceptorConfig;
-    private IoConnectorConfig connectorConfig;
     @UriParam
     private MinaConfiguration configuration;
-    private final List<ExecutorService> executors = new ArrayList<ExecutorService>();
 
     public MinaEndpoint() {
     }
 
-    public MinaEndpoint(String endpointUri, MinaComponent component) {
+    public MinaEndpoint(String endpointUri, Component component, MinaConfiguration configuration) {
         super(endpointUri, component);
+        this.configuration = configuration;
     }
 
+    @Override
+    public boolean isSingletonProducer() {
+        // the producer should not be singleton otherwise cannot use concurrent producers and safely
+        // use request/reply with correct correlation
+        return !configuration.isSync();
+    }
+
+    @Override
     public Producer createProducer() throws Exception {
-        ObjectHelper.notNull(configuration, "configuration"); 
-        ObjectHelper.notNull(address, "address");
-        ObjectHelper.notNull(connector, "connector");
-        // wm protocol does not have config
-        if (!configuration.getProtocol().equalsIgnoreCase("vm")) {
-            ObjectHelper.notNull(connectorConfig, "connectorConfig");
-        }
+        ObjectHelper.notNull(configuration, "configuration");
         return new MinaProducer(this);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         ObjectHelper.notNull(configuration, "configuration");
-        ObjectHelper.notNull(address, "address");
-        ObjectHelper.notNull(acceptor, "acceptor");
-        // wm protocol does not have config
-        if (!configuration.getProtocol().equalsIgnoreCase("vm")) {
-            ObjectHelper.notNull(acceptorConfig, "acceptorConfig");
-        }
         MinaConsumer answer = new MinaConsumer(this, processor);
         configureConsumer(answer);
         return answer;
@@ -103,35 +77,14 @@ public class MinaEndpoint extends DefaultEndpoint implements MultipleConsumersSu
         return exchange;
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
+    @Override
     public boolean isMultipleConsumersSupported() {
         // only datagram should allow multiple consumers
         return configuration.isDatagramProtocol();
     }
 
-    @Override
-    protected void doShutdown() throws Exception {
-        // shutdown thread pools
-        for (ExecutorService executor : executors) {
-            getCamelContext().getExecutorServiceManager().shutdownNow(executor);
-        }
-        executors.clear();
-        super.doShutdown();
-    }
-
-    /**
-     * Add thread pool which are in-use, we need to un-register when shutting down.
-     */
-    protected void addThreadPool(ExecutorService executorService) {
-        executors.add(executorService);
-    }
-
     // Properties
     // -------------------------------------------------------------------------
-
     public MinaConfiguration getConfiguration() {
         return configuration;
     }
@@ -139,45 +92,4 @@ public class MinaEndpoint extends DefaultEndpoint implements MultipleConsumersSu
     public void setConfiguration(MinaConfiguration configuration) {
         this.configuration = configuration;
     }
-
-    public SocketAddress getAddress() {
-        return address;
-    }
-
-    public void setAddress(SocketAddress address) {
-        this.address = address;
-    }
-
-    public IoAcceptor getAcceptor() {
-        return acceptor;
-    }
-
-    public void setAcceptor(IoAcceptor acceptor) {
-        this.acceptor = acceptor;
-    }
-
-    public IoConnector getConnector() {
-        return connector;
-    }
-
-    public void setConnector(IoConnector connector) {
-        this.connector = connector;
-    }
-
-    public IoAcceptorConfig getAcceptorConfig() {
-        return acceptorConfig;
-    }
-
-    public void setAcceptorConfig(IoAcceptorConfig acceptorConfig) {
-        this.acceptorConfig = acceptorConfig;
-    }
-
-    public IoConnectorConfig getConnectorConfig() {
-        return connectorConfig;
-    }
-
-    public void setConnectorConfig(IoConnectorConfig connectorConfig) {
-        this.connectorConfig = connectorConfig;
-    }
-
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,14 +17,14 @@
 package org.apache.camel.component.quartz;
 
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.apache.camel.test.junit5.TestSupport.isPlatform;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+
 public class SpringQuartzPersistentStoreRestartRouteTest extends CamelSpringTestSupport {
 
     @Override
@@ -35,9 +35,7 @@ public class SpringQuartzPersistentStoreRestartRouteTest extends CamelSpringTest
     @Test
     public void testQuartzPersistentStore() throws Exception {
         // skip testing on aix
-        if (isPlatform("aix")) {
-            return;
-        }
+        assumeFalse(isPlatform("aix"));
 
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMinimumMessageCount(2);
@@ -45,7 +43,7 @@ public class SpringQuartzPersistentStoreRestartRouteTest extends CamelSpringTest
         assertMockEndpointsSatisfied();
 
         // restart route
-        context().stopRoute("myRoute");
+        context().getRouteController().stopRoute("myRoute");
         mock.reset();
         mock.expectedMessageCount(0);
 
@@ -58,7 +56,7 @@ public class SpringQuartzPersistentStoreRestartRouteTest extends CamelSpringTest
         mock.reset();
         mock.expectedMinimumMessageCount(2);
 
-        context().startRoute("myRoute");
+        context().getRouteController().startRoute("myRoute");
 
         assertMockEndpointsSatisfied();
     }

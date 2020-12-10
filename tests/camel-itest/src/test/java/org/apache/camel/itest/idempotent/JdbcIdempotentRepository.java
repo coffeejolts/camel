@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,10 +21,7 @@ import javax.sql.DataSource;
 import org.apache.camel.spi.IdempotentRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/**
- * @version 
- */
-public class JdbcIdempotentRepository implements IdempotentRepository<String> {
+public class JdbcIdempotentRepository implements IdempotentRepository {
 
     private JdbcTemplate jdbc;
 
@@ -32,6 +29,7 @@ public class JdbcIdempotentRepository implements IdempotentRepository<String> {
         this.jdbc = new JdbcTemplate(ds);
     }
 
+    @Override
     public boolean add(String key) {
         // check we already have it because eager option can have been turned on
         if (contains(key)) {
@@ -42,26 +40,36 @@ public class JdbcIdempotentRepository implements IdempotentRepository<String> {
         return true;
     }
 
+    @Override
     public boolean contains(String key) {
-        int numMatches = jdbc.queryForObject("SELECT count(0) FROM ProcessedPayments where paymentIdentifier = ?", Integer.class, key);
+        int numMatches
+                = jdbc.queryForObject("SELECT count(0) FROM ProcessedPayments where paymentIdentifier = ?", Integer.class, key);
         return numMatches > 0;
     }
 
+    @Override
     public boolean remove(String key) {
         jdbc.update("DELETE FROM ProcessedPayments WHERE paymentIdentifier = ?", key);
         return true;
     }
 
+    @Override
     public boolean confirm(String key) {
         return true;
     }
 
-    public void start() throws Exception {
+    @Override
+    public void clear() {
+        jdbc.update("DELETE * FROM ProcessedPayments");
+    }
+
+    @Override
+    public void start() {
         // noop
     }
 
-    public void stop() throws Exception {
+    @Override
+    public void stop() {
         // noop
     }
 }
-

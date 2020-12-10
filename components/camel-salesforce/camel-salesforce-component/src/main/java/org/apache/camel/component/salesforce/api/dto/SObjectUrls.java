@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,6 +31,7 @@ public class SObjectUrls extends AbstractDTOBase {
     private String compactLayouts;
     private String caseRowArticleSuggestions;
     private String push;
+    private String defaultValues;
 
     public String getSobject() {
         return sobject;
@@ -134,5 +135,13 @@ public class SObjectUrls extends AbstractDTOBase {
 
     public void setPush(String push) {
         this.push = push;
+    }
+
+    public String getDefaultValues() {
+        return defaultValues;
+    }
+
+    public void setDefaultValues(String defaultValues) {
+        this.defaultValues = defaultValues;
     }
 }

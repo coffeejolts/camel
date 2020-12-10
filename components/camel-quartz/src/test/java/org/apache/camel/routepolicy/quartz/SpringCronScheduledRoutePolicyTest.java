@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,18 +16,18 @@
  */
 package org.apache.camel.routepolicy.quartz;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class SpringCronScheduledRoutePolicyTest extends SpringScheduledRoutePolicyTest {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         setApplicationContext(new ClassPathXmlApplicationContext("org/apache/camel/routepolicy/quartz/CronPolicies.xml"));
         setTestType(TestType.CRON);
     }
-    
+
     @Test
     public void testScheduledStartRoutePolicy() throws Exception {
         startTest();
@@ -37,15 +37,15 @@ public class SpringCronScheduledRoutePolicyTest extends SpringScheduledRoutePoli
     public void testScheduledStopRoutePolicy() throws Exception {
         stopTest();
     }
-    
+
     @Test
     public void testScheduledSuspendRoutePolicy() throws Exception {
         suspendTest();
     }
-    
+
     @Test
     public void testScheduledResumeRoutePolicy() throws Exception {
         resumeTest();
     }
-    
+
 }

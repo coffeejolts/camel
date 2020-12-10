@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,13 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * To test InOut exchange for the UDP protocol.
@@ -63,17 +64,16 @@ public class MinaUdpWithInOutUsingPlainSocketTest extends BaseMinaTest {
         return new String(receive.getData(), 0, receive.getLength());
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
+
             public void configure() {
-                from("mina:udp://127.0.0.1:{{port}}?sync=true").process(new Processor() {
-                    public void process(Exchange exchange) throws Exception {
-                        String s = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Hello " + s);
-                    }
+                from(String.format("mina:udp://127.0.0.1:%1$s?sync=true", getPort())).process(exchange -> {
+                    String s = exchange.getIn().getBody(String.class);
+                    exchange.getMessage().setBody("Hello " + s);
                 });
             }
         };
     }
-
 }

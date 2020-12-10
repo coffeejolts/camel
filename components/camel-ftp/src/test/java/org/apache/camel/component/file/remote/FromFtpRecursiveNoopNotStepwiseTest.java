@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,12 @@
  */
 package org.apache.camel.component.file.remote;
 
-/**
- * @version 
- */
 public class FromFtpRecursiveNoopNotStepwiseTest extends FromFtpRecursiveNoopTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/noop?password=admin&binary=false&initialDelay=3000"
-                + "&recursive=true&noop=true&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/noop?password=admin&binary=false&initialDelay=3000"
+               + "&recursive=true&noop=true&stepwise=false";
     }
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,12 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Unit test to check if the message of an exchange send from the MinaConsumer
- * is a MinaMessage.
+ * Unit test to check if the message of an exchange send from the MinaConsumer is a MinaMessage.
  */
 public class MessageIOSessionTest extends BaseMinaTest {
 
@@ -34,24 +35,24 @@ public class MessageIOSessionTest extends BaseMinaTest {
     public void testIoSession() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
-        template.sendBody("mina:tcp://localhost:{{port}}?textline=true&sync=false", "Hello World");
+        template.sendBody(String.format("mina:tcp://localhost:%1$s?textline=true", getPort()), "Hello World");
         assertMockEndpointsSatisfied();
 
         Exchange exchange = mock.getExchanges().get(0);
         Message message = exchange.getIn();
         assertNotNull(message.getHeader(MinaConstants.MINA_IOSESSION));
-        
+
     }
-    
+
     @Test
     public void testLocalAndRemoteAddressHeaders() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
-        template.sendBody("mina:tcp://localhost:{{port}}?textline=true&sync=false", "Hello World");
+        template.sendBody(String.format("mina:tcp://localhost:%1$s?textline=true", getPort()), "Hello World");
         assertMockEndpointsSatisfied();
-        
+
         Message message = mock.getExchanges().get(0).getIn();
-        // Not making assumptions on what these headers contain, because it might differ 
+        // Not making assumptions on what these headers contain, because it might differ
         // on different machines/OSs.
         assertNotNull(message.getHeader(MinaConstants.MINA_LOCAL_ADDRESS, SocketAddress.class));
         assertNotNull(message.getHeader(MinaConstants.MINA_REMOTE_ADDRESS, SocketAddress.class));
@@ -60,11 +61,12 @@ public class MessageIOSessionTest extends BaseMinaTest {
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
-                from("mina:tcp://localhost:{{port}}?textline=true&sync=false")
-                    .to("log://mytest")
-                    .to("mock:result");
+                from(String.format("mina:tcp://localhost:%1$s?textline=true", getPort()))
+                        .to("log://mytest")
+                        .to("mock:result");
             }
         };
     }

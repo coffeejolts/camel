@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,43 +20,47 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.api.services.calendar.model.Calendar;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.calendar.internal.CalendarCalendarsApiMethod;
 import org.apache.camel.component.google.calendar.internal.GoogleCalendarApiCollection;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test class for {@link com.google.api.services.calendar.Calendar$Calendars} APIs.
  */
 public class CalendarCalendarsIntegrationTest extends AbstractGoogleCalendarTestSupport {
-
     private static final Logger LOG = LoggerFactory.getLogger(CalendarCalendarsIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleCalendarApiCollection.getCollection().getApiName(CalendarCalendarsApiMethod.class).getName();
+
+    private static final String PATH_PREFIX
+            = GoogleCalendarApiCollection.getCollection().getApiName(CalendarCalendarsApiMethod.class).getName();
 
     @Test
     public void testCalendars() throws Exception {
         Calendar calendar = getCalendar();
         Calendar calendarFromGet = requestBody("direct://GET", calendar.getId());
-        assertTrue(calendar.getId().equals(calendarFromGet.getId()));
+        assertEquals(calendar.getId(), calendarFromGet.getId());
 
-        final Map<String, Object> headers = new HashMap<String, Object>();
+        final Map<String, Object> headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleCalendar.calendarId", calendar.getId());
         // parameter type is com.google.api.services.calendar.model.Calendar
         headers.put("CamelGoogleCalendar.content", calendar.setDescription("foo"));
 
         Calendar result = requestBodyAndHeaders("direct://UPDATE", null, headers);
-        assertTrue("foo".equals(result.getDescription()));
+        assertEquals("foo", result.getDescription());
 
         requestBody("direct://DELETE", calendar.getId());
         try {
             calendarFromGet = requestBody("direct://GET", calendar.getId());
-            assertTrue("Should have not found deleted calendar.", false);
+            fail("Should have not found deleted calendar.");
         } catch (Exception e) {
-            e.printStackTrace();
+            // Likely safe to ignore in this context
+            LOG.debug("Unhandled exception (probably safe to ignore): {}", e.getMessage(), e);
         }
     }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,10 +16,10 @@
  */
 package org.apache.camel.component.mina;
 
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for close session when complete test.
@@ -28,20 +28,20 @@ public class MinaInOutCloseSessionWhenCompleteTest extends BaseMinaTest {
 
     @Test
     public void testCloseSessionWhenComplete() throws Exception {
-        Object out = template.requestBody("mina:tcp://localhost:{{port}}?sync=true&textline=true", "Claus");
-        assertEquals("Bye Claus", out);
+        Object out
+                = template.requestBody(String.format("mina:tcp://localhost:%1$s?sync=true&textline=true", getPort()), "Chad");
+        assertEquals("Bye Chad", out);
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             public void configure() throws Exception {
-                from("mina:tcp://localhost:{{port}}?sync=true&textline=true").process(new Processor() {
-                    public void process(Exchange exchange) throws Exception {
-                        String body = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Bye " + body);
-                        exchange.getOut().setHeader(MinaConstants.MINA_CLOSE_SESSION_WHEN_COMPLETE, true);
-                    }
+                from(String.format("mina:tcp://localhost:%1$s?sync=true&textline=true", getPort())).process(exchange -> {
+                    String body = exchange.getIn().getBody(String.class);
+                    exchange.getMessage().setBody("Bye " + body);
+                    exchange.getMessage().setHeader(MinaConstants.MINA_CLOSE_SESSION_WHEN_COMPLETE, true);
                 });
             }
         };

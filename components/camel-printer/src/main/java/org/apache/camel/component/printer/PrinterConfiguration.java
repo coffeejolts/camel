@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,6 +19,7 @@ package org.apache.camel.component.printer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+
 import javax.print.DocFlavor;
 import javax.print.attribute.standard.MediaSizeName;
 import javax.print.attribute.standard.OrientationRequested;
@@ -28,7 +29,7 @@ import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriParams;
 import org.apache.camel.spi.UriPath;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.util.StringHelper;
 import org.apache.camel.util.URISupport;
 
 @UriParams
@@ -38,11 +39,12 @@ public class PrinterConfiguration {
     private Sides internalSides;
     private OrientationRequested internalOrientation;
 
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private String hostname;
-    @UriPath @Metadata(required = "true")
+    @UriPath
     private int port;
-    @UriPath @Metadata(required = "true")
+    @UriPath
     private String printername;
     @UriParam
     private String printerPrefix;
@@ -85,8 +87,8 @@ public class PrinterConfiguration {
 
         // use path as printer name, but without any leading slashes
         String path = uri.getPath();
-        path = ObjectHelper.removeStartingCharacters(path, '/');
-        path = ObjectHelper.removeStartingCharacters(path, '\\');
+        path = StringHelper.removeStartingCharacters(path, '/');
+        path = StringHelper.removeStartingCharacters(path, '\\');
         setPrintername(path);
 
         Map<String, Object> printSettings = URISupport.parseParameters(uri);
@@ -186,7 +188,7 @@ public class PrinterConfiguration {
         if (size == null) {
             // default to NA letter if no size configured
             answer = MediaSizeName.NA_LETTER;
-        } else if (size.toLowerCase().startsWith("iso")) {
+        } else if (size.regionMatches(true, 0, "iso", 0, "iso".length())) {
             answer = mediaSizeAssigner.selectMediaSizeNameISO(size);
         } else if (size.startsWith("jis")) {
             answer = mediaSizeAssigner.selectMediaSizeNameJIS(size);
@@ -322,9 +324,9 @@ public class PrinterConfiguration {
     }
 
     /**
-     * Sets the stationary as defined by enumeration names in the javax.print.attribute.standard.MediaSizeName API.
-     * The default setting is to use North American Letter sized stationary.
-     * The value's case is ignored, e.g. values of iso_a4 and ISO_A4 may be used.
+     * Sets the stationary as defined by enumeration names in the javax.print.attribute.standard.MediaSizeName API. The
+     * default setting is to use North American Letter sized stationary. The value's case is ignored, e.g. values of
+     * iso_a4 and ISO_A4 may be used.
      */
     public void setMediaSize(String mediaSize) {
         this.mediaSize = mediaSize;

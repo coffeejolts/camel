@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,18 +24,16 @@ import org.springframework.jms.listener.DefaultMessageListenerContainer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * The default {@link DefaultMessageListenerContainer container} which listen for messages
- * on the JMS destination.
+ * The default {@link DefaultMessageListenerContainer container} which listen for messages on the JMS destination.
  * <p/>
- * This implementation extends Springs {@link DefaultMessageListenerContainer} supporting
- * automatic recovery and throttling.
- *
- * @version 
+ * This implementation extends Springs {@link DefaultMessageListenerContainer} supporting automatic recovery and
+ * throttling.
  */
 public class DefaultJmsMessageListenerContainer extends DefaultMessageListenerContainer {
 
     private final JmsEndpoint endpoint;
     private final boolean allowQuickStop;
+    private volatile TaskExecutor taskExecutor;
 
     public DefaultJmsMessageListenerContainer(JmsEndpoint endpoint) {
         this(endpoint, true);
@@ -47,9 +45,9 @@ public class DefaultJmsMessageListenerContainer extends DefaultMessageListenerCo
     }
 
     /**
-     * Whether this {@link DefaultMessageListenerContainer} allows the {@link #runningAllowed()} to quick stop
-     * in case {@link JmsConfiguration#isAcceptMessagesWhileStopping()} is enabled, and {@link org.apache.camel.CamelContext}
-     * is currently being stopped.
+     * Whether this {@link DefaultMessageListenerContainer} allows the {@link #runningAllowed()} to quick stop in case
+     * {@link JmsConfiguration#isAcceptMessagesWhileStopping()} is enabled, and {@link org.apache.camel.CamelContext} is
+     * currently being stopped.
      */
     protected boolean isAllowQuickStop() {
         return allowQuickStop;
@@ -66,15 +64,14 @@ public class DefaultJmsMessageListenerContainer extends DefaultMessageListenerCo
 
         if (quickStop) {
             // log at debug level so its quicker to see we are stopping quicker from the logs
-            logger.debug("runningAllowed() -> false due CamelContext is stopping and endpoint configured to not accept messages while stopping");
+            logger.debug(
+                    "runningAllowed() -> false due CamelContext is stopping and endpoint configured to not accept messages while stopping");
             return false;
         } else {
             // otherwise we only run if the endpoint is running
             boolean answer = endpoint.isRunning();
             // log at trace level as otherwise this can be noisy during normal operation
-            if (logger.isTraceEnabled()) {
-                logger.trace("runningAllowed() -> " + answer);
-            }
+            logger.trace("runningAllowed() -> " + answer);
             return answer;
         }
     }
@@ -86,8 +83,9 @@ public class DefaultJmsMessageListenerContainer extends DefaultMessageListenerCo
      * {@link JmsConfiguration#getDefaultTaskExecutorType()}. For more details, refer to the Javadoc of
      * {@link DefaultTaskExecutorType}.
      * <p />
-     * In all cases, it uses the specified bean name and Camel's {@link org.apache.camel.spi.ExecutorServiceManager}
-     * to resolve the thread name.
+     * In all cases, it uses the specified bean name and Camel's {@link org.apache.camel.spi.ExecutorServiceManager} to
+     * resolve the thread name.
+     * 
      * @see JmsConfiguration#setDefaultTaskExecutorType(DefaultTaskExecutorType)
      * @see ThreadPoolTaskExecutor#setBeanName(String)
      */
@@ -96,41 +94,56 @@ public class DefaultJmsMessageListenerContainer extends DefaultMessageListenerCo
         String pattern = endpoint.getCamelContext().getExecutorServiceManager().getThreadNamePattern();
         String beanName = getBeanName() == null ? endpoint.getThreadName() : getBeanName();
 
+        TaskExecutor answer;
+
         if (endpoint.getDefaultTaskExecutorType() == DefaultTaskExecutorType.ThreadPool) {
-            ThreadPoolTaskExecutor answer = new ThreadPoolTaskExecutor();
-            answer.setBeanName(beanName);
-            answer.setThreadFactory(new CamelThreadFactory(pattern, beanName, true));
-            answer.setCorePoolSize(endpoint.getConcurrentConsumers());
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setBeanName(beanName);
+            executor.setThreadFactory(new CamelThreadFactory(pattern, beanName, true));
+            executor.setCorePoolSize(endpoint.getConcurrentConsumers());
             // Direct hand-off mode. Do not queue up tasks: assign it to a thread immediately.
             // We set no upper-bound on the thread pool (no maxPoolSize) as it's already implicitly constrained by
             // maxConcurrentConsumers on the DMLC itself (i.e. DMLC will only grow up to a level of concurrency as
             // defined by maxConcurrentConsumers).
-            answer.setQueueCapacity(0);
-            answer.initialize();
-            return answer;
+            executor.setQueueCapacity(0);
+            executor.initialize();
+            answer = executor;
         } else {
-            SimpleAsyncTaskExecutor answer = new SimpleAsyncTaskExecutor(beanName);
-            answer.setThreadFactory(new CamelThreadFactory(pattern, beanName, true));
-            return answer;
+            SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(beanName);
+            executor.setThreadFactory(new CamelThreadFactory(pattern, beanName, true));
+            answer = executor;
         }
+
+        taskExecutor = answer;
+        return answer;
     }
 
     @Override
     public void stop() throws JmsException {
         if (logger.isDebugEnabled()) {
             logger.debug("Stopping listenerContainer: " + this + " with cacheLevel: " + getCacheLevel()
-                    + " and sharedConnectionEnabled: " + sharedConnectionEnabled());
+                         + " and sharedConnectionEnabled: " + sharedConnectionEnabled());
         }
         super.stop();
+
+        if (taskExecutor instanceof ThreadPoolTaskExecutor) {
+            ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) taskExecutor;
+            executor.destroy();
+        }
     }
 
     @Override
     public void destroy() {
         if (logger.isDebugEnabled()) {
             logger.debug("Destroying listenerContainer: " + this + " with cacheLevel: " + getCacheLevel()
-                    + " and sharedConnectionEnabled: " + sharedConnectionEnabled());
+                         + " and sharedConnectionEnabled: " + sharedConnectionEnabled());
         }
         super.destroy();
+
+        if (taskExecutor instanceof ThreadPoolTaskExecutor) {
+            ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) taskExecutor;
+            executor.destroy();
+        }
     }
 
     @Override

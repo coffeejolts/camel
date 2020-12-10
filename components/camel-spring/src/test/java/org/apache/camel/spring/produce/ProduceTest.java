@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,30 +21,22 @@ import java.util.Map;
 
 import org.apache.camel.Produce;
 import org.apache.camel.spring.SpringRunWithTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ContextConfiguration;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @ContextConfiguration
 public class ProduceTest extends SpringRunWithTestSupport {
-    
-    @Produce(uri = "direct:start")
+
+    @Produce("direct:start")
     protected MyListener producer;
 
     @Test
-    public void testInvokeService() throws Exception {
-        // lets send a message
-        String actual = producer.sayHello("James");
-        assertEquals("response", "Hello James", actual);
-    }
-    
-    @Test
     public void testInvokeServiceWithMessageHeader() throws Exception {
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put("greeter", "Nihao ");
         String response = producer.greet(headers, "Willem");
-        assertEquals("response is wrong", "Nihao Willem", response);
+        assertEquals("Nihao Willem", response, "response is wrong");
     }
 }

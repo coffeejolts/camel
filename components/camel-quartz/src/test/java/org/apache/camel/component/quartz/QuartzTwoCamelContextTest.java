@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,20 +19,16 @@ package org.apache.camel.component.quartz;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
-public class QuartzTwoCamelContextTest extends Assert {
+public class QuartzTwoCamelContextTest {
 
     private DefaultCamelContext camel1;
     private DefaultCamelContext camel2;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         camel1 = new DefaultCamelContext();
         camel1.setName("camel-1");
@@ -55,7 +51,7 @@ public class QuartzTwoCamelContextTest extends Assert {
         camel2.start();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         camel1.stop();
         camel2.stop();
@@ -74,15 +70,15 @@ public class QuartzTwoCamelContextTest extends Assert {
 
         mock2.assertIsSatisfied();
 
-        camel2.stop();        
+        camel2.stop();
     }
-    
+
     @Test
     public void testThirdCamelContext() throws Exception {
         camel1.stop();
-        
+
         camel2.stop();
-                
+
         DefaultCamelContext camel3 = new DefaultCamelContext();
         camel3.setName("camel-3");
         camel3.addRoutes(new RouteBuilder() {
@@ -92,10 +88,10 @@ public class QuartzTwoCamelContextTest extends Assert {
             }
         });
         camel3.start();
-        
+
         MockEndpoint mock3 = camel3.getEndpoint("mock:three", MockEndpoint.class);
         mock3.expectedMinimumMessageCount(2);
-        
+
         mock3.assertIsSatisfied();
         camel3.stop();
     }

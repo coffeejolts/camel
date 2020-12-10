@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,27 +20,28 @@ import java.util.StringTokenizer;
 
 import org.apache.camel.Converter;
 import org.apache.camel.Exchange;
+import org.apache.camel.util.StringHelper;
 import org.snmp4j.PDU;
 import org.snmp4j.PDUv1;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.VariableBinding;
 
-@Converter
+@Converter(generateLoader = true)
 public final class SnmpConverters {
     public static final String SNMP_TAG = "snmp";
     public static final String ENTRY_TAG = "entry";
     public static final String OID_TAG = "oid";
     public static final String VALUE_TAG = "value";
-    
-    private static final String SNMP_TAG_OPEN  = '<' + SNMP_TAG + '>';
+
+    private static final String SNMP_TAG_OPEN = '<' + SNMP_TAG + '>';
     private static final String SNMP_TAG_CLOSE = "</" + SNMP_TAG + '>';
-    private static final String ENTRY_TAG_OPEN  = '<' + ENTRY_TAG + '>';
+    private static final String ENTRY_TAG_OPEN = '<' + ENTRY_TAG + '>';
     private static final String ENTRY_TAG_CLOSE = "</" + ENTRY_TAG + '>';
-    private static final String OID_TAG_OPEN  = '<' + OID_TAG + '>';
+    private static final String OID_TAG_OPEN = '<' + OID_TAG + '>';
     private static final String OID_TAG_CLOSE = "</" + OID_TAG + '>';
-    private static final String VALUE_TAG_OPEN  = '<' + VALUE_TAG + '>';
+    private static final String VALUE_TAG_OPEN = '<' + VALUE_TAG + '>';
     private static final String VALUE_TAG_CLOSE = "</" + VALUE_TAG + '>';
-    
+
     private SnmpConverters() {
         //Utility Class
     }
@@ -51,7 +52,7 @@ public final class SnmpConverters {
         try {
             OIDList list = new OIDList();
 
-            if (s != null && s.indexOf(",") != -1) {
+            if (s != null && s.contains(",")) {
                 // seems to be a comma separated oid list
                 StringTokenizer strTok = new StringTokenizer(s, ",");
                 while (strTok.hasMoreTokens()) {
@@ -87,12 +88,12 @@ public final class SnmpConverters {
     /**
      * Converts the given snmp pdu to a String body.
      *
-     * @param pdu       the snmp pdu
-     * @return  the text content
+     * @param  pdu the snmp pdu
+     * @return     the text content
      */
     @Converter
     public static String toString(PDU pdu) {
-     // the output buffer
+        // the output buffer
         StringBuilder sb = new StringBuilder();
 
         // prepare the header
@@ -114,14 +115,14 @@ public final class SnmpConverters {
 
         // now loop all variables of the response
         for (Object o : pdu.getVariableBindings()) {
-            VariableBinding b = (VariableBinding)o;
+            VariableBinding b = (VariableBinding) o;
 
             sb.append(ENTRY_TAG_OPEN);
             sb.append(OID_TAG_OPEN);
             sb.append(b.getOid().toString());
             sb.append(OID_TAG_CLOSE);
             sb.append(VALUE_TAG_OPEN);
-            sb.append(getXmlSafeString(b.getVariable().toString()));
+            sb.append(StringHelper.xmlEncode(b.getVariable().toString()));
             sb.append(VALUE_TAG_CLOSE);
             sb.append(ENTRY_TAG_CLOSE);
         }
@@ -132,7 +133,4 @@ public final class SnmpConverters {
         return sb.toString();
     }
 
-    private static String getXmlSafeString(String string) {
-        return string.replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("'", "&apos;");
-    }
 }

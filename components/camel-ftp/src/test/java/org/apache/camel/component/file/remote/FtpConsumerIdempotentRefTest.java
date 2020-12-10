@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,14 @@
  */
 package org.apache.camel.component.file.remote;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.JndiRegistry;
 import org.apache.camel.spi.IdempotentRepository;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for the idempotentRepository # option.
@@ -29,16 +32,12 @@ public class FtpConsumerIdempotentRefTest extends FtpServerTestSupport {
 
     private static boolean invoked;
 
-    private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort()
-                + "/idempotent?password=admin&binary=false&idempotent=true&idempotentRepository=#myRepo&delete=true";
-    }
+    @BindToRegistry("myIdempotentRepo")
+    private MyIdempotentRepository myIdempotentRepo = new MyIdempotentRepository();
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-        jndi.bind("myRepo", new MyIdempotentRepository());
-        return jndi;
+    private String getFtpUrl() {
+        return "ftp://admin@localhost:{{ftp.server.port}}"
+               + "/idempotent?password=admin&binary=false&idempotent=true&idempotentRepository=#myIdempotentRepo&delete=true";
     }
 
     @Test
@@ -61,13 +60,14 @@ public class FtpConsumerIdempotentRefTest extends FtpServerTestSupport {
         // move file back
         sendFile(getFtpUrl(), "Hello World", "report.txt");
 
-        // should NOT consume the file again, let 2 secs pass to let the consumer try to consume it but it should not
+        // should NOT consume the file again, let 2 secs pass to let the
+        // consumer try to consume it but it should not
         Thread.sleep(2000);
         assertMockEndpointsSatisfied();
 
-        assertTrue("MyIdempotentRepository should have been invoked", invoked);
+        assertTrue(invoked, "MyIdempotentRepository should have been invoked");
     }
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
@@ -77,8 +77,9 @@ public class FtpConsumerIdempotentRefTest extends FtpServerTestSupport {
         };
     }
 
-    public class MyIdempotentRepository implements IdempotentRepository<String> {
+    public class MyIdempotentRepository implements IdempotentRepository {
 
+        @Override
         public boolean add(String messageId) {
             // will return true 1st time, and false 2nd time
             boolean result = invoked;
@@ -87,22 +88,32 @@ public class FtpConsumerIdempotentRefTest extends FtpServerTestSupport {
             return !result;
         }
 
+        @Override
         public boolean contains(String key) {
             return invoked;
         }
 
+        @Override
         public boolean remove(String key) {
             return true;
         }
 
+        @Override
         public boolean confirm(String key) {
             return true;
         }
 
-        public void start() throws Exception {
+        @Override
+        public void clear() {
+            return;
         }
 
-        public void stop() throws Exception {
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public void stop() {
         }
     }
 }

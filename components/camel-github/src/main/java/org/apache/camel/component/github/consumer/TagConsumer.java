@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -30,11 +30,11 @@ import org.slf4j.LoggerFactory;
 public class TagConsumer extends AbstractGitHubConsumer {
     private static final transient Logger LOG = LoggerFactory.getLogger(TagConsumer.class);
 
-    private List<String> tagNames = new ArrayList<String>();
-    
+    private List<String> tagNames = new ArrayList<>();
+
     public TagConsumer(GitHubEndpoint endpoint, Processor processor) throws Exception {
         super(endpoint, processor);
-        
+
         LOG.info("GitHub TagConsumer: Indexing current tags...");
         List<RepositoryTag> tags = getRepositoryService().getTags(getRepository());
         for (RepositoryTag tag : tags) {
@@ -46,14 +46,14 @@ public class TagConsumer extends AbstractGitHubConsumer {
     protected int poll() throws Exception {
         List<RepositoryTag> tags = getRepositoryService().getTags(getRepository());
         // In the end, we want tags oldest to newest.
-        Stack<RepositoryTag> newTags = new Stack<RepositoryTag>();
+        Stack<RepositoryTag> newTags = new Stack<>();
         for (RepositoryTag tag : tags) {
             if (!tagNames.contains(tag.getName())) {
                 newTags.push(tag);
                 tagNames.add(tag.getName());
             }
         }
-        
+
         while (!newTags.empty()) {
             RepositoryTag newTag = newTags.pop();
             Exchange e = getEndpoint().createExchange();

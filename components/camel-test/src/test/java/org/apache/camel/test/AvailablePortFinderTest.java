@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,46 +16,91 @@
  */
 package org.apache.camel.test;
 
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.ServerSocket;
 
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 public class AvailablePortFinderTest {
 
     @Test
-    public void getNextAvailablePort() throws Exception {
+    public void testNotAvailableTcpPort() throws Exception {
         int p1 = AvailablePortFinder.getNextAvailable();
-        int p2 = AvailablePortFinder.getNextAvailable();
-        Assert.assertFalse("Port " + p1 + " Port2 " + p2, p1 == p2);
-    }
-
-    @Test
-    public void testGetNextAvailablePortInt() throws Exception {
-        int p1 = AvailablePortFinder.getNextAvailable(9123);
-        int p2 = AvailablePortFinder.getNextAvailable(9123);
-        // these calls only check availability but don't mark the port as in use.
-        Assert.assertEquals(p1, p2);
-    }
-
-
-    @Test
-    public void testNotAvailablePort() throws Exception {
-        int p1 = AvailablePortFinder.getNextAvailable(11000);
         ServerSocket socket = new ServerSocket(p1);
-        int p2 = AvailablePortFinder.getNextAvailable(p1);
+        int p2 = AvailablePortFinder.getNextAvailable();
         Assert.assertFalse("Port " + p1 + " Port2 " + p2, p1 == p2);
         socket.close();
     }
 
-    @Test (expected = IllegalArgumentException.class)
-    public void getMinOutOfRangePort() throws Exception {
-        AvailablePortFinder.getNextAvailable(AvailablePortFinder.MIN_PORT_NUMBER - 1);
+    @Test
+    public void testNotAvailableUdpPort() throws Exception {
+        int p1 = AvailablePortFinder.getNextAvailable();
+        DatagramSocket socket = new DatagramSocket(p1);
+        int p2 = AvailablePortFinder.getNextAvailable();
+        Assert.assertFalse("Port " + p1 + " Port2 " + p2, p1 == p2);
+        socket.close();
     }
 
-    @Test (expected = IllegalArgumentException.class)
-    public void getMaxOutOfRangePort() throws Exception {
-        AvailablePortFinder.getNextAvailable(AvailablePortFinder.MAX_PORT_NUMBER + 1);
+    @Test
+    public void testNotAvailableMulticastPort() throws Exception {
+        int p1 = AvailablePortFinder.getNextAvailable();
+        MulticastSocket socket = new MulticastSocket(null);
+        socket.setReuseAddress(false); // true is default for MulticastSocket, we wan to fail if port is occupied
+        socket.bind(new InetSocketAddress(InetAddress.getLocalHost(), p1));
+        int p2 = AvailablePortFinder.getNextAvailable();
+        Assert.assertFalse("Port " + p1 + " Port2 " + p2, p1 == p2);
+        socket.close();
     }
 
+    @Test
+    public void testPortRange() throws Exception {
+        int p1 = AvailablePortFinder.getNextAvailable(49152, 65535);
+        ServerSocket socket1 = new ServerSocket(p1);
+        int p2 = AvailablePortFinder.getNextAvailable(49152, 65535);
+        ServerSocket socket2 = new ServerSocket(p2);
+        socket1.close();
+        socket2.close();
+    }
+
+    @Test
+    public void testAvailablePortFinderPropertiesFunction() throws Exception {
+        AvailablePortFinderPropertiesFunction function = new AvailablePortFinderPropertiesFunction();
+
+        assertThat(function.apply("test")).isSameAs(function.apply("test"));
+        assertThat(function.apply("")).isEqualTo("");
+        assertThat(function.apply(null)).isNull();
+    }
+
+    @Test
+    public void testAvailablePortFinderPropertiesFunctionWithRange() throws Exception {
+        // range
+        assertThat(Integer.parseInt(function("test:1024-49151"))).isBetween(1024, 49150);
+
+        // validation
+        assertThatThrownBy(() -> function("test:")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> function("test:-")).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> function("test:1024"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unable to parse from range");
+
+        assertThatThrownBy(() -> function("test:1024-"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unable to parse to range");
+
+        assertThatThrownBy(() -> function("test:-1234"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unable to parse from range");
+    }
+
+    private static String function(String remainder) {
+        return new AvailablePortFinderPropertiesFunction().apply(remainder);
+    }
 }

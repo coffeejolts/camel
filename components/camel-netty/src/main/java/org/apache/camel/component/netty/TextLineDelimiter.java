@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,9 +18,8 @@ package org.apache.camel.component.netty;
 
 /**
  * Possible text line delimiters to be used with the textline codec.
- *
- * @version 
  */
 public enum TextLineDelimiter {
-    LINE, NULL
+    LINE,
+    NULL
 }

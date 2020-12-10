@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,35 +19,47 @@ package org.apache.camel.component.hazelcast.seda;
 import java.util.concurrent.BlockingQueue;
 
 import com.hazelcast.core.HazelcastInstance;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
-import org.apache.camel.Endpoint;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.component.hazelcast.HazelcastComponent;
+import org.apache.camel.component.hazelcast.HazelcastCommand;
+import org.apache.camel.component.hazelcast.HazelcastDefaultComponent;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
+import org.apache.camel.spi.UriEndpoint;
+import org.apache.camel.spi.UriParam;
 import org.apache.camel.util.ObjectHelper;
 
 /**
- * Hazelcast SEDA {@link Endpoint} implementation.
+ * Asynchronously send/receive Exchanges between Camel routes running on potentially distinct JVMs/hosts backed by
+ * Hazelcast {@link BlockingQueue}.
  */
+@UriEndpoint(firstVersion = "2.7.0", scheme = "hazelcast-seda", title = "Hazelcast SEDA", syntax = "hazelcast-seda:cacheName",
+             category = { Category.CACHE, Category.DATAGRID })
 public class HazelcastSedaEndpoint extends HazelcastDefaultEndpoint {
 
     private final BlockingQueue<Object> queue;
+
+    @UriParam
     private final HazelcastSedaConfiguration configuration;
 
-    public HazelcastSedaEndpoint(final HazelcastInstance hazelcastInstance, final String uri, final HazelcastComponent component, final HazelcastSedaConfiguration configuration) {
+    public HazelcastSedaEndpoint(final HazelcastInstance hazelcastInstance, final String uri,
+                                 final HazelcastDefaultComponent component, final HazelcastSedaConfiguration configuration) {
         super(hazelcastInstance, uri, component);
         this.queue = hazelcastInstance.getQueue(configuration.getQueueName());
         this.configuration = configuration;
         if (ObjectHelper.isEmpty(configuration.getQueueName())) {
             throw new IllegalArgumentException("Queue name is missing.");
         }
+        setCommand(HazelcastCommand.seda);
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new HazelcastSedaProducer(this, getQueue());
     }
 
+    @Override
     public Consumer createConsumer(final Processor processor) throws Exception {
         HazelcastSedaConsumer answer = new HazelcastSedaConsumer(this, processor);
         configureConsumer(answer);
@@ -60,10 +72,6 @@ public class HazelcastSedaEndpoint extends HazelcastDefaultEndpoint {
 
     public HazelcastSedaConfiguration getConfiguration() {
         return configuration;
-    }
-
-    public boolean isSingleton() {
-        return true;
     }
 
 }

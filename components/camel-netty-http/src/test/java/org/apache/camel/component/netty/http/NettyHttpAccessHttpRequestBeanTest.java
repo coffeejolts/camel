@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,9 +18,11 @@ package org.apache.camel.component.netty.http;
 
 import java.nio.charset.Charset;
 
+import io.netty.handler.codec.http.FullHttpRequest;
 import org.apache.camel.builder.RouteBuilder;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NettyHttpAccessHttpRequestBeanTest extends BaseNettyTest {
 
@@ -40,14 +42,16 @@ public class NettyHttpAccessHttpRequestBeanTest extends BaseNettyTest {
             @Override
             public void configure() throws Exception {
                 from("netty-http:http://0.0.0.0:{{port}}/foo")
-                    .to("mock:input")
-                    .transform().method(NettyHttpAccessHttpRequestBeanTest.class, "myTransformer");
+                        .to("mock:input")
+                        .transform().method(NettyHttpAccessHttpRequestBeanTest.class, "myTransformer");
             }
         };
     }
 
-    public static String myTransformer(HttpRequest request) {
-        String in = request.getContent().toString(Charset.forName("UTF-8"));
+    public static String myTransformer(FullHttpRequest request) {
+        String in = request.content().toString(Charset.forName("UTF-8"));
+        // release as no longer in use
+        request.content().release();
         return "Bye " + in;
     }
 

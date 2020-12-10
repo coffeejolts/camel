@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,11 +21,9 @@ import java.util.List;
 import org.apache.camel.Exchange;
 import org.apache.ibatis.session.SqlSession;
 
-/**
- * @version 
- */
 public class DefaultMyBatisProcessingStrategy implements MyBatisProcessingStrategy {
 
+    @Override
     public void commit(MyBatisEndpoint endpoint, Exchange exchange, Object data, String consumeStatements) throws Exception {
         SqlSession session = endpoint.getSqlSessionFactory().openSession();
         String[] statements = consumeStatements.split(",");
@@ -42,6 +40,7 @@ public class DefaultMyBatisProcessingStrategy implements MyBatisProcessingStrate
         }
     }
 
+    @Override
     public List<?> poll(MyBatisConsumer consumer, MyBatisEndpoint endpoint) throws Exception {
         SqlSession session = endpoint.getSqlSessionFactory().openSession();
         try {

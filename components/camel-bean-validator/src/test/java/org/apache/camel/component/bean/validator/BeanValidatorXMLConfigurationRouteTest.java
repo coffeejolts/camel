@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,9 @@
  */
 package org.apache.camel.component.bean.validator;
 
-/**
- * @version 
- */
 public class BeanValidatorXMLConfigurationRouteTest extends BeanValidatorRouteTest {
-    
+
+    @Override
     Car createCar(String manufacturer, String licencePlate) {
         return new CarWithoutAnnotations(manufacturer, licencePlate);
     }

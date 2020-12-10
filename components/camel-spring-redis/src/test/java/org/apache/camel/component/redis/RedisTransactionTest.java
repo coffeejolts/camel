@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,29 +19,20 @@ package org.apache.camel.component.redis;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.BindToRegistry;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+@MockitoSettings
 public class RedisTransactionTest extends RedisTestSupport {
-    private RedisTemplate redisTemplate;
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
-        registry.bind("redisTemplate", redisTemplate);
-        return registry;
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        redisTemplate = mock(RedisTemplate.class);
-        super.setUp();
-    }
+    @Mock
+    @BindToRegistry("redisTemplate")
+    private RedisTemplate<String, ?> redisTemplate;
 
     @Test
     public void shouldExecuteMULTI() throws Exception {
@@ -69,7 +60,7 @@ public class RedisTransactionTest extends RedisTestSupport {
 
     @Test
     public void shouldExecuteWATCH() throws Exception {
-        List<String> keys = new ArrayList<String>();
+        List<String> keys = new ArrayList<>();
         keys.add("key");
 
         sendHeaders(
@@ -79,4 +70,3 @@ public class RedisTransactionTest extends RedisTestSupport {
     }
 
 }
-

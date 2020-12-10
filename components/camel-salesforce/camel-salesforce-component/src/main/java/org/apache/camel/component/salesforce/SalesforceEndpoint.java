@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,45 +16,59 @@
  */
 package org.apache.camel.component.salesforce;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.component.salesforce.internal.OperationName;
-import org.apache.camel.impl.DefaultEndpoint;
-import org.apache.camel.impl.SynchronousDelegateProducer;
+import org.apache.camel.component.salesforce.internal.streaming.SubscriptionHelper;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
+import org.apache.camel.support.SynchronousDelegateProducer;
 import org.eclipse.jetty.client.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Represents a Salesforce endpoint.
+ * Communicate with Salesforce using Java DTOs.
  */
-@UriEndpoint(scheme = "salesforce", title = "Salesforce", syntax = "salesforce:operationName:topicName", label = "api,cloud,crm", consumerClass = SalesforceConsumer.class)
+@UriEndpoint(firstVersion = "2.12.0", scheme = "salesforce", title = "Salesforce",
+             syntax = "salesforce:operationName:topicName", category = { Category.CLOUD, Category.API, Category.CRM })
 public class SalesforceEndpoint extends DefaultEndpoint {
 
     private static final Logger LOG = LoggerFactory.getLogger(SalesforceEndpoint.class);
 
-    @UriPath
+    @UriPath(label = "producer", description = "The operation to use", enums = "getVersions,getResources,"
+                                                                               + "getGlobalObjects,getBasicInfo,getDescription,getSObject,createSObject,updateSObject,deleteSObject,"
+                                                                               + "getSObjectWithId,upsertSObject,deleteSObjectWithId,getBlobField,query,queryMore,queryAll,search,apexCall,"
+                                                                               + "recent,createJob,getJob,closeJob,abortJob,createBatch,getBatch,getAllBatches,getRequest,getResults,"
+                                                                               + "createBatchQuery,getQueryResultIds,getQueryResult,getRecentReports,getReportDescription,executeSyncReport,"
+                                                                               + "executeAsyncReport,getReportInstances,getReportResults,limits,approval,approvals,composite-tree,"
+                                                                               + "composite-batch,composite")
     private final OperationName operationName;
-    @UriPath
+    @UriPath(label = "consumer", description = "The name of the topic/channel to use")
     private final String topicName;
     @UriParam
-    private final SalesforceEndpointConfig config;
+    private final SalesforceEndpointConfig configuration;
 
-    public SalesforceEndpoint(String uri, SalesforceComponent salesforceComponent,
-                              SalesforceEndpointConfig config, OperationName operationName, String topicName) {
+    @UriParam(label = "consumer", description = "The replayId value to use when subscribing")
+    private Long replayId;
+
+    public SalesforceEndpoint(String uri, SalesforceComponent salesforceComponent, SalesforceEndpointConfig configuration,
+                              OperationName operationName, String topicName) {
         super(uri, salesforceComponent);
 
-        this.config = config;
+        this.configuration = configuration;
         this.operationName = operationName;
         this.topicName = topicName;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
-        // producer requires an operation, topicName must be the invalid operation name
+        // producer requires an operation, topicName must be the invalid
+        // operation name
         if (operationName == null) {
             throw new IllegalArgumentException(String.format("Invalid Operation %s", topicName));
         }
@@ -67,15 +81,17 @@ public class SalesforceEndpoint extends DefaultEndpoint {
         }
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        // consumer requires a topicName, operation name must be the invalid topic name
+        // consumer requires a topicName, operation name must be the invalid
+        // topic name
         if (topicName == null) {
-            throw new IllegalArgumentException(String.format("Invalid topic name %s, matches a producer operation name",
-                    operationName.value()));
+            throw new IllegalArgumentException(
+                    String.format("Invalid topic name %s, matches a producer operation name", operationName.value()));
         }
 
-        final SalesforceConsumer consumer = new SalesforceConsumer(this, processor,
-            getComponent().getSubscriptionHelper());
+        final SubscriptionHelper subscriptionHelper = getComponent().getSubscriptionHelper();
+        final SalesforceConsumer consumer = new SalesforceConsumer(this, processor, subscriptionHelper);
         configureConsumer(consumer);
         return consumer;
     }
@@ -85,14 +101,8 @@ public class SalesforceEndpoint extends DefaultEndpoint {
         return (SalesforceComponent) super.getComponent();
     }
 
-    public boolean isSingleton() {
-        // re-use endpoint instance across multiple threads
-        // the description of this method is a little confusing
-        return true;
-    }
-
     public SalesforceEndpointConfig getConfiguration() {
-        return config;
+        return configuration;
     }
 
     public OperationName getOperationName() {
@@ -103,14 +113,25 @@ public class SalesforceEndpoint extends DefaultEndpoint {
         return topicName;
     }
 
+    public void setReplayId(final Long replayId) {
+        this.replayId = replayId;
+    }
+
+    public Long getReplayId() {
+        return replayId;
+    }
+
     @Override
     protected void doStart() throws Exception {
         try {
             super.doStart();
         } finally {
             // check if this endpoint has its own http client that needs to be started
-            final HttpClient httpClient = getConfiguration().getHttpClient();
-            if (httpClient != null && getComponent().getConfig().getHttpClient() != httpClient) {
+            HttpClient httpClient = getConfiguration().getHttpClient();
+            if (httpClient == null) {
+                httpClient = getComponent().getHttpClient();
+            }
+            if (httpClient != null && getComponent().getHttpClient() != httpClient) {
                 final String endpointUri = getEndpointUri();
                 LOG.debug("Starting http client for {} ...", endpointUri);
                 httpClient.start();
@@ -125,8 +146,11 @@ public class SalesforceEndpoint extends DefaultEndpoint {
             super.doStop();
         } finally {
             // check if this endpoint has its own http client that needs to be stopped
-            final HttpClient httpClient = getConfiguration().getHttpClient();
-            if (httpClient != null && getComponent().getConfig().getHttpClient() != httpClient) {
+            HttpClient httpClient = getConfiguration().getHttpClient();
+            if (httpClient == null) {
+                httpClient = getComponent().getHttpClient();
+            }
+            if (httpClient != null && getComponent().getHttpClient() != httpClient) {
                 final String endpointUri = getEndpointUri();
                 LOG.debug("Stopping http client for {} ...", endpointUri);
                 httpClient.stop();

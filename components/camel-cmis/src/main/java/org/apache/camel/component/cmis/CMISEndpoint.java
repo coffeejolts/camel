@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,51 +16,63 @@
  */
 package org.apache.camel.component.cmis;
 
+import java.util.Map;
+
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
+import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 
 /**
- * Represents a CMIS endpoint.
+ * Read and write data from to/from a CMIS compliant content repositories.
  */
-@UriEndpoint(scheme = "cmis", title = "CMIS", syntax = "cmis:url", consumerClass = CMISConsumer.class, label = "cms,database")
+@UriEndpoint(firstVersion = "2.11.0", scheme = "cmis", title = "CMIS", syntax = "cmis:cmsUrl",
+             category = { Category.CMS, Category.DATABASE })
 public class CMISEndpoint extends DefaultEndpoint {
 
-    @UriParam
-    private CMISSessionFacade sessionFacade;
+    @UriPath(description = "URL to the cmis repository")
+    @Metadata(required = true)
+    private final String cmsUrl;
+
     @UriParam(label = "producer")
     private boolean queryMode;
 
-    public CMISEndpoint() {
+    @UriParam
+    private CMISSessionFacade sessionFacade; // to include in component documentation
+
+    @UriParam(label = "advanced")
+    private CMISSessionFacadeFactory sessionFacadeFactory;
+
+    private Map<String, Object> properties; // properties for each session facade instance being created
+
+    public CMISEndpoint(String uri, CMISComponent component, String cmsUrl) {
+        this(uri, component, cmsUrl, new DefaultCMISSessionFacadeFactory());
     }
 
-    public CMISEndpoint(String uri, CMISComponent component) {
+    public CMISEndpoint(String uri, CMISComponent component, String cmsUrl, CMISSessionFacadeFactory sessionFacadeFactory) {
         super(uri, component);
+        this.cmsUrl = cmsUrl;
+        this.sessionFacadeFactory = sessionFacadeFactory;
     }
 
-    public CMISEndpoint(String uri, CMISComponent cmisComponent, CMISSessionFacade sessionFacade) {
-        this(uri, cmisComponent);
-        this.sessionFacade = sessionFacade;
-    }
-
+    @Override
     public Producer createProducer() throws Exception {
-        if (this.queryMode) {
-            return new CMISQueryProducer(this, sessionFacade);
-        }
-        return new CMISProducer(this, sessionFacade);
+        return this.queryMode
+                ? new CMISQueryProducer(this, sessionFacadeFactory)
+                : new CMISProducer(this, sessionFacadeFactory);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        CMISConsumer answer = new CMISConsumer(this, processor, sessionFacade);
-        configureConsumer(answer);
-        return answer;
-    }
+        CMISConsumer consumer = new CMISConsumer(this, processor, sessionFacadeFactory);
+        configureConsumer(consumer);
 
-    public boolean isSingleton() {
-        return true;
+        return consumer;
     }
 
     public boolean isQueryMode() {
@@ -68,9 +80,44 @@ public class CMISEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * If true, will execute the cmis query from the message body and return result, otherwise will create a node in the cmis repository
+     * If true, will execute the cmis query from the message body and return result, otherwise will create a node in the
+     * cmis repository
      */
     public void setQueryMode(boolean queryMode) {
         this.queryMode = queryMode;
+    }
+
+    public String getCmsUrl() {
+        return cmsUrl;
+    }
+
+    public CMISSessionFacade getSessionFacade() {
+        return sessionFacade;
+    }
+
+    /**
+     * Session configuration
+     */
+    public void setSessionFacade(CMISSessionFacade sessionFacade) {
+        this.sessionFacade = sessionFacade;
+    }
+
+    public Map<String, Object> getProperties() {
+        return properties;
+    }
+
+    public void setProperties(Map<String, Object> properties) {
+        this.properties = properties;
+    }
+
+    public CMISSessionFacadeFactory getSessionFacadeFactory() {
+        return sessionFacadeFactory;
+    }
+
+    /**
+     * To use a custom CMISSessionFacadeFactory to create the CMISSessionFacade instances
+     */
+    public void setSessionFacadeFactory(CMISSessionFacadeFactory sessionFacadeFactory) {
+        this.sessionFacadeFactory = sessionFacadeFactory;
     }
 }

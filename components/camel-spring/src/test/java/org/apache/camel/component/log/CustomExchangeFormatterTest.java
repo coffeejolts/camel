@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,17 @@ package org.apache.camel.component.log;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+
 public class CustomExchangeFormatterTest extends SpringTestSupport {
 
+    @Test
     public void testExchangeFormattersConfiguredProperly() throws Exception {
         TestExchangeFormatter aaa = null;
         TestExchangeFormatter bbb = null;
@@ -34,10 +37,10 @@ public class CustomExchangeFormatterTest extends SpringTestSupport {
                 continue;
             }
             LogEndpoint log = (LogEndpoint) ep;
-            aaa = "aaa".equals(log.getLoggerName()) ? (TestExchangeFormatter) log.getLocalFormatter() : aaa;
-            bbb = "bbb".equals(log.getLoggerName()) ? (TestExchangeFormatter) log.getLocalFormatter() : bbb;
+            aaa = "aaa".equals(log.getLoggerName()) ? (TestExchangeFormatter) log.getExchangeFormatter() : aaa;
+            bbb = "bbb".equals(log.getLoggerName()) ? (TestExchangeFormatter) log.getExchangeFormatter() : bbb;
         }
-        
+
         assertNotNull(aaa);
         assertNotNull(bbb);
         assertNotSame(aaa, bbb);
@@ -45,6 +48,7 @@ public class CustomExchangeFormatterTest extends SpringTestSupport {
         assertEquals("bbb", bbb.getTestProperty());
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/component/log/custom-exchange-formatter-context.xml");
     }

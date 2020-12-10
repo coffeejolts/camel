@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,6 +18,8 @@ package org.apache.camel.maven;
 
 import java.io.File;
 import java.io.IOException;
+
+import javax.xml.XMLConstants;
 import javax.xml.namespace.NamespaceContext;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -29,19 +31,26 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathFactory;
 
 import org.w3c.dom.Document;
+
 import org.xml.sax.SAXException;
 
 public final class XmlHelper {
-    private XmlHelper() { }
 
-    public static Document buildNamespaceAwareDocument(File xml) throws SAXException, ParserConfigurationException, IOException {
+    private XmlHelper() {
+    }
+
+    public static Document buildNamespaceAwareDocument(File xml)
+            throws SAXException, ParserConfigurationException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, Boolean.TRUE);
         return factory.newDocumentBuilder().parse(xml);
     }
 
     public static Transformer buildTransformer() throws TransformerConfigurationException {
-        Transformer transformer = TransformerFactory.newInstance().newTransformer();
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, Boolean.TRUE);
+        Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
         transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
         return transformer;
@@ -51,5 +60,9 @@ public final class XmlHelper {
         XPath xPath = XPathFactory.newInstance().newXPath();
         xPath.setNamespaceContext(namespaceContext);
         return xPath;
+    }
+
+    public static boolean isNullOrEmpty(String text) {
+        return text == null || text.isEmpty();
     }
 }

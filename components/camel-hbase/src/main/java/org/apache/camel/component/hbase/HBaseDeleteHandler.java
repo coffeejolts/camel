@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,8 +17,9 @@
 package org.apache.camel.component.hbase;
 
 import java.io.IOException;
+
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,7 @@ public class HBaseDeleteHandler implements HBaseRemoveHandler {
      * Performs a {@link Delete} of the specified row.
      */
     @Override
-    public void remove(HTableInterface table, byte[] row) {
+    public void remove(Table table, byte[] row) {
         Delete delete = new Delete(row);
         try {
             table.delete(delete);

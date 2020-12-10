@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,22 +16,30 @@
  */
 package org.apache.camel.component.spring.ws;
 
+import org.apache.camel.ExchangePattern;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.spring.ws.bean.CamelEndpointMapping;
 import org.apache.camel.component.spring.ws.jaxb.QuoteRequest;
 import org.apache.camel.component.spring.ws.jaxb.QuoteResponse;
-import org.apache.camel.impl.JndiRegistry;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.apache.camel.spi.Registry;
+import org.apache.camel.support.SimpleRegistry;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.apache.camel.test.spring.junit5.CamelSpringTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.ws.client.core.WebServiceTemplate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @ContextConfiguration
-@RunWith(SpringJUnit4ClassRunner.class)
+@CamelSpringTest
 public class ConsumerMarshallingRouteTest extends CamelTestSupport {
 
     @Autowired
@@ -41,14 +49,15 @@ public class ConsumerMarshallingRouteTest extends CamelTestSupport {
     private WebServiceTemplate webServiceTemplate;
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         context.setTracing(true);
     }
 
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
+    protected Registry createCamelRegistry() throws Exception {
+        Registry registry = new SimpleRegistry();
         registry.bind("endpointMapping", this.endpointMapping);
         registry.bind("webServiceTemplate", this.webServiceTemplate);
         return registry;
@@ -56,18 +65,11 @@ public class ConsumerMarshallingRouteTest extends CamelTestSupport {
 
     @Test
     public void consumeWebserviceWithPojoRequest() throws Exception {
-        QuoteRequest request = new QuoteRequest();
-        request.setSymbol("GOOG");
-
-        Object result = template.requestBody("direct:webservice-marshall", request);
-
-        assertNotNull(result);
-        assertTrue(result instanceof String);
-        String resultMessage = (String) result;
-        assertTrue(resultMessage.contains("Google Inc."));
+        consumePojoRequestStringResponseWithEnpoint("direct:webservice-marshall");
     }
 
     @Test
+    @Disabled
     public void consumeWebserviceWithPojoRequestAndPojoResponse() throws Exception {
         QuoteRequest request = new QuoteRequest();
         request.setSymbol("GOOG");
@@ -78,6 +80,33 @@ public class ConsumerMarshallingRouteTest extends CamelTestSupport {
         assertTrue(result instanceof QuoteResponse);
         QuoteResponse quoteResponse = (QuoteResponse) result;
         assertEquals("Google Inc.", quoteResponse.getName());
+    }
+
+    @Test
+    public void consumeWebserviceWithPojoRequestAsInOnly() throws Exception {
+        QuoteRequest request = new QuoteRequest();
+        request.setSymbol("GOOG");
+
+        Object result = template.requestBody("direct:webservice-marshall-asinonly", request);
+
+        assertNull(result);
+    }
+
+    @Test
+    public void consumeWebserviceWithPojoRequestAsIn() throws Exception {
+        consumePojoRequestStringResponseWithEnpoint("direct:webservice-marshall-asin");
+    }
+
+    private void consumePojoRequestStringResponseWithEnpoint(String endpoint) {
+        QuoteRequest request = new QuoteRequest();
+        request.setSymbol("GOOG");
+
+        Object result = template.requestBody(endpoint, request);
+
+        assertNotNull(result);
+        assertTrue(result instanceof String);
+        String resultMessage = (String) result;
+        assertTrue(resultMessage.contains("Google Inc."));
     }
 
     @Override
@@ -104,6 +133,29 @@ public class ConsumerMarshallingRouteTest extends CamelTestSupport {
                 // provide web service
                 from("spring-ws:soapaction:http://www.stockquotes.edu/GetQuote?endpointMapping=#endpointMapping").process(
                         new StockQuoteResponseProcessor());
+
+                // request webservice
+                from("direct:webservice-marshall-asinonly")
+                        .marshal(jaxb)
+                        .to("spring-ws:http://localhost/?soapAction=http://www.stockquotes.edu/GetQuoteAsInOnly&webServiceTemplate=#webServiceTemplate")
+                        .convertBodyTo(String.class);
+
+                // provide web service
+                from("spring-ws:soapaction:http://www.stockquotes.edu/GetQuoteAsInOnly?endpointMapping=#endpointMapping")
+                        .setExchangePattern(ExchangePattern.InOnly)
+                        .process(new StockQuoteResponseProcessor());
+
+                // request webservice
+                from("direct:webservice-marshall-asin")
+                        .marshal(jaxb)
+                        .to("spring-ws:http://localhost/?soapAction=http://www.stockquotes.edu/GetQuoteAsIn&webServiceTemplate=#webServiceTemplate")
+                        .convertBodyTo(String.class);
+
+                // provide web service
+                from("spring-ws:soapaction:http://www.stockquotes.edu/GetQuoteAsIn?endpointMapping=#endpointMapping")
+                        .setHeader("setin", constant("true"))
+                        .process(new StockQuoteResponseProcessor());
+
             }
         };
     }

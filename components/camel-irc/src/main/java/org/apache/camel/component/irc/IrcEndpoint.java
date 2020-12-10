@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,13 @@
  */
 package org.apache.camel.component.irc;
 
+import org.apache.camel.Category;
 import org.apache.camel.Exchange;
 import org.apache.camel.ExchangePattern;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultEndpoint;
-import org.apache.camel.impl.DefaultExchange;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 import org.apache.camel.util.ObjectHelper;
 import org.apache.camel.util.UnsafeUriCharactersEncoder;
 import org.schwering.irc.lib.IRCConnection;
@@ -33,12 +33,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Defines the <a href="http://camel.apache.org/irc.html">IRC Endpoint</a>
- *
- * @version 
+ * Send and receive messages to/from and IRC chat.
  */
-@UriEndpoint(scheme = "irc", title = "IRC", syntax = "irc:hostname:port", consumerClass = IrcConsumer.class, label = "chat")
+@UriEndpoint(
+             firstVersion = "1.1.0",
+             scheme = "irc",
+             title = "IRC",
+             syntax = "irc:hostname:port",
+             alternativeSyntax = "irc:username:password@hostname:port",
+             category = { Category.CHAT })
 public class IrcEndpoint extends DefaultEndpoint {
+
     private static final Logger LOG = LoggerFactory.getLogger(IrcEndpoint.class);
 
     @UriParam
@@ -52,80 +57,89 @@ public class IrcEndpoint extends DefaultEndpoint {
         this.configuration = configuration;
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
+    @Override
     public Exchange createExchange(ExchangePattern pattern) {
-        DefaultExchange exchange = new DefaultExchange(this, pattern);
+        Exchange exchange = super.createExchange(pattern);
         exchange.setProperty(Exchange.BINDING, getBinding());
         return exchange;
     }
 
     public Exchange createOnPrivmsgExchange(String target, IRCUser user, String msg) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("PRIVMSG", target, user, msg));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "PRIVMSG", target, user, msg);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnNickExchange(IRCUser user, String newNick) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("NICK", user, newNick));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "NICK", user, newNick);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnQuitExchange(IRCUser user, String msg) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("QUIT", user, msg));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "QUIT", user, msg);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnJoinExchange(String channel, IRCUser user) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("JOIN", channel, user));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "JOIN", channel, user);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnKickExchange(String channel, IRCUser user, String whoWasKickedNick, String msg) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("KICK", channel, user, whoWasKickedNick, msg));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "KICK", channel, user, whoWasKickedNick, msg);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnModeExchange(String channel, IRCUser user, IRCModeParser modeParser) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("MODE", channel, user, modeParser.getLine()));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "MODE", channel, user, modeParser.getLine());
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnPartExchange(String channel, IRCUser user, String msg) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("PART", channel, user, msg));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "PART", channel, user, msg);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnReplyExchange(int num, String value, String msg) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("REPLY", num, value, msg));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "REPLY", num, value, msg);
+        exchange.setIn(im);
         return exchange;
     }
 
     public Exchange createOnTopicExchange(String channel, IRCUser user, String topic) {
-        DefaultExchange exchange = getExchange();
-        exchange.setIn(new IrcMessage("TOPIC", channel, user, topic));
+        Exchange exchange = createExchange();
+        IrcMessage im = new IrcMessage(getCamelContext(), "TOPIC", channel, user, topic);
+        exchange.setIn(im);
         return exchange;
     }
 
+    @Override
     public IrcProducer createProducer() throws Exception {
-        return new IrcProducer(this, component.getIRCConnection(configuration));
+        return new IrcProducer(this);
     }
 
+    @Override
     public IrcConsumer createConsumer(Processor processor) throws Exception {
         IrcConsumer answer = new IrcConsumer(this, processor, component.getIRCConnection(configuration));
         configureConsumer(answer);
         return answer;
     }
 
+    @Override
     public IrcComponent getComponent() {
         return component;
     }
@@ -153,7 +167,6 @@ public class IrcEndpoint extends DefaultEndpoint {
         this.configuration = configuration;
     }
 
-
     public void handleIrcError(int num, String msg) {
         if (IRCConstants.ERR_NICKNAMEINUSE == num) {
             handleNickInUse();
@@ -166,9 +179,9 @@ public class IrcEndpoint extends DefaultEndpoint {
 
         // hackish but working approach to prevent an endless loop. Abort after 4 nick attempts.
         if (nick.endsWith("----")) {
-            LOG.error("Unable to set nick: " + nick + " disconnecting");
+            LOG.error("Unable to set nick: {} disconnecting", nick);
         } else {
-            LOG.warn("Unable to set nick: " + nick + " Retrying with " + nick + "-");
+            LOG.warn("Unable to set nick: {} Retrying with {} -", nick, nick);
             connection.doNick(nick);
             // if the nick failure was doing startup channels weren't joined. So join
             // the channels now. It's a no-op if the channels are already joined.
@@ -176,15 +189,8 @@ public class IrcEndpoint extends DefaultEndpoint {
         }
     }
 
-    private DefaultExchange getExchange() {
-        DefaultExchange exchange = new DefaultExchange(this, getExchangePattern());
-        exchange.setProperty(Exchange.BINDING, getBinding());
-        return exchange;
-    }
-
-
     public void joinChannels() {
-        for (IrcChannel channel : configuration.getChannels()) {
+        for (IrcChannel channel : configuration.getChannelList()) {
             joinChannel(channel);
         }
     }
@@ -214,6 +220,8 @@ public class IrcEndpoint extends DefaultEndpoint {
             }
             connection.doJoin(chn);
         }
+        if (configuration.isNamesOnJoin()) {
+            connection.doNames(chn);
+        }
     }
 }
-

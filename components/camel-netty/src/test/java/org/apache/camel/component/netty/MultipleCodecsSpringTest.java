@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,9 @@
  */
 package org.apache.camel.component.netty;
 
-import java.util.concurrent.TimeUnit;
-
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -37,7 +35,6 @@ public class MultipleCodecsSpringTest extends CamelSpringTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:multiple-codec");
         mock.expectedBodiesReceived(poem);
         sendBody("direct:multiple-codec", poem);
-        mock.await(1, TimeUnit.SECONDS);
         mock.assertIsSatisfied();
     }
 }

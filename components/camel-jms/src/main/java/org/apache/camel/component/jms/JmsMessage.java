@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,6 +18,7 @@ package org.apache.camel.component.jms;
 
 import java.io.File;
 import java.util.Map;
+
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -25,17 +26,16 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.Topic;
 
+import org.apache.camel.Exchange;
 import org.apache.camel.RuntimeExchangeException;
-import org.apache.camel.impl.DefaultMessage;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.support.DefaultMessage;
+import org.apache.camel.support.ExchangeHelper;
 import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Represents a {@link org.apache.camel.Message} for working with JMS
- *
- * @version 
  */
 public class JmsMessage extends DefaultMessage {
     private static final Logger LOG = LoggerFactory.getLogger(JmsMessage.class);
@@ -43,12 +43,8 @@ public class JmsMessage extends DefaultMessage {
     private Session jmsSession;
     private JmsBinding binding;
 
-    @Deprecated
-    public JmsMessage(Message jmsMessage, JmsBinding binding) {
-        this(jmsMessage, null, binding);
-    }
-
-    public JmsMessage(Message jmsMessage, Session jmsSession, JmsBinding binding) {
+    public JmsMessage(Exchange exchange, Message jmsMessage, Session jmsSession, JmsBinding binding) {
+        super(exchange);
         setJmsMessage(jmsMessage);
         setJmsSession(jmsSession);
         setBinding(binding);
@@ -91,18 +87,17 @@ public class JmsMessage extends DefaultMessage {
             setMessageId(that.getMessageId());
         }
 
+        // cover over exchange if none has been assigned
+        if (getExchange() == null) {
+            setExchange(that.getExchange());
+        }
+
         // copy body and fault flag
         setBody(that.getBody());
-        setFault(that.isFault());
 
         // we have already cleared the headers
         if (that.hasHeaders()) {
             getHeaders().putAll(that.getHeaders());
-        }
-
-        getAttachments().clear();
-        if (that.hasAttachments()) {
-            getAttachments().putAll(that.getAttachments());
         }
     }
 
@@ -138,8 +133,8 @@ public class JmsMessage extends DefaultMessage {
     /**
      * Returns the underlying JMS session.
      * <p/>
-     * This may be <tt>null</tt> if using {@link org.apache.camel.component.jms.JmsPollingConsumer},
-     * or the broker component from Apache ActiveMQ 5.11.x or older.
+     * This may be <tt>null</tt> if using {@link org.apache.camel.component.jms.JmsPollingConsumer}, or the broker
+     * component from Apache ActiveMQ 5.11.x or older.
      */
     public Session getJmsSession() {
         return jmsSession;
@@ -160,26 +155,10 @@ public class JmsMessage extends DefaultMessage {
         }
     }
 
+    @Override
     public Object getHeader(String name) {
-        Object answer = null;
-
-        // we will exclude using JMS-prefixed headers here to avoid strangeness with some JMS providers
-        // e.g. ActiveMQ returns the String not the Destination type for "JMSReplyTo"!
-        // only look in jms message directly if we have not populated headers
-        if (jmsMessage != null && !hasPopulatedHeaders() && !name.startsWith("JMS")) {
-            try {
-                // use binding to do the lookup as it has to consider using encoded keys
-                answer = getBinding().getObjectProperty(jmsMessage, name);
-            } catch (JMSException e) {
-                throw new RuntimeExchangeException("Unable to retrieve header from JMS Message: " + name, getExchange(), e);
-            }
-        }
-        // only look if we have populated headers otherwise there are no headers at all
-        // if we do lookup a header starting with JMS then force a lookup
-        if (answer == null && (hasPopulatedHeaders() || name.startsWith("JMS"))) {
-            answer = super.getHeader(name);
-        }
-        return answer;
+        ensureInitialHeaders();
+        return super.getHeader(name);
     }
 
     @Override
@@ -208,7 +187,9 @@ public class JmsMessage extends DefaultMessage {
 
     @Override
     public JmsMessage newInstance() {
-        return new JmsMessage(null, null, binding);
+        JmsMessage answer = new JmsMessage(null, null, null, binding);
+        answer.setCamelContext(getCamelContext());
+        return answer;
     }
 
     /**
@@ -219,8 +200,7 @@ public class JmsMessage extends DefaultMessage {
     }
 
     /**
-     * Ensure that the headers have been populated from the underlying JMS message
-     * before we start mutating the headers
+     * Ensure that the headers have been populated from the underlying JMS message before we start mutating the headers
      */
     protected void ensureInitialHeaders() {
         if (jmsMessage != null && !hasPopulatedHeaders()) {
@@ -252,7 +232,12 @@ public class JmsMessage extends DefaultMessage {
             return super.createMessageId();
         }
         try {
-            String id = getDestinationAsString(jmsMessage.getJMSDestination()) + jmsMessage.getJMSMessageID();
+            String id = getDestinationAsString(jmsMessage.getJMSDestination());
+            if (id != null) {
+                id += jmsMessage.getJMSMessageID();
+            } else {
+                id = jmsMessage.getJMSMessageID();
+            }
             return getSanitizedString(id);
         } catch (JMSException e) {
             throw new RuntimeExchangeException("Unable to retrieve JMSMessageID from JMS Message", getExchange(), e);
@@ -269,12 +254,12 @@ public class JmsMessage extends DefaultMessage {
     }
 
     private String getDestinationAsString(Destination destination) throws JMSException {
-        String result;
+        String result = null;
         if (destination == null) {
             result = "null destination!" + File.separator;
         } else if (destination instanceof Topic) {
             result = "topic" + File.separator + ((Topic) destination).getTopicName() + File.separator;
-        } else {
+        } else if (destination instanceof Queue) {
             result = "queue" + File.separator + ((Queue) destination).getQueueName() + File.separator;
         }
         return result;

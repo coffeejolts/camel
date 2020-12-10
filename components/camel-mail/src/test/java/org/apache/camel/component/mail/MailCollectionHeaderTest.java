@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,20 +20,21 @@ import java.util.List;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
-/**
- * @version 
- */
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class MailCollectionHeaderTest extends CamelTestSupport {
 
     @Test
     public void testMailHeaderWithCollection() throws Exception {
         Mailbox.clearAll();
 
-        String[] foo = new String[] {"Carlsberg", "Heineken"};
+        String[] foo = new String[] { "Carlsberg", "Heineken" };
         template.sendBodyAndHeader("direct:a", "Hello World", "beers", foo);
 
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -50,12 +51,13 @@ public class MailCollectionHeaderTest extends CamelTestSupport {
         assertEquals("Heineken", list.get(1));
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 from("direct:a").to("smtp://localhost?username=james@localhost");
 
-                from("pop3://localhost?username=james&password=secret&consumer.delay=1000").to("mock:result");
+                from("pop3://localhost?username=james&password=secret&initialDelay=100&delay=100").to("mock:result");
             }
         };
     }

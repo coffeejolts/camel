@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,56 +19,67 @@ package org.apache.camel.component.hazelcast.replicatedmap;
 import java.util.Map;
 
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.MultiMap;
-import com.hazelcast.core.ReplicatedMap;
-
+import com.hazelcast.replicatedmap.ReplicatedMap;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.hazelcast.HazelcastComponentHelper;
 import org.apache.camel.component.hazelcast.HazelcastConstants;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
 import org.apache.camel.component.hazelcast.HazelcastDefaultProducer;
+import org.apache.camel.component.hazelcast.HazelcastOperation;
 
 public class HazelcastReplicatedmapProducer extends HazelcastDefaultProducer {
 
     private final ReplicatedMap<Object, Object> cache;
 
-    public HazelcastReplicatedmapProducer(HazelcastInstance hazelcastInstance, HazelcastDefaultEndpoint endpoint, String cacheName) {
+    public HazelcastReplicatedmapProducer(HazelcastInstance hazelcastInstance, HazelcastDefaultEndpoint endpoint,
+                                          String cacheName) {
         super(endpoint);
         this.cache = hazelcastInstance.getReplicatedMap(cacheName);
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
 
         Map<String, Object> headers = exchange.getIn().getHeaders();
 
-        // get header parameters
+        // GET header parameters
         Object oid = null;
 
         if (headers.containsKey(HazelcastConstants.OBJECT_ID)) {
             oid = headers.get(HazelcastConstants.OBJECT_ID);
         }
 
-        final int operation = lookupOperationNumber(exchange);
+        final HazelcastOperation operation = lookupOperation(exchange);
 
         switch (operation) {
-        case HazelcastConstants.PUT_OPERATION:
-            this.put(oid, exchange);
-            break;
+            case PUT:
+                this.put(oid, exchange);
+                break;
 
-        case HazelcastConstants.GET_OPERATION:
-            this.get(oid, exchange);
-            break;
+            case GET:
+                this.get(oid, exchange);
+                break;
 
-        case HazelcastConstants.DELETE_OPERATION:
-            this.delete(oid);
-            break;
+            case DELETE:
+                this.delete(oid);
+                break;
 
-        case HazelcastConstants.CLEAR_OPERATION:
-            this.clear(exchange);
-            break;
-            
-        default:
-            throw new IllegalArgumentException(String.format("The value '%s' is not allowed for parameter '%s' on the MULTIMAP cache.", operation, HazelcastConstants.OPERATION));
+            case CLEAR:
+                this.clear(exchange);
+                break;
+
+            case CONTAINS_KEY:
+                this.containsKey(oid, exchange);
+                break;
+
+            case CONTAINS_VALUE:
+                this.containsValue(exchange);
+                break;
+
+            default:
+                throw new IllegalArgumentException(
+                        String.format("The value '%s' is not allowed for parameter '%s' on the MULTIMAP cache.", operation,
+                                HazelcastConstants.OPERATION));
         }
 
         // finally copy headers
@@ -81,7 +92,7 @@ public class HazelcastReplicatedmapProducer extends HazelcastDefaultProducer {
     }
 
     private void get(Object oid, Exchange exchange) {
-        exchange.getOut().setBody(this.cache.get(oid));
+        exchange.getMessage().setBody(this.cache.get(oid));
     }
 
     private void delete(Object oid) {
@@ -90,5 +101,14 @@ public class HazelcastReplicatedmapProducer extends HazelcastDefaultProducer {
 
     private void clear(Exchange exchange) {
         this.cache.clear();
+    }
+
+    private void containsKey(Object oid, Exchange exchange) {
+        exchange.getMessage().setBody(this.cache.containsKey(oid));
+    }
+
+    private void containsValue(Exchange exchange) {
+        Object body = exchange.getIn().getBody();
+        exchange.getMessage().setBody(this.cache.containsValue(body));
     }
 }

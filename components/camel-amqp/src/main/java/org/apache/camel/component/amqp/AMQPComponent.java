@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,24 +16,30 @@
  */
 package org.apache.camel.component.amqp;
 
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
+import java.util.Map;
+import java.util.Set;
+
 import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.Component;
+import org.apache.camel.Endpoint;
 import org.apache.camel.component.jms.JmsComponent;
 import org.apache.camel.component.jms.JmsConfiguration;
-import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
-import org.apache.qpid.client.AMQConnectionFactory;
+import org.apache.camel.component.jms.JmsEndpoint;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.component.PropertyConfigurerSupport;
+import org.apache.qpid.jms.JmsConnectionFactory;
 
 /**
- * This component supports the AMQP protocol using the Client API of the Apache Qpid project.
+ * Messaging with AMQP protocol using Apache QPid Client.
  */
+@Component("amqp")
 public class AMQPComponent extends JmsComponent {
 
+    // Constructors
+
     public AMQPComponent() {
-        super(AMQPEndpoint.class);
     }
 
     public AMQPComponent(JmsConfiguration configuration) {
@@ -41,26 +47,92 @@ public class AMQPComponent extends JmsComponent {
     }
 
     public AMQPComponent(CamelContext context) {
-        super(context, AMQPEndpoint.class);
+        super(context);
     }
 
     public AMQPComponent(ConnectionFactory connectionFactory) {
-        setConnectionFactory(connectionFactory);
+        this();
+        getConfiguration().setConnectionFactory(connectionFactory);
     }
 
-    public static Component amqpComponent(String uri, boolean old) throws MalformedURLException, URISyntaxException {
-        if (old) {
-            return amqpComponentOld(uri);
+    // Factory methods
+
+    public static AMQPComponent amqpComponent(String uri) {
+        JmsConnectionFactory connectionFactory = new JmsConnectionFactory(uri);
+        connectionFactory.setTopicPrefix("topic://");
+        return new AMQPComponent(connectionFactory);
+    }
+
+    public static AMQPComponent amqpComponent(String uri, String username, String password) {
+        JmsConnectionFactory connectionFactory = new JmsConnectionFactory(username, password, uri);
+        connectionFactory.setTopicPrefix("topic://");
+        return new AMQPComponent(connectionFactory);
+    }
+
+    // Life-cycle
+
+    @Override
+    protected void doInit() throws Exception {
+        Set<AMQPConnectionDetails> connectionDetails = getCamelContext().getRegistry().findByType(AMQPConnectionDetails.class);
+        if (connectionDetails.size() == 1) {
+            AMQPConnectionDetails details = connectionDetails.iterator().next();
+            JmsConnectionFactory connectionFactory
+                    = new JmsConnectionFactory(details.username(), details.password(), details.uri());
+            if (details.setTopicPrefix()) {
+                connectionFactory.setTopicPrefix("topic://");
+            }
+            getConfiguration().setConnectionFactory(connectionFactory);
         }
-        return new AMQPComponent(ConnectionFactoryImpl.createFromURL(uri));
+        super.doInit();
     }
 
-    public static Component amqpComponentOld(String uri) throws URISyntaxException {
-        return new AMQPComponent(new AMQConnectionFactory(uri));
+    @Override
+    protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
+        JmsEndpoint endpoint = (JmsEndpoint) super.createEndpoint(uri, remaining, parameters);
+        endpoint.setBinding(new AMQPJmsBinding(endpoint));
+        return endpoint;
     }
 
-    public static Component amqpComponent(String uri) throws MalformedURLException {
-        return new AMQPComponent(ConnectionFactoryImpl.createFromURL(uri));
+    /**
+     * Factory method to create the default configuration instance
+     *
+     * @return a newly created configuration object which can then be further customized
+     */
+    @Override
+    protected JmsConfiguration createConfiguration() {
+        return new AMQPConfiguration();
+    }
+
+    // Properties
+
+    /**
+     * Whether to include AMQP annotations when mapping from AMQP to Camel Message. Setting this to true maps AMQP
+     * message annotations that contain a JMS_AMQP_MA_ prefix to message headers. Due to limitations in Apache Qpid JMS
+     * API, currently delivery annotations are ignored.
+     */
+    @Metadata(displayName = "Include AMQP Annotations")
+    public void setIncludeAmqpAnnotations(boolean includeAmqpAnnotations) {
+        if (getConfiguration() instanceof AMQPConfiguration) {
+            ((AMQPConfiguration) getConfiguration()).setIncludeAmqpAnnotations(includeAmqpAnnotations);
+        }
+    }
+
+    public boolean isIncludeAmqpAnnotations() {
+        if (getConfiguration() instanceof AMQPConfiguration) {
+            return ((AMQPConfiguration) getConfiguration()).isIncludeAmqpAnnotations();
+        }
+        return false;
+    }
+
+    @Override
+    protected void setProperties(Endpoint bean, Map<String, Object> parameters) throws Exception {
+        Object includeAmqpAnnotations = parameters.remove("includeAmqpAnnotations");
+        if (includeAmqpAnnotations != null) {
+            ((AMQPConfiguration) ((JmsEndpoint) bean).getConfiguration())
+                    .setIncludeAmqpAnnotations(
+                            PropertyConfigurerSupport.property(getCamelContext(), boolean.class, includeAmqpAnnotations));
+        }
+        super.setProperties(bean, parameters);
     }
 
 }

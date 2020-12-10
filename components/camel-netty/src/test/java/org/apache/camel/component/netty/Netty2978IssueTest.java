@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -32,13 +32,13 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
-@Ignore("This test can cause CI servers to hang")
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@Disabled("This test can cause CI servers to hang")
 public class Netty2978IssueTest extends BaseNettyTest {
 
     @Test
@@ -58,7 +58,7 @@ public class Netty2978IssueTest extends BaseNettyTest {
     public void testNetty2978Concurrent() throws Exception {
         final CamelClient client = new CamelClient(context);
         try {
-            final List<Callable<String>> callables = new ArrayList<Callable<String>>();
+            final List<Callable<String>> callables = new ArrayList<>();
             for (int count = 0; count < 1000; count++) {
                 final int i = count;
                 callables.add(new Callable<String>() {
@@ -70,7 +70,7 @@ public class Netty2978IssueTest extends BaseNettyTest {
 
             final ExecutorService executorService = Executors.newFixedThreadPool(10);
             final List<Future<String>> results = executorService.invokeAll(callables);
-            final Set<String> replies = new HashSet<String>();
+            final Set<String> replies = new HashSet<>();
             for (Future<String> future : results) {
                 // wait at most 60 sec to not hang test
                 String reply = future.get(60, TimeUnit.SECONDS);
@@ -106,7 +106,7 @@ public class Netty2978IssueTest extends BaseNettyTest {
         private final Endpoint endpoint;
         private final ProducerTemplate producerTemplate;
 
-        public CamelClient(CamelContext camelContext) {
+        CamelClient(CamelContext camelContext) {
             this.endpoint = camelContext.getEndpoint("netty:tcp://localhost:{{port}}?sync=true");
             this.producerTemplate = camelContext.createProducerTemplate();
         }

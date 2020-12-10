@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,26 +22,21 @@ import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.file.GenericFile;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class FtpSimpleConsumeStreamingWithMultipleFilesTest extends FtpServerTestSupport {
 
     @Test
     public void testFtpSimpleConsumeAbsolute() throws Exception {
-        if (!canTest()) {
-            return;
-        }
-
         String expected = "Hello World";
         String expected2 = "Goodbye World";
 
         // create file using regular file
 
         // FTP Server does not support absolute path, so lets simulate it
-        String path = FTP_ROOT_DIR + "/tmp/mytemp";
+        String path = service.getFtpRootDir() + "/tmp/mytemp";
         template.sendBodyAndHeader("file:" + path, expected, Exchange.FILE_NAME, "hello.txt");
         template.sendBodyAndHeader("file:" + path, expected2, Exchange.FILE_NAME, "goodbye.txt");
 
@@ -49,7 +44,7 @@ public class FtpSimpleConsumeStreamingWithMultipleFilesTest extends FtpServerTes
         mock.expectedMessageCount(2);
         mock.expectedBodiesReceivedInAnyOrder(expected, expected2);
 
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         assertMockEndpointsSatisfied();
 
@@ -64,11 +59,10 @@ public class FtpSimpleConsumeStreamingWithMultipleFilesTest extends FtpServerTes
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                // notice we use an absolute starting path: /tmp/mytemp
-                // - we must remember to use // slash because of the url separator
-                from("ftp://localhost:" + getPort() + "//tmp/mytemp?username=admin&password=admin&delay=10s&disconnect=true&streamDownload=true")
-                    .routeId("foo").noAutoStartup()
-                    .to("mock:result");
+                from("ftp://localhost:{{ftp.server.port}}"
+                     + "/tmp/mytemp?username=admin&password=admin&delay=10000&disconnect=true&streamDownload=true&stepwise=false")
+                             .routeId("foo").noAutoStartup()
+                             .to("mock:result");
             }
         };
     }

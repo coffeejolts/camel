@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,39 +16,32 @@
  */
 package org.apache.camel.processor.idempotent.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.cassandra.CassandraUnitUtils;
+import org.apache.camel.component.cassandra.BaseCassandraTest;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unite test for {@link CassandraIdempotentRepository}
  */
-public class CassandraIdempotentTest extends CamelTestSupport {
-    private Cluster cluster;
+public class CassandraIdempotentTest extends BaseCassandraTest {
+
     private CassandraIdempotentRepository idempotentRepository;
 
     @Override
     protected void doPreSetup() throws Exception {
-        CassandraUnitUtils.startEmbeddedCassandra();
-        cluster = CassandraUnitUtils.cassandraCluster();
-        Session rootSession = cluster.connect();
-        CassandraUnitUtils.loadCQLDataSet(rootSession, "NamedIdempotentDataSet.cql");
-        rootSession.close();
-        idempotentRepository = new NamedCassandraIdempotentRepository(cluster, CassandraUnitUtils.KEYSPACE, "ID");
+        idempotentRepository = new NamedCassandraIdempotentRepository(getSession(), "ID");
         idempotentRepository.setTable("NAMED_CAMEL_IDEMPOTENT");
         idempotentRepository.start();
         super.doPreSetup();
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
         idempotentRepository.stop();
-        CassandraUnitUtils.cleanEmbeddedCassandra();
     }
 
     @Override
@@ -56,9 +49,7 @@ public class CassandraIdempotentTest extends CamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("direct:input")
-                        .idempotentConsumer(header("idempotentId"), idempotentRepository)
-                        .to("mock:output");
+                from("direct:input").idempotentConsumer(header("idempotentId"), idempotentRepository).to("mock:output");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,19 +20,21 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
-import org.apache.camel.util.ServiceHelper;
+import org.apache.camel.support.service.ServiceHelper;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class DualCamelContextEndpointOutsideTest extends SpringTestSupport {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/config/DualCamelContextEndpointOutsideTest.xml");
     }
 
+    @Test
     public void testDualCamelContextEndpoint() throws Exception {
         CamelContext camelA = applicationContext.getBean("camel-A", CamelContext.class);
         assertNotNull(camelA);
@@ -53,7 +55,7 @@ public class DualCamelContextEndpointOutsideTest extends SpringTestSupport {
         producer2.sendBody("direct:start2", "Hello B");
 
         // make sure we properly stop the services we created
-        ServiceHelper.stopServices(producer1, producer2);
+        ServiceHelper.stopService(producer1, producer2);
 
         mockA.assertIsSatisfied();
         mockB.assertIsSatisfied();

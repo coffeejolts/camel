@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,19 +24,18 @@ import org.apache.camel.spring.SpringRouteBuilder;
  */
 public class TransactionalClientDataSourceWithNoErrorHandlerConfigureTest extends TransactionalClientDataSourceTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
                 // START SNIPPET: e1
                 // set the required policy for this route to indicate its transactional
-                from("direct:okay").policy("PROPAGATION_REQUIRED").
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Elephant in Action")).bean("bookService");
+                from("direct:okay").policy("PROPAGATION_REQUIRED").setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 // set the required policy for this route to indicate its transactional
-                from("direct:fail").policy("PROPAGATION_REQUIRED").
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Donkey in Action")).bean("bookService");
+                from("direct:fail").policy("PROPAGATION_REQUIRED").setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
                 // END SNIPPET: e1
             }
         };

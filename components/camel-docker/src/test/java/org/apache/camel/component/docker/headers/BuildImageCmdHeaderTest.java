@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,20 @@
  */
 package org.apache.camel.component.docker.headers;
 
-
 import java.io.File;
 import java.io.InputStream;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.BuildImageCmd;
-
+import com.github.dockerjava.core.command.BuildImageResultCallback;
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Build Image Request headers are parsed properly
@@ -43,6 +43,9 @@ public class BuildImageCmdHeaderTest extends BaseDockerHeaderTest<BuildImageCmd>
     private InputStream inputStream;
 
     @Mock
+    private BuildImageResultCallback callback;
+
+    @Mock
     private File file;
 
     private String repository = "docker/empty";
@@ -51,13 +54,15 @@ public class BuildImageCmdHeaderTest extends BaseDockerHeaderTest<BuildImageCmd>
     private boolean remove = true;
     private String tag = "1.0";
 
-    @Ignore
     @Test
-    public void buildImageFromInputStreamHeaderTest() {
+    void buildImageFromInputStreamHeaderTest() {
+        Mockito.when(dockerClient.buildImageCmd(any(InputStream.class))).thenReturn(mockObject);
+        Mockito.when(mockObject.exec(any())).thenReturn(callback);
+        Mockito.when(callback.awaitImageId()).thenReturn(anyString());
 
         template.sendBodyAndHeaders("direct:in", inputStream, getHeaders());
 
-        Mockito.verify(dockerClient, Mockito.times(1)).buildImageCmd(Matchers.any(InputStream.class));
+        Mockito.verify(dockerClient, Mockito.times(1)).buildImageCmd(any(InputStream.class));
         Mockito.verify(mockObject, Mockito.times(1)).withQuiet(quiet);
         Mockito.verify(mockObject, Mockito.times(1)).withNoCache(noCache);
         Mockito.verify(mockObject, Mockito.times(1)).withRemove(remove);
@@ -65,13 +70,15 @@ public class BuildImageCmdHeaderTest extends BaseDockerHeaderTest<BuildImageCmd>
 
     }
 
-    @Ignore
     @Test
-    public void buildImageFromFileHeaderTest() {
+    void buildImageFromFileHeaderTest() {
+        Mockito.when(dockerClient.buildImageCmd(any(File.class))).thenReturn(mockObject);
+        Mockito.when(mockObject.exec(any())).thenReturn(callback);
+        Mockito.when(callback.awaitImageId()).thenReturn(anyString());
 
         template.sendBodyAndHeaders("direct:in", file, getHeaders());
 
-        Mockito.verify(dockerClient, Mockito.times(1)).buildImageCmd(Matchers.any(File.class));
+        Mockito.verify(dockerClient, Mockito.times(1)).buildImageCmd(any(File.class));
         Mockito.verify(mockObject, Mockito.times(1)).withQuiet(quiet);
         Mockito.verify(mockObject, Mockito.times(1)).withNoCache(noCache);
         Mockito.verify(mockObject, Mockito.times(1)).withRemove(remove);
@@ -81,9 +88,6 @@ public class BuildImageCmdHeaderTest extends BaseDockerHeaderTest<BuildImageCmd>
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.buildImageCmd(Matchers.any(InputStream.class))).thenReturn(mockObject);
-        Mockito.when(dockerClient.buildImageCmd(Matchers.any(File.class))).thenReturn(mockObject);
-
     }
 
     @Override

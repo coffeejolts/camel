@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,29 +16,25 @@
  */
 package org.apache.camel.dataformat.bindy.csv;
 
-import java.util.List;
-import java.util.Map;
-
 import org.apache.camel.EndpointInject;
 import org.apache.camel.Exchange;
-import org.apache.camel.LoggingLevel;
 import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.processor.interceptor.Tracer;
-import org.apache.camel.test.junit4.TestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTest;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 
-import static org.junit.Assert.assertEquals;
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ContextConfiguration
-public class BindySimpleCsvUnmarshallBadIntegerTest extends AbstractJUnit4SpringContextTests {
+@CamelSpringTest
+public class BindySimpleCsvUnmarshallBadIntegerTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(BindySimpleCsvUnmarshallBadIntegerTest.class);
 
@@ -46,18 +42,17 @@ public class BindySimpleCsvUnmarshallBadIntegerTest extends AbstractJUnit4Spring
     private static final String URI_MOCK_ERROR = "mock:error";
     private static final String URI_DIRECT_START = "direct:start";
 
-    @Produce(uri = URI_DIRECT_START)
+    @Produce(URI_DIRECT_START)
     protected ProducerTemplate template;
 
     private String record;
 
-    @EndpointInject(uri = URI_MOCK_RESULT)
+    @EndpointInject(URI_MOCK_RESULT)
     private MockEndpoint result;
 
-    @EndpointInject(uri = URI_MOCK_ERROR)
+    @EndpointInject(URI_MOCK_ERROR)
     private MockEndpoint error;
 
-    @SuppressWarnings("unchecked")
     @Test
     @DirtiesContext
     public void testIntegerMessage() throws Exception {
@@ -69,11 +64,9 @@ public class BindySimpleCsvUnmarshallBadIntegerTest extends AbstractJUnit4Spring
         result.expectedMessageCount(1);
         result.assertIsSatisfied();
 
-        List<Map<String, org.apache.camel.dataformat.bindy.model.simple.oneclassmath.Math>> model = (List<Map<String, org.apache.camel.dataformat.bindy.model.simple.oneclassmath.Math>>)result
-            .getExchanges().get(0).getIn().getBody();
+        Object data = result.getReceivedExchanges().get(0).getIn().getBody();
 
-        LOG.info(">>> Model generated : " + model.get(0).get("org.apache.camel.dataformat.bindy.model.simple.oneclassmath.Math").toString());
-
+        LOG.info(">>> Model generated : " + data.getClass().getName());
     }
 
     @Test
@@ -94,24 +87,18 @@ public class BindySimpleCsvUnmarshallBadIntegerTest extends AbstractJUnit4Spring
 
         // and check that we have the caused exception stored
         Exception cause = error.getReceivedExchanges().get(0).getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
-        TestSupport.assertIsInstanceOf(Exception.class, cause.getCause());
+        assertIsInstanceOf(Exception.class, cause.getCause());
         assertEquals("Parsing error detected for field defined at the position: 1, line: 1", cause.getMessage());
 
     }
 
     public static class ContextConfig extends RouteBuilder {
 
-        BindyCsvDataFormat orderBindyDataFormat = new BindyCsvDataFormat("org.apache.camel.dataformat.bindy.model.simple.oneclassmath");
+        BindyCsvDataFormat orderBindyDataFormat
+                = new BindyCsvDataFormat(org.apache.camel.dataformat.bindy.model.simple.oneclassmath.Math.class);
 
+        @Override
         public void configure() {
-
-            Tracer tracer = new Tracer();
-            tracer.setLogLevel(LoggingLevel.ERROR);
-            tracer.setLogName("org.apache.camel.bindy");
-            tracer.setLogStackTrace(true);
-            tracer.setTraceExceptions(true);
-
-            getContext().addInterceptStrategy(tracer);
 
             // default should errors go to mock:error
             errorHandler(deadLetterChannel(URI_MOCK_ERROR));

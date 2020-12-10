@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,14 +21,14 @@ import java.util.List;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 
 public abstract class CamelTwitterConsumerTestSupport extends CamelTwitterTestSupport {
     protected abstract String getUri();
-    
+
     protected abstract Logger getLogger();
-    
+
     @Test
     public void testDailyTrend() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -38,9 +38,10 @@ public abstract class CamelTwitterConsumerTestSupport extends CamelTwitterTestSu
         for (Exchange e : tweets) {
             getLogger().info("Tweet: " + e.getIn().getBody(String.class));
         }
-        
+
     }
-    
+
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {

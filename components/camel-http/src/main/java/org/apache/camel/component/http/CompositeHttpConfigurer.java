@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,35 +17,36 @@
 package org.apache.camel.component.http;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-import org.apache.commons.httpclient.HttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 
 public class CompositeHttpConfigurer implements HttpClientConfigurer {
-    
-    private final List<HttpClientConfigurer> configurers = new ArrayList<HttpClientConfigurer>();
-    
+
+    private final List<HttpClientConfigurer> configurers = new ArrayList<>();
+
     public void addConfigurer(HttpClientConfigurer configurer) {
         if (configurer != null) {
             configurers.add(configurer);
         }
     }
-    
+
     public void removeConfigurer(HttpClientConfigurer configurer) {
         configurers.remove(configurer);
     }
 
-    public void configureHttpClient(HttpClient client) {
+    @Override
+    public void configureHttpClient(HttpClientBuilder clientBuilder) {
         for (HttpClientConfigurer configurer : configurers) {
-            configurer.configureHttpClient(client);
-        }        
+            configurer.configureHttpClient(clientBuilder);
+        }
     }
-    
-    public static CompositeHttpConfigurer combineConfigurers(HttpClientConfigurer oldConfigurer, HttpClientConfigurer newConfigurer) {
+
+    public static CompositeHttpConfigurer combineConfigurers(
+            HttpClientConfigurer oldConfigurer, HttpClientConfigurer newConfigurer) {
         if (oldConfigurer instanceof CompositeHttpConfigurer) {
-            ((CompositeHttpConfigurer)oldConfigurer).addConfigurer(newConfigurer);
-            return (CompositeHttpConfigurer)oldConfigurer;
+            ((CompositeHttpConfigurer) oldConfigurer).addConfigurer(newConfigurer);
+            return (CompositeHttpConfigurer) oldConfigurer;
         } else {
             CompositeHttpConfigurer answer = new CompositeHttpConfigurer();
             answer.addConfigurer(newConfigurer);
@@ -54,7 +55,4 @@ public class CompositeHttpConfigurer implements HttpClientConfigurer {
         }
     }
 
-    public List<HttpClientConfigurer> getConfigurers() {
-        return Collections.unmodifiableList(configurers);
-    }
 }

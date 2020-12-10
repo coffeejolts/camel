@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,15 +22,20 @@ import java.util.Map;
 import com.github.dockerjava.api.DockerClient;
 import org.apache.camel.Endpoint;
 import org.apache.camel.component.docker.exception.DockerException;
-import org.apache.camel.impl.DefaultComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Represents the component that manages {@link DockerEndpoint}.
  */
+@Component("docker")
 public class DockerComponent extends DefaultComponent {
 
+    private Map<DockerClientProfile, DockerClient> clients = new HashMap<>();
+
+    @Metadata
     private DockerConfiguration configuration = new DockerConfiguration();
-    private Map<DockerClientProfile, DockerClient> clients = new HashMap<DockerClientProfile, DockerClient>();
 
     public DockerComponent() {
     }
@@ -46,7 +51,7 @@ public class DockerComponent extends DefaultComponent {
         // a copy of the configuration
         DockerConfiguration configuration = getConfiguration().copy();
 
-        String normalizedRemaining = remaining.replaceAll("/", "");
+        String normalizedRemaining = remaining.replace("/", "");
 
         DockerOperation operation = DockerOperation.getDockerOperation(normalizedRemaining);
 
@@ -56,11 +61,9 @@ public class DockerComponent extends DefaultComponent {
 
         configuration.setOperation(operation);
 
-        // Validate URI Parameters
-        DockerHelper.validateParameters(operation, parameters);
-
         Endpoint endpoint = new DockerEndpoint(uri, this, configuration);
-        setProperties(configuration, parameters);
+        setProperties(endpoint, parameters);
+        // and store any left-over parameters on configuration
         configuration.setParameters(parameters);
 
         return endpoint;
@@ -73,7 +76,7 @@ public class DockerComponent extends DefaultComponent {
     /**
      * To use the shared docker configuration
      */
-    protected DockerConfiguration getConfiguration() {
+    public DockerConfiguration getConfiguration() {
         return configuration;
     }
 
@@ -87,5 +90,4 @@ public class DockerComponent extends DefaultComponent {
     public void setClient(DockerClientProfile clientProfile, DockerClient client) {
         clients.put(clientProfile, client);
     }
-
 }

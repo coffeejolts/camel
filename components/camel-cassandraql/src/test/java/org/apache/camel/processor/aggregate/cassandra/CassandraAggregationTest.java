@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,42 +16,34 @@
  */
 package org.apache.camel.processor.aggregate.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
+import org.apache.camel.AggregationStrategy;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.cassandra.CassandraUnitUtils;
+import org.apache.camel.component.cassandra.BaseCassandraTest;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.processor.aggregate.AggregationStrategy;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unite test for {@link CassandraAggregationRepository}
  */
-public class CassandraAggregationTest extends CamelTestSupport {
-    private Cluster cluster;
+public class CassandraAggregationTest extends BaseCassandraTest {
+
     private CassandraAggregationRepository aggregationRepository;
 
     @Override
     protected void doPreSetup() throws Exception {
-        CassandraUnitUtils.startEmbeddedCassandra();
-        cluster = CassandraUnitUtils.cassandraCluster();
-        Session rootSession = cluster.connect();
-        CassandraUnitUtils.loadCQLDataSet(rootSession, "NamedAggregationDataSet.cql");
-        rootSession.close();
-        aggregationRepository = new NamedCassandraAggregationRepository(cluster, CassandraUnitUtils.KEYSPACE, "ID");
+        aggregationRepository = new NamedCassandraAggregationRepository(getSession(), "ID");
         aggregationRepository.setTable("NAMED_CAMEL_AGGREGATION");
         aggregationRepository.start();
         super.doPreSetup();
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
         aggregationRepository.stop();
-        cluster.close();
-        CassandraUnitUtils.cleanEmbeddedCassandra();
     }
 
     @Override
@@ -71,10 +63,8 @@ public class CassandraAggregationTest extends CamelTestSupport {
                         return oldExchange;
                     }
                 };
-                from("direct:input")
-                        .aggregate(header("aggregationId"), aggregationStrategy)
-                        .completionSize(3).completionTimeout(3000L)
-                        .aggregationRepository(aggregationRepository)
+                from("direct:input").aggregate(header("aggregationId"), aggregationStrategy).completionSize(3)
+                        .completionTimeout(3000L).aggregationRepository(aggregationRepository)
                         .to("mock:output");
             }
         };
@@ -98,6 +88,5 @@ public class CassandraAggregationTest extends CamelTestSupport {
         send("1", "E");
         // Then
         mockOutput.assertIsSatisfied(4000L);
-
     }
 }

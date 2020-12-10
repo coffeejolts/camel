@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,8 +17,11 @@
 package org.apache.camel.language.spel;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SpringSimpleMultiLineExpressionTest extends SpringTestSupport {
 
@@ -27,6 +30,7 @@ public class SpringSimpleMultiLineExpressionTest extends SpringTestSupport {
         return new ClassPathXmlApplicationContext("org/apache/camel/language/SpringSimpleMultiLineExpressionTest.xml");
     }
 
+    @Test
     public void testSimpleMultiLineExpression() {
         String result = template.requestBodyAndHeader("direct:start", "Camel", "h", "some text", String.class);
         assertEquals("correct", result);

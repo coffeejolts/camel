@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,10 +31,10 @@ import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.component.facebook.config.FacebookEndpointConfiguration;
 import org.apache.camel.component.facebook.data.FacebookMethodsType;
 import org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper;
-import org.apache.camel.impl.DefaultAsyncProducer;
+import org.apache.camel.component.facebook.data.FacebookPropertiesHelper;
 import org.apache.camel.spi.ExecutorServiceManager;
 import org.apache.camel.spi.ThreadPoolProfile;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.support.DefaultAsyncProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,9 +63,11 @@ public class FacebookProducer extends DefaultAsyncProducer {
     @Override
     public boolean process(final Exchange exchange, final AsyncCallback callback) {
         // properties for method arguments
-        final Map<String, Object> properties = new HashMap<String, Object>();
-        getEndpointProperties(endpoint.getConfiguration(), properties);
+        final Map<String, Object> properties = new HashMap<>();
+
         getExchangeProperties(exchange, properties);
+        FacebookPropertiesHelper.configureReadingProperties(endpoint.getConfiguration(), properties);
+        getEndpointProperties(endpoint.getCamelContext(), endpoint.getConfiguration(), properties);
 
         // decide which method to invoke
         final FacebookMethodsType method = findMethod(exchange, properties);
@@ -89,30 +91,30 @@ public class FacebookProducer extends DefaultAsyncProducer {
                     Object result;
                     String rawJSON = null;
                     if (endpoint.getConfiguration().getJsonStoreEnabled() == null
-                        || !endpoint.getConfiguration().getJsonStoreEnabled()) {
+                            || !endpoint.getConfiguration().getJsonStoreEnabled()) {
                         result = FacebookMethodsTypeHelper.invokeMethod(
-                            endpoint.getConfiguration().getFacebook(), method, properties);
+                                endpoint.getConfiguration().getFacebook(), method, properties);
                     } else {
                         final Facebook facebook = endpoint.getConfiguration().getFacebook();
                         // lock out the underlying Facebook object from other threads
                         synchronized (facebook) {
                             result = FacebookMethodsTypeHelper.invokeMethod(
-                                facebook, method, properties);
+                                    facebook, method, properties);
                             rawJSON = DataObjectFactory.getRawJSON(result);
                         }
                     }
 
                     // producer returns a single response, even for methods with List return types
-                    exchange.getOut().setBody(result);
+                    exchange.getMessage().setBody(result);
                     // copy headers
-                    exchange.getOut().setHeaders(exchange.getIn().getHeaders());
+                    exchange.getMessage().setHeaders(exchange.getIn().getHeaders());
                     if (rawJSON != null) {
-                        exchange.getOut().setHeader(FacebookConstants.FACEBOOK_PROPERTY_PREFIX + "rawJSON",
-                            rawJSON);
+                        exchange.getMessage().setHeader(FacebookConstants.FACEBOOK_PROPERTY_PREFIX + "rawJSON",
+                                rawJSON);
                     }
 
                 } catch (Throwable t) {
-                    exchange.setException(ObjectHelper.wrapRuntimeCamelException(t));
+                    exchange.setException(RuntimeCamelException.wrapRuntimeCamelException(t));
                 } finally {
                     callback.done(false);
                 }
@@ -120,6 +122,15 @@ public class FacebookProducer extends DefaultAsyncProducer {
         };
 
         getExecutorService(getEndpoint().getCamelContext()).submit(invocation);
+        return false;
+    }
+
+    private boolean hasReadingParameters(Map<String, Object> properties) {
+        for (String parameterName : properties.keySet()) {
+            if (parameterName.startsWith(FacebookConstants.READING_PREFIX)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -132,14 +143,15 @@ public class FacebookProducer extends DefaultAsyncProducer {
             // filter candidates based on endpoint and exchange properties
             final Set<String> argNames = properties.keySet();
             final List<FacebookMethodsType> filteredMethods = filterMethods(candidates, MatchType.SUPER_SET,
-                argNames.toArray(new String[argNames.size()]));
+                    argNames.toArray(new String[argNames.size()]));
 
             // get the method to call
             if (filteredMethods.isEmpty()) {
                 final Set<String> missing = getMissingProperties(endpoint.getMethod(),
-                    endpoint.getNameStyle(), argNames);
-                throw new RuntimeCamelException(String.format("Missing properties for %s, need one or more from %s",
-                        endpoint.getMethod(), missing));
+                        endpoint.getNameStyle(), argNames);
+                throw new RuntimeCamelException(
+                        String.format("Missing properties for %s, need one or more from %s",
+                                endpoint.getMethod(), missing));
             } else if (filteredMethods.size() == 1) {
                 // found an exact match
                 method = filteredMethods.get(0);
@@ -160,11 +172,13 @@ public class FacebookProducer extends DefaultAsyncProducer {
             Object value = exchange.getIn().getBody();
             try {
                 value = getEndpoint().getCamelContext().getTypeConverter().mandatoryConvertTo(
-                    FacebookEndpointConfiguration.class.getDeclaredField(inBodyProperty).getType(),
-                    exchange, value);
+                        FacebookEndpointConfiguration.class.getDeclaredField(inBodyProperty).getType(),
+                        exchange, value);
             } catch (Exception e) {
-                exchange.setException(new RuntimeCamelException(String.format(
-                    "Error converting value %s to property %s: %s", value, inBodyProperty, e.getMessage()), e));
+                exchange.setException(new RuntimeCamelException(
+                        String.format(
+                                "Error converting value %s to property %s: %s", value, inBodyProperty, e.getMessage()),
+                        e));
 
                 return false;
             }
@@ -186,14 +200,14 @@ public class FacebookProducer extends DefaultAsyncProducer {
 
             // try to lookup a pool first based on profile
             ThreadPoolProfile poolProfile = manager.getThreadPoolProfile(
-                FacebookConstants.FACEBOOK_THREAD_PROFILE_NAME);
+                    FacebookConstants.FACEBOOK_THREAD_PROFILE_NAME);
             if (poolProfile == null) {
                 poolProfile = manager.getDefaultThreadPoolProfile();
             }
 
             // create a new pool using the custom or default profile
             executorService = manager.newScheduledThreadPool(FacebookProducer.class,
-                FacebookConstants.FACEBOOK_THREAD_PROFILE_NAME, poolProfile);
+                    FacebookConstants.FACEBOOK_THREAD_PROFILE_NAME, poolProfile);
         }
 
         return executorService;

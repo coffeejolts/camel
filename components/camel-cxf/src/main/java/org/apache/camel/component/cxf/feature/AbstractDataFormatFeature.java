@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.cxf.feature;
 
 import java.util.ArrayList;
@@ -36,53 +35,20 @@ import org.slf4j.Logger;
  */
 public abstract class AbstractDataFormatFeature extends AbstractFeature {
     protected static final Collection<Class<?>> REMOVING_FAULT_IN_INTERCEPTORS;
-    
+
     static {
-        REMOVING_FAULT_IN_INTERCEPTORS = new ArrayList<Class<?>>();
+        REMOVING_FAULT_IN_INTERCEPTORS = new ArrayList<>();
         REMOVING_FAULT_IN_INTERCEPTORS.add(ClientFaultConverter.class);
     }
 
     // The interceptors which need to be keeped
-    protected Set<String> inInterceptorNames = new HashSet<String>();
-    protected Set<String> outInterceptorNames = new HashSet<String>();
+    protected Set<String> inInterceptorNames = new HashSet<>();
+    protected Set<String> outInterceptorNames = new HashSet<>();
+
     protected abstract Logger getLogger();
-    
 
-    @Deprecated
-    // It will be removed in Camel 3.0
-    protected void removeInterceptorWhichIsInThePhases(List<Interceptor<? extends Message>> interceptors, String[] phaseNames) {
-        removeInterceptorWhichIsInThePhases(interceptors, phaseNames, null);
-    }
-    
-    protected void removeInterceptorWhichIsInThePhases(List<Interceptor<? extends Message>> interceptors, String[] phaseNames, Set<String> needToBeKept) {
-        for (Interceptor<? extends Message> i : interceptors) {
-            if (i instanceof PhaseInterceptor) {
-                PhaseInterceptor<? extends Message> p = (PhaseInterceptor<? extends Message>) i;
-                for (String phaseName : phaseNames) {
-                    if (p.getPhase().equals(phaseName)) {
-                        // To support the old API
-                        if (needToBeKept == null) {
-                            getLogger().info("removing the interceptor " + p);
-                            interceptors.remove(p);
-                            break;
-                        } else if (!needToBeKept.contains(p.getClass().getName())) {
-                            getLogger().info("removing the interceptor " + p);
-                            interceptors.remove(p);
-                            break; 
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    @Deprecated
-    // It will be removed in Camel 3.0
-    protected void removeInterceptorWhichIsOutThePhases(List<Interceptor<? extends Message>> interceptors, String[] phaseNames) {
-        removeInterceptorWhichIsOutThePhases(interceptors, phaseNames, null);
-    }
-
-    protected void removeInterceptorWhichIsOutThePhases(List<Interceptor<? extends Message>> interceptors, String[] phaseNames, Set<String> needToBeKept) {
+    protected void removeInterceptorWhichIsOutThePhases(
+            List<Interceptor<? extends Message>> interceptors, String[] phaseNames, Set<String> needToBeKept) {
         for (Interceptor<? extends Message> i : interceptors) {
             boolean outside = false;
             if (i instanceof PhaseInterceptor) {
@@ -96,10 +62,10 @@ public abstract class AbstractDataFormatFeature extends AbstractFeature {
                 if (!outside) {
                     // To support the old API
                     if (needToBeKept == null) {
-                        getLogger().info("removing the interceptor " + p);
+                        getLogger().info("removing the interceptor {}", p);
                         interceptors.remove(p);
                     } else if (!needToBeKept.contains(p.getClass().getName())) {
-                        getLogger().info("removing the interceptor " + p);
+                        getLogger().info("removing the interceptor {}", p);
                         interceptors.remove(p);
                     }
                 }
@@ -107,48 +73,50 @@ public abstract class AbstractDataFormatFeature extends AbstractFeature {
         }
     }
 
-    protected void removeInterceptors(List<Interceptor<? extends Message>> interceptors, 
-                                      Collection<Class<?>> toBeRemovedInterceptors) {
+    protected void removeInterceptors(
+            List<Interceptor<? extends Message>> interceptors,
+            Collection<Class<?>> toBeRemovedInterceptors) {
         for (Interceptor<? extends Message> interceptor : interceptors) {
             if (toBeRemovedInterceptors.contains(interceptor.getClass())) {
-                getLogger().info("removing the interceptor " + interceptor);
+                getLogger().info("removing the interceptor {}", interceptor);
                 interceptors.remove(interceptor);
             }
         }
     }
-    
-    protected void removeInterceptor(List<Interceptor<? extends Message>> interceptors, 
-                                     Class<? extends Interceptor<? extends Message>> cls) {
+
+    protected void removeInterceptor(
+            List<Interceptor<? extends Message>> interceptors,
+            Class<? extends Interceptor<? extends Message>> cls) {
         for (Interceptor<? extends Message> interceptor : interceptors) {
             if (interceptor.getClass().equals(cls)) {
                 interceptors.remove(interceptor);
             }
-        }        
+        }
     }
-    
+
     protected void removeFaultInInterceptorFromClient(Client client) {
         removeInterceptors(client.getInFaultInterceptors(), REMOVING_FAULT_IN_INTERCEPTORS);
         removeInterceptors(client.getEndpoint().getService().getInFaultInterceptors(), REMOVING_FAULT_IN_INTERCEPTORS);
         removeInterceptors(client.getEndpoint().getInFaultInterceptors(), REMOVING_FAULT_IN_INTERCEPTORS);
         removeInterceptors(client.getEndpoint().getBinding().getInFaultInterceptors(), REMOVING_FAULT_IN_INTERCEPTORS);
     }
-    
+
     public void addInIntercepters(List<Interceptor<? extends Message>> interceptors) {
         for (Interceptor<? extends Message> interceptor : interceptors) {
             inInterceptorNames.add(interceptor.getClass().getName());
         }
     }
-    
+
     public void addOutInterceptors(List<Interceptor<? extends Message>> interceptors) {
         for (Interceptor<? extends Message> interceptor : interceptors) {
             outInterceptorNames.add(interceptor.getClass().getName());
         }
     }
-    
+
     public Set<String> getInInterceptorNames() {
         return inInterceptorNames;
     }
-    
+
     public Set<String> getOutInterceptorNames() {
         return outInterceptorNames;
     }

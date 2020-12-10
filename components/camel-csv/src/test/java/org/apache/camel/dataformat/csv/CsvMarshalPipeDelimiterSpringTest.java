@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,20 +23,23 @@ import java.util.Map;
 
 import org.apache.camel.EndpointInject;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.apache.camel.dataformat.csv.TestUtils.LS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Spring based integration test for the <code>CsvDataFormat</code>
  */
 public class CsvMarshalPipeDelimiterSpringTest extends CamelSpringTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     private MockEndpoint result;
 
     @Test
-    public void testCsvMarshal() throws Exception {
+    void testCsvMarshal() throws Exception {
         result.expectedMessageCount(1);
 
         template.sendBody("direct:start", createBody());
@@ -51,15 +54,15 @@ public class CsvMarshalPipeDelimiterSpringTest extends CamelSpringTestSupport {
     }
 
     private List<Map<String, Object>> createBody() {
-        List<Map<String, Object>> data = new ArrayList<Map<String, Object>>();
+        List<Map<String, Object>> data = new ArrayList<>();
 
-        Map<String, Object> row1 = new LinkedHashMap<String, Object>();
+        Map<String, Object> row1 = new LinkedHashMap<>();
         row1.put("orderId", 123);
         row1.put("item", "Camel in Action");
         row1.put("amount", 1);
         data.add(row1);
 
-        Map<String, Object> row2 = new LinkedHashMap<String, Object>();
+        Map<String, Object> row2 = new LinkedHashMap<>();
         row2.put("orderId", 124);
         row2.put("item", "ActiveMQ in Action");
         row2.put("amount", 2);
@@ -69,6 +72,7 @@ public class CsvMarshalPipeDelimiterSpringTest extends CamelSpringTestSupport {
 
     @Override
     protected ClassPathXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/dataformat/csv/CsvMarshalPipeDelimiterSpringTest-context.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/dataformat/csv/CsvMarshalPipeDelimiterSpringTest-context.xml");
     }
 }

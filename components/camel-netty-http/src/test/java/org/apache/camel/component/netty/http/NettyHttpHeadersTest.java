@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,9 @@ package org.apache.camel.component.netty.http;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NettyHttpHeadersTest extends BaseNettyTest {
 
@@ -26,7 +28,7 @@ public class NettyHttpHeadersTest extends BaseNettyTest {
     public void testHttpHeaders() throws Exception {
         getMockEndpoint("mock:input").expectedBodiesReceived("Hello World");
         getMockEndpoint("mock:input").expectedHeaderReceived("beer", "yes");
-        getMockEndpoint("mock:input").expectedHeaderReceived("host", "localhost");
+        getMockEndpoint("mock:input").expectedHeaderReceived("host", "localhost:" + getPort());
         getMockEndpoint("mock:input").expectedHeaderReceived(Exchange.HTTP_METHOD, "POST");
         getMockEndpoint("mock:input").expectedHeaderReceived(Exchange.HTTP_URL, "http://localhost:" + getPort() + "/foo");
         getMockEndpoint("mock:input").expectedHeaderReceived(Exchange.HTTP_URI, "/foo");
@@ -44,9 +46,9 @@ public class NettyHttpHeadersTest extends BaseNettyTest {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("netty-http:http://0.0.0.0:{{port}}/foo")
-                    .to("mock:input")
-                    .transform().constant("Bye World");
+                from("netty-http:http://localhost:{{port}}/foo")
+                        .to("mock:input")
+                        .transform().constant("Bye World");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,33 +20,31 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.camel.component.http.HttpClientConfigurer;
 import org.apache.camel.component.servlet.ServletComponent;
 import org.apache.camel.component.servlet.ServletEndpoint;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.params.HttpClientParams;
+import org.apache.camel.spi.annotations.Component;
 
-
+/**
+ * To exchange data with external Websocket clients using Atmosphere
+ */
+@Component("atmosphere-websocket")
 public class WebsocketComponent extends ServletComponent {
     private Map<String, WebSocketStore> stores;
-    
+
     public WebsocketComponent() {
         // override the default servlet name of ServletComponent
         super(WebsocketEndpoint.class);
         setServletName("CamelWsServlet");
-        
-        this.stores = new HashMap<String, WebSocketStore>();
+
+        this.stores = new HashMap<>();
     }
-    
+
     @Override
-    protected ServletEndpoint createServletEndpoint(String endpointUri, ServletComponent component,
-                                                    URI httpUri, HttpClientParams params,
-                                                    HttpConnectionManager httpConnectionManager,
-                                                    HttpClientConfigurer clientConfigurer) throws Exception {
-        
-        return new WebsocketEndpoint(endpointUri, (WebsocketComponent)component, httpUri, params, httpConnectionManager, clientConfigurer);
+    protected ServletEndpoint createServletEndpoint(String endpointUri, ServletComponent component, URI httpUri)
+            throws Exception {
+        return new WebsocketEndpoint(endpointUri, (WebsocketComponent) component, httpUri);
     }
-    
+
     WebSocketStore getWebSocketStore(String name) {
         WebSocketStore store;
         synchronized (stores) {

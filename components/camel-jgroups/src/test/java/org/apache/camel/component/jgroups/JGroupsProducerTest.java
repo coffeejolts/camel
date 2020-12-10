@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,18 @@ package org.apache.camel.component.jgroups;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.jgroups.ReceiverAdapter;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class JGroupsProducerTest extends CamelTestSupport {
-   
+
     static final String CLUSTER_NAME = "CLUSTER_NAME";
 
     static final String MESSAGE = "MESSAGE";
@@ -65,6 +69,7 @@ public class JGroupsProducerTest extends CamelTestSupport {
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         channel.close();
         super.tearDown();

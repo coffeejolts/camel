@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 
-/**
- * @version 
- */
 public class MyProcessor implements Processor {
-    private List<Exchange> exchanges = new CopyOnWriteArrayList<Exchange>();
+    private List<Exchange> exchanges = new CopyOnWriteArrayList<>();
     private String name = "James";
 
     public List<Exchange> getExchanges() {
@@ -41,6 +38,7 @@ public class MyProcessor implements Processor {
         this.name = name;
     }
 
+    @Override
     public void process(Exchange exchange) {
         exchange.getIn().setHeader("name", getName());
         exchanges.add(exchange);

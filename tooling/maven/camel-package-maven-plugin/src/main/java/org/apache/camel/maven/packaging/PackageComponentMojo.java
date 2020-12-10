@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,141 +17,117 @@
 package org.apache.camel.maven.packaging;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
+import java.util.Collections;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import org.apache.maven.model.Resource;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
 /**
- * Analyses the Camel plugins in a project and generates extra descriptor information for easier auto-discovery in Camel.
- *
- * @goal generate-components-list
+ * Analyses the Camel plugins in a project and generates extra descriptor information for easier auto-discovery in
+ * Camel.
  */
-public class PackageComponentMojo extends AbstractMojo {
-
-    /**
-     * The maven project.
-     *
-     * @parameter property="project"
-     * @required
-     * @readonly
-     */
-    protected MavenProject project;
+@Mojo(name = "generate-components-list", threadSafe = true)
+public class PackageComponentMojo extends AbstractGeneratorMojo {
 
     /**
      * The output directory for generated components file
-     *
-     * @parameter default-value="${project.build.directory}/generated/camel/components"
      */
+    @Parameter(defaultValue = "${project.basedir}/src/generated/resources")
     protected File componentOutDir;
 
     /**
-     * Maven ProjectHelper.
-     *
-     * @component
-     * @readonly
+     * The project build directory
      */
-    private MavenProjectHelper projectHelper;
+    @Parameter(defaultValue = "${project.build.directory}")
+    protected File buildDir;
 
-    /**
-     * build context to check changed files and mark them for refresh (used for
-     * m2e compatibility)
-     * 
-     * @component
-     * @readonly
-     */
-    private BuildContext buildContext;
+    public PackageComponentMojo() {
+    }
+
+    public PackageComponentMojo(Log log, MavenProject project, MavenProjectHelper projectHelper,
+                                File buildDir, File componentOutDir, BuildContext buildContext) {
+        setLog(log);
+        this.project = project;
+        this.projectHelper = projectHelper;
+        this.buildDir = buildDir;
+        this.componentOutDir = componentOutDir;
+        this.buildContext = buildContext;
+    }
 
     /**
      * Execute goal.
      *
-     * @throws MojoExecutionException execution of the main class or one of the
-     *                 threads it generated failed.
-     * @throws MojoFailureException something bad happened...
+     * @throws MojoExecutionException execution of the main class or one of the threads it generated failed.
+     * @throws MojoFailureException   something bad happened...
      */
+    @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        prepareComponent(getLog(), project, projectHelper, componentOutDir, buildContext);
+        prepareComponent();
     }
 
-    public static void prepareComponent(Log log, MavenProject project, MavenProjectHelper projectHelper, File componentOutDir, BuildContext buildContext) throws MojoExecutionException {
-        
-        if (!PackageHelper.haveResourcesChanged(log, project, buildContext, "META-INF/services/org/apache/camel/component")) {
-            return;
-        }
+    public int prepareComponent() throws MojoExecutionException {
+        Log log = getLog();
 
         File camelMetaDir = new File(componentOutDir, "META-INF/services/org/apache/camel/");
 
+        // first we need to setup the output directory because the next check
+        // can stop the build before the end and eclipse always needs to know
+        // about that directory
+        if (projectHelper != null) {
+            projectHelper.addResource(project, componentOutDir.getPath(), Collections.singletonList("**/component.properties"),
+                    Collections.emptyList());
+        }
+
+        if (!haveResourcesChanged(log, project, buildContext, "META-INF/services/org/apache/camel/component")) {
+            return 0;
+        }
+
         StringBuilder buffer = new StringBuilder();
         int count = 0;
-        for (Resource r : project.getBuild().getResources()) {
-            File f = new File(r.getDirectory());
-            if (!f.exists()) {
-                f = new File(project.getBasedir(), r.getDirectory());
-            }
-            f = new File(f, "META-INF/services/org/apache/camel/component");
 
-            if (f.exists() && f.isDirectory()) {
-                File[] files = f.listFiles();
-                if (files != null) {
-                    for (File file : files) {
-                        // skip directories as there may be a sub .resolver directory
-                        if (file.isDirectory()) {
-                            continue;
+        File f = componentOutDir;
+        f = new File(f, "META-INF/services/org/apache/camel/component");
+        if (f.exists() && f.isDirectory()) {
+            File[] files = f.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    // skip directories as there may be a sub .resolver
+                    // directory
+                    if (file.isDirectory()) {
+                        continue;
+                    }
+                    String name = file.getName();
+                    if (name.charAt(0) != '.') {
+                        count++;
+                        if (buffer.length() > 0) {
+                            buffer.append(" ");
                         }
-                        String name = file.getName();
-                        if (name.charAt(0) != '.') {
-                            count++;
-                            if (buffer.length() > 0) {
-                                buffer.append(" ");
-                            }
-                            buffer.append(name);
-                        }
+                        buffer.append(name);
                     }
                 }
             }
         }
 
         if (count > 0) {
-            Properties properties = new Properties();
-            String names = buffer.toString();
-            properties.put("components", names);
-            properties.put("groupId", project.getGroupId());
-            properties.put("artifactId", project.getArtifactId());
-            properties.put("version", project.getVersion());
-            properties.put("projectName", project.getName());
-            if (project.getDescription() != null) {
-                properties.put("projectDescription", project.getDescription());
-            }
-
-            camelMetaDir.mkdirs();
-            File outFile = new File(camelMetaDir, "component.properties");
-            try {
-                properties.store(new FileWriter(outFile), "Generated by camel-package-maven-plugin");
-                buildContext.refresh(outFile);
-                log.info("Generated " + outFile + " containing " + count + " Camel " + (count > 1 ? "components: " : "component: ") + names);
-
-                if (projectHelper != null) {
-                    List<String> includes = new ArrayList<String>();
-                    includes.add("**/component.properties");
-                    projectHelper.addResource(project, componentOutDir.getPath(), includes, new ArrayList<String>());
-                    projectHelper.attachArtifact(project, "properties", "camelComponent", outFile);
-                }
-            } catch (IOException e) {
-                throw new MojoExecutionException("Failed to write properties to " + outFile + ". Reason: " + e, e);
-            }
+            String names = Stream.of(buffer.toString().split(" ")).sorted().collect(Collectors.joining(" "));
+            String properties = createProperties(project, "components", names);
+            updateResource(camelMetaDir.toPath(), "component.properties", properties);
+            log.info("Generated " + "components" + " containing " + count + " Camel "
+                     + (count > 1 ? "components: " : "component: ") + names);
         } else {
-            log.debug("No META-INF/services/org/apache/camel/component directory found. Are you sure you have created a Camel component?");
+            log.debug(
+                    "No META-INF/services/org/apache/camel/component directory found. Are you sure you have created a Camel component?");
         }
+
+        return count;
     }
 
 }

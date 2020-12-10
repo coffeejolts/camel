@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,13 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.PauseContainerCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Pause Container Request headers are applied properly
@@ -36,15 +35,13 @@ public class PauseContainerCmdHeaderTest extends BaseDockerHeaderTest<PauseConta
     @Mock
     private PauseContainerCmd mockObject;
 
-    @Ignore
     @Test
-    public void pauseHeaderTest() {
+    void pauseHeaderTest() {
 
         String containerId = "9c09acd48a25";
 
         Map<String, Object> headers = getDefaultParameters();
         headers.put(DockerConstants.DOCKER_CONTAINER_ID, containerId);
-
 
         template.sendBodyAndHeaders("direct:in", "", headers);
 
@@ -54,7 +51,7 @@ public class PauseContainerCmdHeaderTest extends BaseDockerHeaderTest<PauseConta
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.pauseContainerCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.pauseContainerCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

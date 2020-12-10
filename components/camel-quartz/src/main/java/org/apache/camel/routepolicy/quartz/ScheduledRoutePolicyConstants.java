@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,9 +21,12 @@ package org.apache.camel.routepolicy.quartz;
  */
 public interface ScheduledRoutePolicyConstants {
     enum Action {
-        START, STOP, SUSPEND, RESUME
-    };
-    
+        START,
+        STOP,
+        SUSPEND,
+        RESUME
+    }
+
     String SCHEDULED_ROUTE = "ScheduledRoute";
     String SCHEDULED_TRIGGER = "ScheduledTrigger";
     String SCHEDULED_ACTION = "ScheduledAction";
@@ -37,5 +40,5 @@ public interface ScheduledRoutePolicyConstants {
     String TRIGGER_SUSPEND = "trigger-" + Action.SUSPEND + "-";
     String TRIGGER_RESUME = "trigger-" + Action.RESUME + "-";
     String TRIGGER_GROUP = "triggerGroup-";
-    
+
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,25 +21,25 @@ import java.io.File;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Producer;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FtpConsumerTemplateTest extends FtpServerTestSupport {
 
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/template?password=admin";
+        return "ftp://admin@localhost:{{ftp.server.port}}/template?password=admin";
     }
 
     @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         prepareFtpServer();
-    }
-
-    @Override
-    public boolean isUseRouteBuilder() {
-        return false;
     }
 
     @Test
@@ -65,8 +65,8 @@ public class FtpConsumerTemplateTest extends FtpServerTestSupport {
 
         // file should still exists
         Thread.sleep(500);
-        File file = new File(FTP_ROOT_DIR + "/template/hello.txt");
-        assertTrue("The file should exist: " + file, file.exists());
+        File file = new File(service.getFtpRootDir() + "/template/hello.txt");
+        assertTrue(file.exists(), "The file should exist: " + file);
     }
 
     @Test
@@ -96,8 +96,8 @@ public class FtpConsumerTemplateTest extends FtpServerTestSupport {
 
         // file should still exists
         Thread.sleep(500);
-        File file = new File(FTP_ROOT_DIR + "/template/hello.txt");
-        assertTrue("The file should exist: " + file, file.exists());
+        File file = new File(service.getFtpRootDir() + "/template/hello.txt");
+        assertTrue(file.exists(), "The file should exist: " + file);
     }
 
     private void prepareFtpServer() throws Exception {
@@ -111,8 +111,8 @@ public class FtpConsumerTemplateTest extends FtpServerTestSupport {
         producer.stop();
 
         // assert file is created
-        File file = new File(FTP_ROOT_DIR + "/template/hello.txt");
-        assertTrue("The file should exist: " + file, file.exists());
+        File file = new File(service.getFtpRootDir() + "/template/hello.txt");
+        assertTrue(file.exists(), "The file should exist: " + file);
     }
 
 }

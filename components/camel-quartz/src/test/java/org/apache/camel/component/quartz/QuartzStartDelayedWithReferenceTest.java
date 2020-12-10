@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,17 @@
  */
 package org.apache.camel.component.quartz;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.impl.JndiRegistry;
 
 public class QuartzStartDelayedWithReferenceTest extends QuartzStartDelayedTest {
-    
-    // just bind the reference value here
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
-        registry.bind("interval", new Long(2));
-        registry.bind("count", new Integer(1));
-        return registry;
-    }
-    
-    
+
+    @BindToRegistry("interval")
+    private Long interval = Long.valueOf(2);
+
+    @BindToRegistry("count")
+    private Integer count = Integer.valueOf(1);
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
@@ -38,7 +35,8 @@ public class QuartzStartDelayedWithReferenceTest extends QuartzStartDelayedTest 
                 QuartzComponent quartz = context.getComponent("quartz", QuartzComponent.class);
                 quartz.setStartDelayedSeconds(2);
 
-                from("quartz://myGroup/myTimerName?trigger.repeatInterval=#interval&trigger.repeatCount=#count").routeId("myRoute").to("mock:result");
+                from("quartz://myGroup/myTimerName?trigger.repeatInterval=#interval&trigger.repeatCount=#count")
+                        .routeId("myRoute").to("mock:result");
             }
         };
     }

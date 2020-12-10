@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,22 +22,22 @@ import java.util.List;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test FIFO ordering.
  */
 public class HazelcastSedaFIFOTest extends CamelTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     private MockEndpoint mock;
 
     @Test
     public void fifoTesting() throws Exception {
         final int bodyCount = 5;
 
-        List<String> bodies = new ArrayList<String>();
+        List<String> bodies = new ArrayList<>();
         for (int i = 0; i < bodyCount; i++) {
             bodies.add("test" + i);
         }
@@ -46,7 +46,7 @@ public class HazelcastSedaFIFOTest extends CamelTestSupport {
         mock.expectedMessageCount(bodyCount);
 
         for (int i = 0; i < bodyCount; i++) {
-            template.sendBody("hazelcast:seda:foo", "test" + i);
+            template.sendBody("hazelcast-seda:foo", "test" + i);
         }
 
         assertMockEndpointsSatisfied();
@@ -58,7 +58,7 @@ public class HazelcastSedaFIFOTest extends CamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("hazelcast:seda:foo").to("mock:result");
+                from("hazelcast-seda:foo").to("mock:result");
             }
         };
     }

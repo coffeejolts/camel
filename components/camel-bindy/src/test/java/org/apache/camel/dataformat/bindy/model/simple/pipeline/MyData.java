@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,10 +19,7 @@ package org.apache.camel.dataformat.bindy.model.simple.pipeline;
 import org.apache.camel.dataformat.bindy.annotation.CsvRecord;
 import org.apache.camel.dataformat.bindy.annotation.DataField;
 
-/**
- * @version 
- */
-@CsvRecord(separator = "\\|")
+@CsvRecord(separator = "\\|", generateHeaderColumns = true)
 public class MyData {
 
     @DataField(pos = 1)

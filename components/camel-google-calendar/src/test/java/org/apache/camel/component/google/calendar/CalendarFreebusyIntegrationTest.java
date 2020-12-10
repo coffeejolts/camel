@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,13 +22,14 @@ import java.util.List;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.FreeBusyRequest;
 import com.google.api.services.calendar.model.FreeBusyRequestItem;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.calendar.internal.CalendarFreebusyApiMethod;
 import org.apache.camel.component.google.calendar.internal.GoogleCalendarApiCollection;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * The class source won't be generated again if the generator MOJO finds it under src/test/java.
@@ -36,14 +37,15 @@ import org.slf4j.LoggerFactory;
 public class CalendarFreebusyIntegrationTest extends AbstractGoogleCalendarTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(CalendarFreebusyIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleCalendarApiCollection.getCollection().getApiName(CalendarFreebusyApiMethod.class).getName();
+    private static final String PATH_PREFIX
+            = GoogleCalendarApiCollection.getCollection().getApiName(CalendarFreebusyApiMethod.class).getName();
 
     @Test
     public void testQuery() throws Exception {
         // using com.google.api.services.calendar.model.FreeBusyRequest message
         // body for single parameter "content"
         com.google.api.services.calendar.model.FreeBusyRequest request = new FreeBusyRequest();
-        List<FreeBusyRequestItem> items = new ArrayList<FreeBusyRequestItem>();
+        List<FreeBusyRequestItem> items = new ArrayList<>();
         items.add(new FreeBusyRequestItem().setId(getCalendar().getId()));
         request.setItems(items);
 
@@ -52,7 +54,7 @@ public class CalendarFreebusyIntegrationTest extends AbstractGoogleCalendarTestS
 
         final com.google.api.services.calendar.model.FreeBusyResponse result = requestBody("direct://QUERY", request);
 
-        assertNotNull("query result", result);
+        assertNotNull(result, "query result");
         LOG.debug("query: " + result);
     }
 

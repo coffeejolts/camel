@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,18 +16,25 @@
  */
 package org.apache.camel.component.geocoder;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+
+import com.google.maps.GeoApiContext;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
+import org.apache.camel.component.geocoder.http.AuthenticationMethod;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 
 /**
- * Represents a GeoCoder endpoint.
+ * Find geocodes (latitude and longitude) for a given address or the other way round.
  */
-@UriEndpoint(scheme = "geocoder", title = "Geocoder", syntax = "geocoder:address:latlng", producerOnly = true, label = "api,location")
+@UriEndpoint(firstVersion = "2.12.0", scheme = "geocoder", title = "Geocoder", syntax = "geocoder:address:latlng",
+             producerOnly = true, category = { Category.API, Category.LOCATION })
 public class GeoCoderEndpoint extends DefaultEndpoint {
 
     @UriPath
@@ -36,30 +43,57 @@ public class GeoCoderEndpoint extends DefaultEndpoint {
     private String latlng;
     @UriParam(defaultValue = "en")
     private String language = "en";
-    @UriParam
+    @UriParam(label = "security", secret = true, description = "Client ID to access Google GeoCoding server.")
     private String clientId;
-    @UriParam
+    @UriParam(label = "security", secret = true, description = "Client Key to access Google GeoCoding server.")
     private String clientKey;
+    @UriParam(label = "security", secret = true,
+              description = "API Key to access Google. Mandatory for Google GeoCoding server.")
+    private String apiKey;
+    @UriParam(description = "URL to the geocoder server. Mandatory for Nominatim server.", displayName = "Server URL")
+    private String serverUrl;
     @UriParam
     private boolean headersOnly;
+    @UriParam(label = "proxy", description = "Proxy Host to access GeoCoding server.")
+    private String proxyHost;
+    @UriParam(label = "proxy", description = "Proxy Port to access GeoCoding server.")
+    private Integer proxyPort;
+    @UriParam(label = "proxy", description = "Authentication Method to Google GeoCoding server.")
+    private String proxyAuthMethod;
+    @UriParam(label = "proxy", description = "Proxy Username to access GeoCoding server.")
+    private String proxyAuthUsername;
+    @UriParam(label = "proxy", description = "Proxy Password to access GeoCoding server.")
+    private String proxyAuthPassword;
+    @UriParam(label = "proxy", description = "Proxy Authentication Domain to access Google GeoCoding server.")
+    private String proxyAuthDomain;
+    @UriParam(label = "proxy", description = "Proxy Authentication Host to access Google GeoCoding server.")
+    private String proxyAuthHost;
+    @UriParam(displayName = "GeoCoding Type", description = "Type of GeoCoding server. Supported Nominatim and Google.")
+    private GeoCoderType type;
 
     public GeoCoderEndpoint() {
     }
 
     public GeoCoderEndpoint(String uri, GeoCoderComponent component) {
         super(uri, component);
+
     }
 
+    @Override
     public Producer createProducer() throws Exception {
-        return new GeoCoderProducer(this);
+        switch (getType()) {
+            case NOMINATIM:
+                return new GeoCoderNominatimProducer(this);
+            case GOOGLE:
+            default:
+                // default to Google for backwards compatibility
+                return new GeoCoderGoogleProducer(this);
+        }
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         throw new UnsupportedOperationException("Cannot consume from this component");
-    }
-
-    public boolean isSingleton() {
-        return true;
     }
 
     public String getLanguage() {
@@ -126,5 +160,163 @@ public class GeoCoderEndpoint extends DefaultEndpoint {
      */
     public void setClientKey(String clientKey) {
         this.clientKey = clientKey;
+    }
+
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    /**
+     * To use google apiKey
+     */
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public String getProxyHost() {
+        return proxyHost;
+    }
+
+    /**
+     * The proxy host name
+     */
+    public void setProxyHost(String proxyHost) {
+        this.proxyHost = proxyHost;
+    }
+
+    public int getProxyPort() {
+        return proxyPort;
+    }
+
+    /**
+     * The proxy port number
+     */
+    public void setProxyPort(int proxyPort) {
+        this.proxyPort = proxyPort;
+    }
+
+    public String getProxyAuthMethod() {
+        return proxyAuthMethod;
+    }
+
+    /**
+     * Authentication method for proxy, either as Basic, Digest or NTLM.
+     */
+    public void setProxyAuthMethod(String proxyAuthMethod) {
+        this.proxyAuthMethod = proxyAuthMethod;
+    }
+
+    public String getProxyAuthUsername() {
+        return proxyAuthUsername;
+    }
+
+    /**
+     * Username for proxy authentication
+     */
+    public void setProxyAuthUsername(String proxyAuthUsername) {
+        this.proxyAuthUsername = proxyAuthUsername;
+    }
+
+    public String getProxyAuthPassword() {
+        return proxyAuthPassword;
+    }
+
+    /**
+     * Password for proxy authentication
+     */
+    public void setProxyAuthPassword(String proxyAuthPassword) {
+        this.proxyAuthPassword = proxyAuthPassword;
+    }
+
+    public String getProxyAuthDomain() {
+        return proxyAuthDomain;
+    }
+
+    /**
+     * Domain for proxy NTML authentication
+     */
+    public void setProxyAuthDomain(String proxyAuthDomain) {
+        this.proxyAuthDomain = proxyAuthDomain;
+    }
+
+    public String getProxyAuthHost() {
+        return proxyAuthHost;
+    }
+
+    /**
+     * Optional host for proxy NTML authentication
+     */
+    public void setProxyAuthHost(String proxyAuthHost) {
+        this.proxyAuthHost = proxyAuthHost;
+    }
+
+    public GeoCoderType getType() {
+        if (type == null) {
+            type = GeoCoderType.GOOGLE;
+        }
+        return type;
+    }
+
+    public void setType(GeoCoderType type) {
+        this.type = type;
+    }
+
+    public void setType(String type) {
+        this.type = GeoCoderType.fromValue(type);
+    }
+
+    public String getServerUrl() {
+        return serverUrl;
+    }
+
+    public void setServerUrl(String serverUrl) {
+        this.serverUrl = serverUrl;
+    }
+
+    /**
+     * Specific Google required
+     *
+     * @return
+     */
+    protected GeoApiContext createGeoApiContext() {
+        GeoCoderComponent geoCoderComponent = (GeoCoderComponent) this.getComponent();
+        if (geoCoderComponent.getGeoApiContext() != null) {
+            return geoCoderComponent.getGeoApiContext();
+        }
+        GeoApiContext.Builder builder = new GeoApiContext.Builder();
+        if (clientId != null) {
+            builder = builder.enterpriseCredentials(clientId, clientKey);
+        } else {
+            builder = builder.apiKey(getApiKey());
+        }
+        if (isProxyDefined()) {
+            builder = builder.proxy(createProxy());
+            if (isProxyAuthDefined()) {
+                builder = configureProxyAuth(builder);
+            }
+        }
+        return builder.build();
+    }
+
+    private GeoApiContext.Builder configureProxyAuth(GeoApiContext.Builder builder) {
+        AuthenticationMethod auth = getCamelContext().getTypeConverter().convertTo(AuthenticationMethod.class, proxyAuthMethod);
+        if (auth == AuthenticationMethod.Basic || auth == AuthenticationMethod.Digest) {
+            builder = builder.proxyAuthentication(proxyAuthUsername, proxyAuthPassword);
+        } else {
+            throw new IllegalArgumentException("Unknown proxyAuthMethod " + proxyAuthMethod);
+        }
+        return builder;
+    }
+
+    private Proxy createProxy() {
+        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort));
+    }
+
+    private boolean isProxyDefined() {
+        return proxyHost != null && proxyPort != null;
+    }
+
+    private boolean isProxyAuthDefined() {
+        return proxyAuthMethod != null;
     }
 }

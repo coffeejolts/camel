@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,35 +17,45 @@
 package org.apache.camel.component.jdbc;
 
 import java.util.Map;
+
 import javax.sql.DataSource;
 
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 
 /**
- * @version
+ * Access databases through SQL and JDBC.
  */
-@UriEndpoint(scheme = "jdbc", title = "JDBC", syntax = "jdbc:dataSource", producerOnly = true, label = "database,sql")
+@UriEndpoint(firstVersion = "1.2.0", scheme = "jdbc", title = "JDBC", syntax = "jdbc:dataSourceName", producerOnly = true,
+             category = { Category.DATABASE, Category.SQL })
 public class JdbcEndpoint extends DefaultEndpoint {
-    @UriPath @Metadata(required = "true")
+
     private DataSource dataSource;
+
+    @UriPath
+    @Metadata(required = true)
+    private String dataSourceName;
     @UriParam
     private int readSize;
     @UriParam
     private boolean transacted;
     @UriParam(defaultValue = "true")
     private boolean resetAutoCommit = true;
+    @UriParam(prefix = "statement.", multiValue = true)
     private Map<String, Object> parameters;
     @UriParam(defaultValue = "true")
     private boolean useJDBC4ColumnNameAndLabelSemantics = true;
     @UriParam
+    private boolean useGetBytesForBlob;
+    @UriParam(label = "advanced")
     private JdbcPrepareStatementStrategy prepareStatementStrategy = new DefaultJdbcPrepareStatementStrategy();
     @UriParam(defaultValue = "true")
     private boolean allowNamedParameters = true;
@@ -55,7 +65,7 @@ public class JdbcEndpoint extends DefaultEndpoint {
     private JdbcOutputType outputType = JdbcOutputType.SelectList;
     @UriParam
     private String outputClass;
-    @UriParam
+    @UriParam(label = "advanced")
     private BeanRowMapper beanRowMapper = new DefaultBeanRowMapper();
 
     public JdbcEndpoint() {
@@ -66,16 +76,27 @@ public class JdbcEndpoint extends DefaultEndpoint {
         this.dataSource = dataSource;
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         throw new UnsupportedOperationException("Not supported");
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new JdbcProducer(this, dataSource, readSize, parameters);
+    }
+
+    public String getDataSourceName() {
+        return dataSourceName;
+    }
+
+    /**
+     * Name of DataSource to lookup in the Registry. If the name is dataSource or default, then Camel will attempt to
+     * lookup a default DataSource from the registry, meaning if there is a only one instance of DataSource found, then
+     * this DataSource will be used.
+     */
+    public void setDataSourceName(String dataSourceName) {
+        this.dataSourceName = dataSourceName;
     }
 
     public int getReadSize() {
@@ -105,10 +126,11 @@ public class JdbcEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Camel will set the autoCommit on the JDBC connection to be false, commit the change after executed the statement and reset
-     * the autoCommit flag of the connection at the end, if the resetAutoCommit is true. If the JDBC connection doesn't support
-     * to reset the autoCommit flag, you can set the resetAutoCommit flag to be false, and Camel will not try to reset the autoCommit flag.
-     * When used with XA transactions you most likely need to set it to false so that the transaction manager is in charge of committing this tx.
+     * Camel will set the autoCommit on the JDBC connection to be false, commit the change after executed the statement
+     * and reset the autoCommit flag of the connection at the end, if the resetAutoCommit is true. If the JDBC
+     * connection doesn't support to reset the autoCommit flag, you can set the resetAutoCommit flag to be false, and
+     * Camel will not try to reset the autoCommit flag. When used with XA transactions you most likely need to set it to
+     * false so that the transaction manager is in charge of committing this tx.
      */
     public void setResetAutoCommit(boolean resetAutoCommit) {
         this.resetAutoCommit = resetAutoCommit;
@@ -148,12 +170,13 @@ public class JdbcEndpoint extends DefaultEndpoint {
      * Sets whether to use JDBC 4 or JDBC 3.0 or older semantic when retrieving column name.
      * <p/>
      * JDBC 4.0 uses columnLabel to get the column name where as JDBC 3.0 uses both columnName or columnLabel.
-     * Unfortunately JDBC drivers behave differently so you can use this option to work out issues around your
-     * JDBC driver if you get problem using this component
+     * Unfortunately JDBC drivers behave differently so you can use this option to work out issues around your JDBC
+     * driver if you get problem using this component
      * <p/>
      * This option is default <tt>true</tt>.
      *
-     * @param useJDBC4ColumnNameAndLabelSemantics <tt>true</tt> to use JDBC 4.0 semantics, <tt>false</tt> to use JDBC 3.0.
+     * @param useJDBC4ColumnNameAndLabelSemantics <tt>true</tt> to use JDBC 4.0 semantics, <tt>false</tt> to use JDBC
+     *                                            3.0.
      */
     public void setUseJDBC4ColumnNameAndLabelSemantics(boolean useJDBC4ColumnNameAndLabelSemantics) {
         this.useJDBC4ColumnNameAndLabelSemantics = useJDBC4ColumnNameAndLabelSemantics;
@@ -164,7 +187,8 @@ public class JdbcEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Allows to plugin to use a custom org.apache.camel.component.jdbc.JdbcPrepareStatementStrategy to control preparation of the query and prepared statement.
+     * Allows the plugin to use a custom org.apache.camel.component.jdbc.JdbcPrepareStatementStrategy to control
+     * preparation of the query and prepared statement.
      */
     public void setPrepareStatementStrategy(JdbcPrepareStatementStrategy prepareStatementStrategy) {
         this.prepareStatementStrategy = prepareStatementStrategy;
@@ -186,8 +210,8 @@ public class JdbcEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * Set this option to true to use the prepareStatementStrategy with named parameters.
-     * This allows to define queries with named placeholders, and use headers with the dynamic values for the query placeholders.
+     * Set this option to true to use the prepareStatementStrategy with named parameters. This allows to define queries
+     * with named placeholders, and use headers with the dynamic values for the query placeholders.
      */
     public void setUseHeadersAsParameters(boolean useHeadersAsParameters) {
         this.useHeadersAsParameters = useHeadersAsParameters;
@@ -220,15 +244,28 @@ public class JdbcEndpoint extends DefaultEndpoint {
     }
 
     /**
-     * To use a custom org.apache.camel.component.jdbc.BeanRowMapper when using outputClass.
-     * The default implementation will lower case the row names and skip underscores, and dashes. For example "CUST_ID" is mapped as "custId".
+     * To use a custom org.apache.camel.component.jdbc.BeanRowMapper when using outputClass. The default implementation
+     * will lower case the row names and skip underscores, and dashes. For example "CUST_ID" is mapped as "custId".
      */
     public void setBeanRowMapper(BeanRowMapper beanRowMapper) {
         this.beanRowMapper = beanRowMapper;
     }
 
+    public boolean isUseGetBytesForBlob() {
+        return this.useGetBytesForBlob;
+    }
+
+    /**
+     * To read BLOB columns as bytes instead of string data.
+     * <p/>
+     * This may be needed for certain databases such as Oracle where you must read BLOB columns as bytes.
+     */
+    public void setUseGetBytesForBlob(boolean useGetBytesForBlob) {
+        this.useGetBytesForBlob = useGetBytesForBlob;
+    }
+
     @Override
     protected String createEndpointUri() {
-        return "jdbc";
+        return dataSourceName != null ? "jdbc:" + dataSourceName : "jdbc";
     }
 }

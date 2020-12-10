@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,10 +20,11 @@ import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
 
@@ -53,7 +54,7 @@ public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
         sendAMessageToOneTopicWithTwoSubscribers();
 
         // now stop route A
-        context.stopRoute("a");
+        context.getRouteController().stopRoute("a");
 
         // send new message should go to B only
         resetMocks();
@@ -69,7 +70,7 @@ public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
         resetMocks();
 
         // now start route A
-        context.startRoute("a");
+        context.getRouteController().startRoute("a");
 
         sendAMessageToOneTopicWithTwoSubscribers();
     }
@@ -79,7 +80,7 @@ public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
         sendAMessageToOneTopicWithTwoSubscribers();
 
         // now stop and remove route A
-        context.stopRoute("a");
+        context.getRouteController().stopRoute("a");
         assertTrue(context.removeRoute("a"));
 
         // send new message should go to B only
@@ -105,6 +106,7 @@ public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 
@@ -121,10 +123,10 @@ public class TwoConsumerOnSameTopicTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
                 from("activemq:topic:foo").routeId("a")
-                    .to("log:a", "mock:a");
+                        .to("log:a", "mock:a");
 
                 from("activemq:topic:foo").routeId("b")
-                    .to("log:b", "mock:b");
+                        .to("log:b", "mock:b");
             }
         };
     }

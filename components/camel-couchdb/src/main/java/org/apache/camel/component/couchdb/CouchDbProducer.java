@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,10 +22,15 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import org.apache.camel.Exchange;
 import org.apache.camel.InvalidPayloadException;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
+import org.apache.camel.util.ObjectHelper;
 import org.lightcouch.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CouchDbProducer extends DefaultProducer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(CouchDbProducer.class);
 
     private final CouchDbClientWrapper couchClient;
 
@@ -37,16 +42,45 @@ public class CouchDbProducer extends DefaultProducer {
     @Override
     public void process(Exchange exchange) throws Exception {
         JsonElement json = getBodyAsJsonElement(exchange);
-        Response save = saveJsonElement(json);
-        if (save == null) {
-            throw new CouchDbException("Could not save document [unknown reason]", exchange);
-        }
+        String operation = exchange.getIn().getHeader(CouchDbConstants.HEADER_METHOD, String.class);
+        if (ObjectHelper.isEmpty(operation)) {
+            Response save = saveJsonElement(json);
+            if (save == null) {
+                throw new CouchDbException("Could not save document [unknown reason]", exchange);
+            }
 
-        if (log.isTraceEnabled()) {
-            log.trace("Document saved [_id={}, _rev={}]", save.getId(), save.getRev());
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("Document saved [_id={}, _rev={}]", save.getId(), save.getRev());
+            }
+            exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_REV, save.getRev());
+            exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_ID, save.getId());
+        } else {
+            if (operation.equalsIgnoreCase(CouchDbOperations.DELETE.toString())) {
+                Response delete = deleteJsonElement(json);
+                if (delete == null) {
+                    throw new CouchDbException("Could not delete document [unknown reason]", exchange);
+                }
+
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Document saved [_id={}, _rev={}]", delete.getId(), delete.getRev());
+                }
+                exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_REV, delete.getRev());
+                exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_ID, delete.getId());
+            }
+            if (operation.equalsIgnoreCase(CouchDbOperations.GET.toString())) {
+                String docId = exchange.getIn().getHeader(CouchDbConstants.HEADER_DOC_ID, String.class);
+                if (docId == null) {
+                    throw new CouchDbException("Could not get document, document id is missing", exchange);
+                }
+                Object response = getElement(docId);
+
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Document retrieved [_id={}]", docId);
+                }
+
+                exchange.getIn().setBody(response);
+            }
         }
-        exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_REV, save.getRev());
-        exchange.getIn().setHeader(CouchDbConstants.HEADER_DOC_ID, save.getId());
     }
 
     JsonElement getBodyAsJsonElement(Exchange exchange) throws InvalidPayloadException {
@@ -77,5 +111,22 @@ public class CouchDbProducer extends DefaultProducer {
             save = couchClient.save(json);
         }
         return save;
+    }
+
+    private Response deleteJsonElement(JsonElement json) {
+        Response delete;
+        if (json instanceof JsonObject) {
+            JsonObject obj = (JsonObject) json;
+            delete = couchClient.remove(obj);
+        } else {
+            delete = couchClient.remove(json);
+        }
+        return delete;
+    }
+
+    private Object getElement(String id) {
+        Object response;
+        response = couchClient.get(id);
+        return response;
     }
 }

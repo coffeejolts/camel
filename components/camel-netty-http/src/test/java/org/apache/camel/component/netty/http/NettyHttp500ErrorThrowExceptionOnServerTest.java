@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,13 @@ package org.apache.camel.component.netty.http;
 
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class NettyHttp500ErrorThrowExceptionOnServerTest extends BaseNettyTest {
 
@@ -32,7 +38,7 @@ public class NettyHttp500ErrorThrowExceptionOnServerTest extends BaseNettyTest {
         } catch (CamelExecutionException e) {
             NettyHttpOperationFailedException cause = assertIsInstanceOf(NettyHttpOperationFailedException.class, e.getCause());
             assertEquals(500, cause.getStatusCode());
-            String trace = context.getTypeConverter().convertTo(String.class, cause.getResponse().getContent());
+            String trace = cause.getContentAsString();
             assertNotNull(trace);
             assertTrue(trace.startsWith("java.lang.IllegalArgumentException: Camel cannot do this"));
             assertEquals("http://localhost:" + getPort() + "/foo", cause.getUri());
@@ -45,12 +51,12 @@ public class NettyHttp500ErrorThrowExceptionOnServerTest extends BaseNettyTest {
     public void testHttp500ErrorDisabled() throws Exception {
         getMockEndpoint("mock:input").expectedBodiesReceived("Hello World");
 
-        String body = template.requestBody("netty-http:http://localhost:{{port}}/foo?throwExceptionOnFailure=false", "Hello World", String.class);
+        String body = template.requestBody("netty-http:http://localhost:{{port}}/foo?throwExceptionOnFailure=false",
+                "Hello World", String.class);
         assertTrue(body.startsWith("java.lang.IllegalArgumentException: Camel cannot do this"));
 
         assertMockEndpointsSatisfied();
     }
-
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
@@ -58,8 +64,8 @@ public class NettyHttp500ErrorThrowExceptionOnServerTest extends BaseNettyTest {
             @Override
             public void configure() throws Exception {
                 from("netty-http:http://0.0.0.0:{{port}}/foo")
-                    .to("mock:input")
-                    .throwException(new IllegalArgumentException("Camel cannot do this"));
+                        .to("mock:input")
+                        .throwException(new IllegalArgumentException("Camel cannot do this"));
             }
         };
     }

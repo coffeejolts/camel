@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,60 +16,43 @@
  */
 package org.apache.camel.component.nagios;
 
-import java.util.List;
-
-import com.googlecode.jsendnsca.core.MessagePayload;
-import com.googlecode.jsendnsca.core.mocks.NagiosNscaStub;
+import com.googlecode.jsendnsca.MessagePayload;
+import com.googlecode.jsendnsca.NagiosPassiveCheckSender;
+import com.googlecode.jsendnsca.PassiveCheckSender;
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.verify;
+
 public class NagiosEventNotifierTest extends CamelTestSupport {
     protected boolean canRun;
-    private NagiosNscaStub nagios;
+
+    @Mock
+    private PassiveCheckSender nagiosPassiveCheckSender = Mockito.mock(NagiosPassiveCheckSender.class);
 
     @Override
     protected boolean useJmx() {
         return true;
     }
 
-    @Before
+    @BeforeEach
     @Override
     public void setUp() throws Exception {
         canRun = true;
-
-        nagios = new NagiosNscaStub(25669, "password");
-        try {
-            nagios.start();
-        } catch (Exception e) {
-            log.warn("Error starting NagiosNscaStub. This exception is ignored.", e);
-            canRun = false;
-        }
-
         super.setUp();
-    }
-
-    @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-        try {
-            nagios.stop();
-        } catch (Exception e) {
-            // ignore
-            log.warn("Error stopping NagiosNscaStub. This exception is ignored.", e);
-        }
     }
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        NagiosEventNotifier notifier = new NagiosEventNotifier();
+        NagiosEventNotifier notifier = new NagiosEventNotifier(nagiosPassiveCheckSender);
         notifier.getConfiguration().setHost("localhost");
         notifier.getConfiguration().setPort(25669);
         notifier.getConfiguration().setPassword("password");
@@ -93,11 +76,7 @@ public class NagiosEventNotifierTest extends CamelTestSupport {
 
         context.stop();
 
-        // sleep a little to let nagios stub process the payloads
-        Thread.sleep(2000);
-
-        List<MessagePayload> events = nagios.getMessagePayloadList();
-        assertTrue("Should be 11+ events, was: " + events.size(), events.size() >= 11);
+        verify(nagiosPassiveCheckSender, atLeast(11)).send(any(MessagePayload.class));
     }
 
     @Test
@@ -115,11 +94,7 @@ public class NagiosEventNotifierTest extends CamelTestSupport {
 
         context.stop();
 
-        // sleep a little to let nagios stub process the payloads
-        Thread.sleep(2000);
-
-        List<MessagePayload> events = nagios.getMessagePayloadList();
-        assertTrue("Should be 9+ events, was: " + events.size(), events.size() >= 9);
+        verify(nagiosPassiveCheckSender, atLeast(9)).send(any(MessagePayload.class));
     }
 
     @Override

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,9 +25,12 @@ import org.apache.camel.Exchange;
 import org.apache.camel.ShutdownRunningTask;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for shutdown.
@@ -35,6 +38,7 @@ import org.jvnet.mock_javamail.Mailbox;
 public class MailShutdownCompleteAllTasksTest extends CamelTestSupport {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         prepareMailbox();
         super.setUp();
@@ -52,7 +56,7 @@ public class MailShutdownCompleteAllTasksTest extends CamelTestSupport {
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("pop3://jones@localhost?password=secret&initialDelay=2s").routeId("route1")
+                from("pop3://jones@localhost?password=secret&initialDelay=100&delay=100").routeId("route1")
                         // let it complete all tasks during shutdown
                         .shutdownRunningTask(ShutdownRunningTask.CompleteAllTasks)
                         .delay(500).to("mock:bar");
@@ -71,7 +75,7 @@ public class MailShutdownCompleteAllTasksTest extends CamelTestSupport {
         context.stop();
 
         // should route all
-        assertEquals("Should complete all messages", batch, bar.getReceivedCounter());
+        assertEquals(batch, bar.getReceivedCounter(), "Should complete all messages");
     }
 
     private void prepareMailbox() throws Exception {
@@ -89,6 +93,7 @@ public class MailShutdownCompleteAllTasksTest extends CamelTestSupport {
         for (int i = 0; i < 5; i++) {
             messages[i] = new MimeMessage(sender.getSession());
             messages[i].setText("Message " + i);
+            messages[i].setHeader("Message-ID", "" + i);
         }
         folder.appendMessages(messages);
         folder.close(true);

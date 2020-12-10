@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,40 +16,37 @@
  */
 package org.apache.camel.component.http;
 
-import org.apache.commons.httpclient.Credentials;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.NTCredentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.HttpClientBuilder;
 
 public class BasicAuthenticationHttpClientConfigurer implements HttpClientConfigurer {
-    private final boolean proxy;
     private final String username;
     private final String password;
+    private final String domain;
+    private final String host;
 
-    public BasicAuthenticationHttpClientConfigurer(boolean proxy, String user, String pwd) {
-        this.proxy = proxy;
+    public BasicAuthenticationHttpClientConfigurer(String user, String pwd, String domain, String host) {
         this.username = user;
         this.password = pwd;
+        this.domain = domain;
+        this.host = host;
     }
 
-    public void configureHttpClient(HttpClient client) {
-        Credentials credentials = new UsernamePasswordCredentials(username, password);
-        if (proxy) {
-            client.getState().setProxyCredentials(AuthScope.ANY, credentials);
+    @Override
+    public void configureHttpClient(HttpClientBuilder clientBuilder) {
+        Credentials defaultcreds;
+        if (domain != null) {
+            defaultcreds = new NTCredentials(username, password, host, domain);
         } else {
-            client.getState().setCredentials(AuthScope.ANY, credentials);
+            defaultcreds = new UsernamePasswordCredentials(username, password);
         }
+        BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY, defaultcreds);
+        clientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
 
-    public boolean isProxy() {
-        return proxy;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
 }

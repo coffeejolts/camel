@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,10 @@ package org.apache.camel.component.dozer;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultProducer;
-import org.apache.camel.model.DataFormatDefinition;
-import org.apache.camel.processor.MarshalProcessor;
-import org.apache.camel.processor.UnmarshalProcessor;
 import org.apache.camel.spi.DataFormat;
+import org.apache.camel.support.DefaultProducer;
+import org.apache.camel.support.processor.MarshalProcessor;
+import org.apache.camel.support.processor.UnmarshalProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,13 +31,14 @@ import org.slf4j.LoggerFactory;
 public class DozerProducer extends DefaultProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(DozerProducer.class);
-    
+
     private DozerEndpoint endpoint;
     private UnmarshalProcessor unmarshaller;
     private MarshalProcessor marshaller;
 
     /**
      * Create a new producer for dozer endpoints.
+     * 
      * @param endpoint endpoint requiring a producer
      */
     public DozerProducer(DozerEndpoint endpoint) {
@@ -53,15 +53,18 @@ public class DozerProducer extends DefaultProducer {
         if (unmarshalId != null) {
             LOG.debug("Unmarshalling input data using data format '{}'.", unmarshalId);
             resolveUnmarshaller(exchange, unmarshalId).process(exchange);
+            if (exchange.getException() != null) {
+                throw exchange.getException();
+            }
         }
-        
+
         // Load the target model class
-        Class<?> targetModel = endpoint.getCamelContext().getClassResolver().resolveClass(
+        Class<?> targetModel = endpoint.getCamelContext().getClassResolver().resolveMandatoryClass(
                 endpoint.getConfiguration().getTargetModel());
-        
+
         // If an unmarshaller was used, the unmarshalled message is the OUT message.
-        Message msg = exchange.hasOut() ? exchange.getOut() : exchange.getIn();
-        
+        Message msg = exchange.getMessage();
+
         // Convert to source model, if specified
         String sourceType = endpoint.getConfiguration().getSourceModel();
         if (sourceType != null) {
@@ -73,7 +76,7 @@ public class DozerProducer extends DefaultProducer {
             }
             msg.setBody(msg.getBody(sourceModel));
         }
-        
+
         // Perform mappings
         LOG.debug("Mapping to target model {}.", targetModel.getName());
         Object targetObject = endpoint.getMapper().map(msg.getBody(), targetModel);
@@ -89,15 +92,18 @@ public class DozerProducer extends DefaultProducer {
         }
         msg.setBody(targetObject);
         exchange.setIn(msg);
-        
+
         // Marshal the source content only if a marshaller is configured.
         String marshalId = endpoint.getConfiguration().getMarshalId();
         if (marshalId != null) {
             LOG.debug("Marshalling output data using data format '{}'.", marshalId);
             resolveMarshaller(exchange, marshalId).process(exchange);
+            if (exchange.getException() != null) {
+                throw exchange.getException();
+            }
         }
     }
-    
+
     @Override
     protected void doStop() throws Exception {
         super.doStop();
@@ -108,7 +114,7 @@ public class DozerProducer extends DefaultProducer {
             marshaller.stop();
         }
     }
-    
+
     @Override
     protected void doShutdown() throws Exception {
         super.doShutdown();
@@ -119,20 +125,20 @@ public class DozerProducer extends DefaultProducer {
             marshaller.shutdown();
         }
     }
-    
+
     /**
      * Find and configure an unmarshaller for the specified data format.
      */
     private synchronized UnmarshalProcessor resolveUnmarshaller(
-            Exchange exchange, String dataFormatId) throws Exception {
-        
+            Exchange exchange, String dataFormatId)
+            throws Exception {
+
         if (unmarshaller == null) {
-            DataFormat dataFormat = DataFormatDefinition.getDataFormat(
-                    exchange.getUnitOfWork().getRouteContext(), null, dataFormatId);
+            DataFormat dataFormat = exchange.getContext().resolveDataFormat(dataFormatId);
             if (dataFormat == null) {
                 throw new Exception("Unable to resolve data format for unmarshalling: " + dataFormatId);
             }
-            
+
             // Wrap the data format in a processor and start/configure it.  
             // Stop/shutdown is handled when the corresponding methods are 
             // called on this producer.
@@ -142,20 +148,20 @@ public class DozerProducer extends DefaultProducer {
         }
         return unmarshaller;
     }
-    
+
     /**
      * Find and configure an unmarshaller for the specified data format.
      */
     private synchronized MarshalProcessor resolveMarshaller(
-            Exchange exchange, String dataFormatId) throws Exception {
-        
+            Exchange exchange, String dataFormatId)
+            throws Exception {
+
         if (marshaller == null) {
-            DataFormat dataFormat = DataFormatDefinition.getDataFormat(
-                    exchange.getUnitOfWork().getRouteContext(), null, dataFormatId);
+            DataFormat dataFormat = exchange.getContext().resolveDataFormat(dataFormatId);
             if (dataFormat == null) {
                 throw new Exception("Unable to resolve data format for marshalling: " + dataFormatId);
             }
-            
+
             // Wrap the data format in a processor and start/configure it.  
             // Stop/shutdown is handled when the corresponding methods are 
             // called on this producer.
@@ -165,5 +171,5 @@ public class DozerProducer extends DefaultProducer {
         }
         return marshaller;
     }
-    
+
 }

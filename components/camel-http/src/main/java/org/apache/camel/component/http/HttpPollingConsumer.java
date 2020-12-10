@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,68 +21,87 @@ import java.io.IOException;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.ServicePoolAware;
-import org.apache.camel.component.http.helper.HttpHelper;
-import org.apache.camel.impl.PollingConsumerSupport;
+import org.apache.camel.http.common.HttpHelper;
 import org.apache.camel.spi.HeaderFilterStrategy;
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.camel.support.PollingConsumerSupport;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.util.EntityUtils;
 
 /**
  * A polling HTTP consumer which by default performs a GET
- *
- * @version 
  */
-public class HttpPollingConsumer extends PollingConsumerSupport implements ServicePoolAware {
+public class HttpPollingConsumer extends PollingConsumerSupport {
     private final HttpEndpoint endpoint;
     private HttpClient httpClient;
+    private HttpContext httpContext;
 
     public HttpPollingConsumer(HttpEndpoint endpoint) {
         super(endpoint);
         this.endpoint = endpoint;
-        this.httpClient = endpoint.createHttpClient();
+        this.httpContext = endpoint.getHttpContext();
+        this.httpClient = endpoint.getHttpClient();
+
     }
 
+    @Override
+    public HttpEndpoint getEndpoint() {
+        return (HttpEndpoint) super.getEndpoint();
+    }
+
+    @Override
     public Exchange receive() {
         return doReceive(-1);
     }
 
+    @Override
     public Exchange receive(long timeout) {
         return doReceive((int) timeout);
     }
 
+    @Override
     public Exchange receiveNoWait() {
         return doReceive(-1);
     }
 
     protected Exchange doReceive(int timeout) {
         Exchange exchange = endpoint.createExchange();
-        HttpMethod method = createMethod(exchange);
+        HttpRequestBase method = createMethod(exchange);
+        HttpClientContext httpClientContext = new HttpClientContext();
 
         // set optional timeout in millis
         if (timeout > 0) {
-            method.getParams().setSoTimeout(timeout);
+            RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(timeout).build();
+            httpClientContext.setRequestConfig(requestConfig);
         }
 
+        HttpEntity responeEntity = null;
         try {
             // execute request
-            int responseCode = httpClient.executeMethod(method);
-
-            Object body = HttpHelper.readResponseBodyFromInputStream(method.getResponseBodyAsStream(), exchange);
+            HttpResponse response = executeMethod(method, httpClientContext);
+            int responseCode = response.getStatusLine().getStatusCode();
+            responeEntity = response.getEntity();
+            Object body = HttpHelper.readResponseBodyFromInputStream(responeEntity.getContent(), exchange);
 
             // lets store the result in the output message.
             Message message = exchange.getOut();
             message.setBody(body);
 
             // lets set the headers
-            Header[] headers = method.getResponseHeaders();
+            Header[] headers = response.getAllHeaders();
             HeaderFilterStrategy strategy = endpoint.getHeaderFilterStrategy();
             for (Header header : headers) {
                 String name = header.getName();
                 // mapping the content-type
-                if (name.toLowerCase().equals("content-type")) {
+                if (name.equalsIgnoreCase("content-type")) {
                     name = Exchange.CONTENT_TYPE;
                 }
                 String value = header.getValue();
@@ -91,17 +110,46 @@ public class HttpPollingConsumer extends PollingConsumerSupport implements Servi
                 }
             }
             message.setHeader(Exchange.HTTP_RESPONSE_CODE, responseCode);
+            if (response.getStatusLine() != null) {
+                message.setHeader(Exchange.HTTP_RESPONSE_TEXT, response.getStatusLine().getReasonPhrase());
+            }
 
             return exchange;
         } catch (IOException e) {
             throw new RuntimeCamelException(e);
         } finally {
-            method.releaseConnection();
+            if (responeEntity != null) {
+                try {
+                    EntityUtils.consume(responeEntity);
+                } catch (IOException e) {
+                    // nothing what we can do
+                }
+            }
         }
+    }
+
+    /**
+     * Strategy when executing the method (calling the remote server).
+     *
+     * @param  httpRequest the http Request to execute
+     * @return             the response
+     * @throws IOException can be thrown
+     */
+    protected HttpResponse executeMethod(HttpRequestBase httpRequest, HttpClientContext httpClientContext) throws IOException {
+
+        if (getEndpoint().isAuthenticationPreemptive()) {
+            BasicScheme basicAuth = new BasicScheme();
+            httpClientContext.setAttribute("preemptive-auth", basicAuth);
+        }
+        if (httpContext != null) {
+            httpClientContext = new HttpClientContext(httpContext);
+        }
+        return httpClient.execute(httpRequest, httpClientContext);
     }
 
     // Properties
     //-------------------------------------------------------------------------
+
     public HttpClient getHttpClient() {
         return httpClient;
     }
@@ -112,14 +160,17 @@ public class HttpPollingConsumer extends PollingConsumerSupport implements Servi
 
     // Implementation methods
     //-------------------------------------------------------------------------
-    protected HttpMethod createMethod(Exchange exchange) {
+
+    protected HttpRequestBase createMethod(Exchange exchange) {
         String uri = HttpHelper.createURL(exchange, endpoint);
-        return new GetMethod(uri);
+        return new HttpGet(uri);
     }
 
+    @Override
     protected void doStart() throws Exception {
     }
 
+    @Override
     protected void doStop() throws Exception {
     }
 }

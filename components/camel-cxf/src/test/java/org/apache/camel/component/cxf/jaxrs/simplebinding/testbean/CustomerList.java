@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,13 +20,9 @@ import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
-/**
- *
- * @version 
- */
 @XmlRootElement(name = "CustomerList")
 public class CustomerList {
-    
+
     private List<Customer> customers;
 
     public List<Customer> getCustomers() {
@@ -36,6 +32,5 @@ public class CustomerList {
     public void setCustomers(List<Customer> customers) {
         this.customers = customers;
     }
-    
 
 }

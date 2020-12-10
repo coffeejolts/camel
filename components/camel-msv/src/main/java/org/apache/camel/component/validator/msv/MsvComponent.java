@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,22 +17,25 @@
 package org.apache.camel.component.validator.msv;
 
 import java.util.Map;
+
 import javax.xml.validation.SchemaFactory;
 
 import org.apache.camel.Endpoint;
 import org.apache.camel.component.validator.ValidatorComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
 
 /**
- * The <a href="http://camel.apache.org/msv.html">MSV Component</a> uses the
- * <a href="https://msv.dev.java.net/">MSV library</a> to perform XML validation using pluggable XML schema languages.
+ * The <a href="http://camel.apache.org/msv.html">MSV Component</a> uses the <a href="https://msv.dev.java.net/">MSV
+ * library</a> to perform XML validation using pluggable XML schema languages.
  *
- * @version 
  */
+@Component("msv")
 public class MsvComponent extends ValidatorComponent {
+    @Metadata(label = "advanced")
     private SchemaFactory schemaFactory;
 
     public MsvComponent() {
-        super(MsvEndpoint.class);
     }
 
     @Override

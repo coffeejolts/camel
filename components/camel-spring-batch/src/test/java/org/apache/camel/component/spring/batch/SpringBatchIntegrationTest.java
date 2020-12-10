@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,25 +18,26 @@ package org.apache.camel.component.spring.batch;
 
 import org.apache.camel.EndpointInject;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class SpringBatchIntegrationTest extends CamelSpringTestSupport {
-    @EndpointInject(uri = "mock:header")
+    @EndpointInject("mock:header")
     MockEndpoint headerEndpoint;
 
-    @EndpointInject(uri = "mock:output")
+    @EndpointInject("mock:output")
     MockEndpoint outputEndpoint;
 
-    @EndpointInject(uri = "mock:jobExecutionEventsQueue")
+    @EndpointInject("mock:jobExecutionEventsQueue")
     MockEndpoint jobExecutionEventsQueueEndpoint;
 
-    String[] inputMessages = new String[]{"foo", "bar", "baz", null};
+    String[] inputMessages = new String[] { "foo", "bar", "baz", null };
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
 
@@ -62,13 +63,13 @@ public class SpringBatchIntegrationTest extends CamelSpringTestSupport {
 
         jobExecutionEventsQueueEndpoint.assertIsSatisfied();
     }
-    
+
     @Test
     public void testMessageHeader() throws Exception {
         headerEndpoint.expectedHeaderReceived("header", 1);
-        
-        template.sendBodyAndHeader(null, "header", "1");
-        
+
+        template.sendBodyAndHeader("direct:header", null, "header", "1");
+
         headerEndpoint.assertIsSatisfied();
     }
 

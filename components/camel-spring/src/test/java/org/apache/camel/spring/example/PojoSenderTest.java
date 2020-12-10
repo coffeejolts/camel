@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,20 +18,19 @@ package org.apache.camel.spring.example;
 
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
-
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import static org.apache.camel.component.mock.MockEndpoint.assertIsSatisfied;
 
-/**
- * @version 
- */
 public class PojoSenderTest extends SpringTestSupport {
     protected MockEndpoint matchedEndpoint;
     protected MockEndpoint notMatchedEndpoint;
     protected MySender mySender;
 
+    @Test
     public void testMatchesPredicate() throws Exception {
         matchedEndpoint.expectedMessageCount(1);
         notMatchedEndpoint.expectedMessageCount(0);
@@ -41,6 +40,7 @@ public class PojoSenderTest extends SpringTestSupport {
         assertIsSatisfied(matchedEndpoint, notMatchedEndpoint);
     }
 
+    @Test
     public void testDoesNotMatchPredicate() throws Exception {
         matchedEndpoint.expectedMessageCount(0);
         notMatchedEndpoint.expectedMessageCount(1);
@@ -51,7 +51,8 @@ public class PojoSenderTest extends SpringTestSupport {
     }
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         super.setUp();
 
         matchedEndpoint = getMockEndpoint("mock:a");
@@ -60,10 +61,9 @@ public class PojoSenderTest extends SpringTestSupport {
         mySender = getMandatoryBean(MySender.class, "mySender");
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/example/pojoSender.xml");
     }
 
 }
-
-

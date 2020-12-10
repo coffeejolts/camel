@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -33,7 +33,7 @@ public class PoolableChannelFactory implements PoolableObjectFactory<Channel> {
     public PoolableChannelFactory(Connection connection) {
         this.connection = connection;
     }
-    
+
     @Override
     public Channel makeObject() throws Exception {
         return connection.createChannel();
@@ -41,7 +41,11 @@ public class PoolableChannelFactory implements PoolableObjectFactory<Channel> {
 
     @Override
     public void destroyObject(Channel t) throws Exception {
-        t.close();
+        try {
+            t.close();
+        } catch (Exception e) {
+            // no-op
+        }
     }
 
     @Override

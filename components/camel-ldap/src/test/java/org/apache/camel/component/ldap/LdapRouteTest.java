@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,6 @@ package org.apache.camel.component.ldap;
 
 import java.util.Collection;
 
-import javax.activation.DataHandler;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.SearchResult;
 import javax.naming.ldap.LdapContext;
@@ -26,31 +25,29 @@ import javax.naming.ldap.LdapContext;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.SimpleRegistry;
+import org.apache.camel.support.SimpleRegistry;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
 import org.apache.directory.server.core.integ.AbstractLdapTestUnit;
-import org.apache.directory.server.core.integ.FrameworkRunner;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.apache.directory.server.core.integ5.DirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.apache.directory.server.integ.ServerIntegrationUtils.getWiredContext;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(FrameworkRunner.class)
-@CreateLdapServer(transports = {@CreateTransport(protocol = "LDAP")})
+@ExtendWith(DirectoryExtension.class)
+@CreateLdapServer(transports = { @CreateTransport(protocol = "LDAP") })
 @ApplyLdifFiles("org/apache/camel/component/ldap/LdapRouteTest.ldif")
 public class LdapRouteTest extends AbstractLdapTestUnit {
 
@@ -58,7 +55,7 @@ public class LdapRouteTest extends AbstractLdapTestUnit {
     private ProducerTemplate template;
     private int port;
 
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
         // you can assign port number in the @CreateTransport annotation
         port = super.getLdapServer().getPort();
@@ -66,16 +63,16 @@ public class LdapRouteTest extends AbstractLdapTestUnit {
         LdapContext ctx = getWiredContext(ldapServer);
 
         SimpleRegistry reg = new SimpleRegistry();
-        reg.put("localhost:" + port, ctx);
+        reg.bind("localhost:" + port, ctx);
         camel = new DefaultCamelContext(reg);
         template = camel.createProducerTemplate();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         camel.stop();
     }
-    
+
     @Test
     public void testLdapRouteStandard() throws Exception {
         camel.addRoutes(createRouteBuilder("ldap:localhost:" + port + "?base=ou=system"));
@@ -142,38 +139,33 @@ public class LdapRouteTest extends AbstractLdapTestUnit {
         // make sure this att is NOT returned anymore 
         assertNull(theOneResultAtts.get("sn"));
     }
-    
+
     @Test
-    public void testLdapRoutePreserveHeaderAndAttachments() throws Exception {
+    public void testLdapRoutePreserveHeader() throws Exception {
         camel.addRoutes(createRouteBuilder("ldap:localhost:" + port + "?base=ou=system"));
         camel.start();
 
-        final DataHandler dataHandler = new DataHandler("test", "text");
-        Exchange out = template.request("direct:start", new Processor() {
-            public void process(Exchange exchange) throws Exception {
-                exchange.getIn().setBody("(!(ou=test1))");
-                exchange.getIn().setHeader("ldapTest", "Camel");
-                exchange.getIn().addAttachment("ldapAttachment", dataHandler);
-            }
+        Exchange out = template.request("direct:start", exchange -> {
+            exchange.getIn().setBody("(!(ou=test1))");
+            exchange.getIn().setHeader("ldapTest", "Camel");
         });
-        
+
         Collection<SearchResult> searchResults = defaultLdapModuleOutAssertions(out);
 
         assertFalse(contains("uid=test1,ou=test,ou=system", searchResults));
         assertTrue(contains("uid=test2,ou=test,ou=system", searchResults));
         assertTrue(contains("uid=testNoOU,ou=test,ou=system", searchResults));
         assertTrue(contains("uid=tcruise,ou=actors,ou=system", searchResults));
-        assertEquals("Camel", out.getOut().getHeader("ldapTest"));
-        assertSame(dataHandler, out.getOut().getAttachment("ldapAttachment"));
+        assertEquals("Camel", out.getMessage().getHeader("ldapTest"));
     }
 
     @SuppressWarnings("unchecked")
     private Collection<SearchResult> defaultLdapModuleOutAssertions(Exchange out) {
         // assertions of the response
         assertNotNull(out);
-        assertNotNull(out.getOut());
-        Collection<SearchResult> data = out.getOut().getBody(Collection.class);
-        assertNotNull("out body could not be converted to a Collection - was: " + out.getOut().getBody(), data);
+        assertNotNull(out.getMessage());
+        Collection<SearchResult> data = out.getMessage().getBody(Collection.class);
+        assertNotNull(data, "out body could not be converted to a Collection - was: " + out.getMessage().getBody());
         return data;
     }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -31,9 +31,10 @@ public class SayService implements ISay {
         this.message = message;
     }
 
+    @Override
     public String say() {
         LOG.info("Invoking say() method with message: " + message);
-        
+
         return message;
     }
 

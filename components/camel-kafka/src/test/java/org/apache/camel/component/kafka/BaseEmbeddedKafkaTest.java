@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,84 +16,75 @@
  */
 package org.apache.camel.component.kafka;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.component.kafka.embedded.EmbeddedKafkaCluster;
-import org.apache.camel.component.kafka.embedded.EmbeddedZookeeper;
-import org.apache.camel.component.properties.PropertiesComponent;
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.test.AvailablePortFinder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.apache.camel.test.infra.kafka.services.KafkaService;
+import org.apache.camel.test.infra.kafka.services.KafkaServiceFactory;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.KafkaAdminClient;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class BaseEmbeddedKafkaTest extends CamelTestSupport {
+public abstract class BaseEmbeddedKafkaTest extends CamelTestSupport {
+    @RegisterExtension
+    public static KafkaService service = KafkaServiceFactory.createService();
 
-    static EmbeddedZookeeper embeddedZookeeper;
-    static EmbeddedKafkaCluster embeddedKafkaCluster;
-    
-    private static volatile int zookeeperPort;
-    
-    private static volatile int karfkaPort;
-   
-    @BeforeClass
+    protected static AdminClient kafkaAdminClient;
+
+    private static final Logger LOG = LoggerFactory.getLogger(BaseEmbeddedKafkaTest.class);
+
+    @BeforeAll
     public static void beforeClass() {
-        // start from somewhere in the 23xxx range
-        zookeeperPort = AvailablePortFinder.getNextAvailable(23000);
-        // find another ports for proxy route test
-        karfkaPort = AvailablePortFinder.getNextAvailable(24000);
-        
-        embeddedZookeeper = new EmbeddedZookeeper(zookeeperPort);
-        List<Integer> kafkaPorts = new ArrayList<Integer>();
-        // -1 for any available port
-        kafkaPorts.add(karfkaPort);
-        embeddedKafkaCluster = new EmbeddedKafkaCluster(embeddedZookeeper.getConnection(), new Properties(), kafkaPorts);
-        try {
-            embeddedZookeeper.startup();
-        } catch (IOException e) {
-            e.printStackTrace();
+        LOG.info("### Embedded Kafka cluster broker list: " + service.getBootstrapServers());
+        System.setProperty("bootstrapServers", service.getBootstrapServers());
+    }
+
+    @BeforeEach
+    public void setKafkaAdminClient() {
+        if (kafkaAdminClient == null) {
+            kafkaAdminClient = createAdminClient();
         }
-        System.out.println("### Embedded Zookeeper connection: " + embeddedZookeeper.getConnection());
-        embeddedKafkaCluster.startup();
-        System.out.println("### Embedded Kafka cluster broker list: " + embeddedKafkaCluster.getBrokerList());
     }
 
-    @AfterClass
-    public static void afterClass() {
-        embeddedKafkaCluster.shutdown();
-        embeddedZookeeper.shutdown();
-    }
-    
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
+    protected Properties getDefaultProperties() {
+        LOG.info("Connecting to Kafka {}", service.getBootstrapServers());
 
-        Properties prop = new Properties();
-        prop.setProperty("zookeeperPort", "" + getZookeeperPort());
-        prop.setProperty("karfkaPort", "" + getKarfkaPort());
-        jndi.bind("prop", prop);
-        return jndi;
+        Properties props = new Properties();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, service.getBootstrapServers());
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, KafkaConstants.KAFKA_DEFAULT_SERIALIZER);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaConstants.KAFKA_DEFAULT_SERIALIZER);
+        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, KafkaConstants.KAFKA_DEFAULT_PARTITIONER);
+        props.put(ProducerConfig.ACKS_CONFIG, "1");
+        return props;
     }
-    
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext context = super.createCamelContext();
-        context.addComponent("properties", new PropertiesComponent("ref:prop"));
+        context.getPropertiesComponent().setLocation("ref:prop");
+
+        KafkaComponent kafka = new KafkaComponent(context);
+        kafka.init();
+        kafka.getConfiguration().setBrokers(service.getBootstrapServers());
+        context.addComponent("kafka", kafka);
+
         return context;
     }
-    
 
-    protected static int getZookeeperPort() {
-        return zookeeperPort;
-    }
-    
-    protected static int getKarfkaPort() {
-        return karfkaPort;
+    protected static String getBootstrapServers() {
+        return service.getBootstrapServers();
     }
 
+    private static AdminClient createAdminClient() {
+        final Properties properties = new Properties();
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, service.getBootstrapServers());
+
+        return KafkaAdminClient.create(properties);
+    }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
 public class MockCommitService extends CommitService {
     protected static final Logger LOG = LoggerFactory.getLogger(MockCommitService.class);
 
-    private List<RepositoryCommit> commitsList = new ArrayList<RepositoryCommit>();
+    private List<RepositoryCommit> commitsList = new ArrayList<>();
     private AtomicLong fakeSha = new AtomicLong(System.currentTimeMillis());
-    private Map<String, CommitStatus> commitStatus = new HashMap<String, CommitStatus>();
+    private Map<String, CommitStatus> commitStatus = new HashMap<>();
 
     public synchronized RepositoryCommit addRepositoryCommit() {
         User author = new User();
@@ -54,14 +54,17 @@ public class MockCommitService extends CommitService {
     }
 
     @Override
-    public synchronized List<RepositoryCommit> getCommits(IRepositoryIdProvider repository, String sha, String path) throws IOException {
+    public synchronized List<RepositoryCommit> getCommits(IRepositoryIdProvider repository, String sha, String path)
+            throws IOException {
         LOG.debug("Returning list of size " + commitsList.size());
         return commitsList;
     }
 
     @Override
-    public CommitStatus createStatus(IRepositoryIdProvider repository,
-            String sha, CommitStatus status) throws IOException {
+    public CommitStatus createStatus(
+            IRepositoryIdProvider repository,
+            String sha, CommitStatus status)
+            throws IOException {
         commitStatus.put(sha, status);
 
         return status;

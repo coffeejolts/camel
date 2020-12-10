@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,10 +17,9 @@
 package org.apache.camel.component.file.remote.sftp;
 
 import org.apache.camel.builder.RouteBuilder;
+import org.junit.jupiter.api.condition.EnabledIf;
 
-/**
- * @version 
- */
+@EnabledIf(value = "org.apache.camel.component.file.remote.services.SftpEmbeddedService#hasRequiredAlgorithms")
 public class SftpSimpleConsumeNotStepwiseTest extends SftpSimpleConsumeTest {
 
     @Override
@@ -28,9 +27,9 @@ public class SftpSimpleConsumeNotStepwiseTest extends SftpSimpleConsumeTest {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("sftp://localhost:" + getPort() + "/" + FTP_ROOT_DIR + "?username=admin&password=admin&delay=10s&disconnect=true&stepwise=false")
-                    .routeId("foo").noAutoStartup()
-                    .to("mock:result");
+                from("sftp://localhost:{{ftp.server.port}}/" + service.getFtpRootDir()
+                     + "?username=admin&password=admin&delay=10000&disconnect=true&stepwise=false").routeId("foo")
+                             .noAutoStartup().to("mock:result");
             }
         };
     }

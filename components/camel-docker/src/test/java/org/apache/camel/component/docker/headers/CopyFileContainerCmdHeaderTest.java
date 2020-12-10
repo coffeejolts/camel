@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,27 +18,26 @@ package org.apache.camel.component.docker.headers;
 
 import java.util.Map;
 
-import com.github.dockerjava.api.command.CopyFileFromContainerCmd;
-
+import com.github.dockerjava.api.command.CopyArchiveFromContainerCmd;
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Copy File from Container Request headers are applied properly
  */
-public class CopyFileContainerCmdHeaderTest extends BaseDockerHeaderTest<CopyFileFromContainerCmd> {
+public class CopyFileContainerCmdHeaderTest extends BaseDockerHeaderTest<CopyArchiveFromContainerCmd> {
 
     @Mock
-    private CopyFileFromContainerCmd mockObject;
+    private CopyArchiveFromContainerCmd mockObject;
 
-    @Ignore
     @Test
-    public void copyFileFromContainerHeaderTest() {
+    void copyFileFromContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
         String resource = "/test";
@@ -49,17 +48,15 @@ public class CopyFileContainerCmdHeaderTest extends BaseDockerHeaderTest<CopyFil
         headers.put(DockerConstants.DOCKER_RESOURCE, resource);
         headers.put(DockerConstants.DOCKER_HOST_PATH, hostPath);
 
-
         template.sendBodyAndHeaders("direct:in", "", headers);
 
-        Mockito.verify(dockerClient, Mockito.times(1)).copyFileFromContainerCmd(containerId, resource);
-        Mockito.verify(mockObject, Mockito.times(1)).withHostPath(Matchers.eq(hostPath));
-
+        Mockito.verify(dockerClient, Mockito.times(1)).copyArchiveFromContainerCmd(containerId, resource);
+        Mockito.verify(mockObject, Mockito.times(1)).withHostPath(eq(hostPath));
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.copyFileFromContainerCmd(Matchers.anyString(), Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.copyArchiveFromContainerCmd(anyString(), anyString())).thenReturn(mockObject);
     }
 
     @Override

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,25 @@
  */
 package org.apache.camel.spring.config;
 
+import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- *
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class SpringRouteNoFromTest extends SpringTestSupport {
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         createApplicationContext();
     }
 
+    @Test
     public void testRouteNoFrom() {
         // noop
     }
@@ -40,9 +45,9 @@ public class SpringRouteNoFromTest extends SpringTestSupport {
         try {
             answer = new ClassPathXmlApplicationContext("org/apache/camel/spring/config/SpringRouteNoFromTest.xml");
             fail("Should have thrown exception");
-        } catch (Exception e) {
+        } catch (RuntimeCamelException e) {
             IllegalArgumentException iae = (IllegalArgumentException) e.getCause();
-            assertEquals("Route myRoute has no inputs: Route(myRoute)[[] -> [To[mock:result]]]", iae.getMessage());
+            assertEquals("Route myRoute has no inputs: Route(myRoute)[ -> [To[mock:result]]]", iae.getMessage());
             return null;
         }
 

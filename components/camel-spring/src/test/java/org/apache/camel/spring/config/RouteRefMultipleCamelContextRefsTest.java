@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,22 +16,22 @@
  */
 package org.apache.camel.spring.config;
 
-import junit.framework.TestCase;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
-public class RouteRefMultipleCamelContextRefsTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+
+public class RouteRefMultipleCamelContextRefsTest {
 
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/config/RouteRefMultipleCamelContextRefsTest.xml");
     }
 
+    @Test
     public void testSpringTwoCamelContextDirectEndpoint() throws Exception {
         AbstractXmlApplicationContext ac = createApplicationContext();
         ac.start();
@@ -42,7 +42,7 @@ public class RouteRefMultipleCamelContextRefsTest extends TestCase {
         Endpoint start1 = camel1.getEndpoint("direct:start");
         Endpoint start2 = camel2.getEndpoint("direct:start");
         assertNotSame(start1, start2);
-        
+
         MockEndpoint mock1 = camel1.getEndpoint("mock:result", MockEndpoint.class);
         mock1.expectedBodiesReceived("Hello World");
 
@@ -57,5 +57,5 @@ public class RouteRefMultipleCamelContextRefsTest extends TestCase {
 
         ac.stop();
     }
-    
+
 }

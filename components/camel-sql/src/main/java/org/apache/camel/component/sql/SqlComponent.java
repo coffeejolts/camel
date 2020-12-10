@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,32 +17,48 @@
 package org.apache.camel.component.sql;
 
 import java.util.Map;
+import java.util.Set;
+
 import javax.sql.DataSource;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
 import org.apache.camel.spi.Metadata;
-import org.apache.camel.util.CamelContextHelper;
-import org.apache.camel.util.IntrospectionSupport;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.PropertyBindingSupport;
+import org.apache.camel.util.PropertiesHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * The <a href="http://camel.apache.org/sql-component.html">SQL Component</a> is for working with databases using JDBC queries.
- *
- * @version 
+ * The <a href="http://camel.apache.org/sql-component.html">SQL Component</a> is for working with databases using JDBC
+ * queries.
  */
-public class SqlComponent extends UriEndpointComponent {
+@Component("sql")
+public class SqlComponent extends DefaultComponent {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SqlComponent.class);
+
+    @Metadata
     private DataSource dataSource;
-    @Metadata(defaultValue = "true")
+    @Metadata(label = "advanced", defaultValue = "true")
     private boolean usePlaceholder = true;
 
     public SqlComponent() {
-        super(SqlEndpoint.class);
+    }
+
+    public SqlComponent(Class<? extends Endpoint> endpointClass) {
     }
 
     public SqlComponent(CamelContext context) {
-        super(context, SqlEndpoint.class);
+        super(context);
+    }
+
+    public SqlComponent(CamelContext context, Class<? extends Endpoint> endpointClass) {
+        super(context);
     }
 
     @Override
@@ -63,15 +79,30 @@ public class SqlComponent extends UriEndpointComponent {
             target = dataSource;
         }
         if (target == null) {
+            // check if the registry contains a single instance of DataSource
+            Set<DataSource> dataSources = getCamelContext().getRegistry().findByType(DataSource.class);
+            if (dataSources.size() > 1) {
+                throw new IllegalArgumentException(
+                        "Multiple DataSources found in the registry and no explicit configuration provided");
+            } else if (dataSources.size() == 1) {
+                target = dataSources.iterator().next();
+            }
+        }
+        if (target == null) {
             throw new IllegalArgumentException("DataSource must be configured");
         }
+        LOG.debug("Using default DataSource discovered from registry: {}", target);
 
         String parameterPlaceholderSubstitute = getAndRemoveParameter(parameters, "placeholder", String.class, "#");
-        
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(target);
-        IntrospectionSupport.setProperties(jdbcTemplate, parameters, "template.");
 
-        String query = remaining.replaceAll(parameterPlaceholderSubstitute, "?");
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(target);
+        Map<String, Object> templateOptions = PropertiesHelper.extractProperties(parameters, "template.");
+        PropertyBindingSupport.bindProperties(getCamelContext(), jdbcTemplate, templateOptions);
+
+        String query = remaining;
+        if (usePlaceholder) {
+            query = query.replaceAll(parameterPlaceholderSubstitute, "?");
+        }
 
         String onConsume = getAndRemoveParameter(parameters, "consumer.onConsume", String.class);
         if (onConsume == null) {
@@ -96,11 +127,14 @@ public class SqlComponent extends UriEndpointComponent {
         }
 
         SqlEndpoint endpoint = new SqlEndpoint(uri, this, jdbcTemplate, query);
+        endpoint.setPlaceholder(parameterPlaceholderSubstitute);
+        endpoint.setUsePlaceholder(isUsePlaceholder());
         endpoint.setOnConsume(onConsume);
         endpoint.setOnConsumeFailed(onConsumeFailed);
         endpoint.setOnConsumeBatchComplete(onConsumeBatchComplete);
         endpoint.setDataSource(ds);
         endpoint.setDataSourceRef(dataSourceRef);
+        endpoint.setTemplateOptions(templateOptions);
         return endpoint;
     }
 

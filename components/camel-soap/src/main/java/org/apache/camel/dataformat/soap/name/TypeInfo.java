@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,8 +19,7 @@ package org.apache.camel.dataformat.soap.name;
 import javax.xml.namespace.QName;
 
 /**
- * Value object to hold type information about parameters and return type of a
- * method
+ * Value object to hold type information about parameters and return type of a method
  */
 final class TypeInfo {
     private final String typeName;
@@ -28,11 +27,8 @@ final class TypeInfo {
 
     /**
      * Initialize TypeInfo with given name and resolved element name for a type
-     * 
-     * @param typeName
-     * @param elName
      */
-    public TypeInfo(final String typeName, final QName elName) {
+    TypeInfo(final String typeName, final QName elName) {
         this.typeName = typeName;
         this.elName = elName;
     }

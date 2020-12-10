@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,22 +19,19 @@ package org.apache.camel.component.ahc.ws;
 import java.io.UnsupportedEncodingException;
 
 import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.nio.SelectChannelConnector;
+import org.eclipse.jetty.server.ServerConnector;
 
-/**
- * @version 
- */
 public class WsProducerUsingStreamingTest extends WsProducerTestBase {
-    
+
     @Override
     protected void setUpComponent() throws Exception {
     }
 
     @Override
     protected Connector getConnector() throws Exception {
-        return new SelectChannelConnector();
+        return new ServerConnector(server);
     }
-    
+
     @Override
     protected String getTextTestMessage() {
         return super.getTextTestMessage();

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,12 +16,9 @@
  */
 package org.apache.camel.spring.config;
 
-import org.apache.camel.spring.SpringRouteBuilder;
+import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
-public class MyDependsOnRouteBuilder extends SpringRouteBuilder {
+public class MyDependsOnRouteBuilder extends RouteBuilder {
 
     private long time;
 
@@ -30,7 +27,7 @@ public class MyDependsOnRouteBuilder extends SpringRouteBuilder {
         // time when we was invoked by Spring
         this.time = System.nanoTime();
 
-        MyDependsOnBean bean = lookup("myDependsOnBean", MyDependsOnBean.class);
+        MyDependsOnBean bean = getContext().getRegistry().lookupByNameAndType("myDependsOnBean", MyDependsOnBean.class);
 
         from("direct:start").to(bean.getEndpointName());
     }

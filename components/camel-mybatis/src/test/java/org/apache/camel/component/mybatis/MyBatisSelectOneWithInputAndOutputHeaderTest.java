@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,9 @@ package org.apache.camel.component.mybatis;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MyBatisSelectOneWithInputAndOutputHeaderTest extends MyBatisTestSupport {
 
@@ -31,7 +33,7 @@ public class MyBatisSelectOneWithInputAndOutputHeaderTest extends MyBatisTestSup
     public void testSelectOne() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
-        mock.message(0).body().equals(TEST_ACCOUNT_ID_BAD);
+        mock.message(0).body().isEqualTo(TEST_ACCOUNT_ID_BAD);
         mock.message(0).header(TEST_CASE_OUTPUT_HEADER_NAME).isInstanceOf(Account.class);
 
         template.sendBodyAndHeader("direct:start", TEST_ACCOUNT_ID_BAD, TEST_CASE_INPUT_HEADER_NAME, TEST_ACCOUNT_ID);
@@ -46,7 +48,7 @@ public class MyBatisSelectOneWithInputAndOutputHeaderTest extends MyBatisTestSup
     public void tesSelectOneNotFound() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
-        mock.message(0).body().equals(TEST_ACCOUNT_ID);
+        mock.message(0).body().isEqualTo(TEST_ACCOUNT_ID);
         mock.message(0).header(TEST_CASE_OUTPUT_HEADER_NAME).isNull();
 
         template.sendBodyAndHeader("direct:start", TEST_ACCOUNT_ID, TEST_CASE_INPUT_HEADER_NAME, TEST_ACCOUNT_ID_BAD);
@@ -61,8 +63,9 @@ public class MyBatisSelectOneWithInputAndOutputHeaderTest extends MyBatisTestSup
             public void configure() throws Exception {
                 // START SNIPPET: e1
                 from("direct:start")
-                    .to("mybatis:selectAccountById?statementType=SelectOne&inputHeader=" + TEST_CASE_INPUT_HEADER_NAME + "&outputHeader=" + TEST_CASE_OUTPUT_HEADER_NAME)
-                    .to("mock:result");
+                        .to("mybatis:selectAccountById?statementType=SelectOne&inputHeader=" + TEST_CASE_INPUT_HEADER_NAME
+                            + "&outputHeader=" + TEST_CASE_OUTPUT_HEADER_NAME)
+                        .to("mock:result");
                 // END SNIPPET: e1
             }
         };

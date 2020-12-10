@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,13 @@
  */
 package org.apache.camel.component.hbase;
 
-import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Table;
 
 public interface HBaseRemoveHandler {
 
     /**
-     * 'Removes' a row from the table.
-     * The removal is not necessarily physical remove.
-     * The implementation decides how a row can be considered as removed.
+     * 'Removes' a row from the table. The removal is not necessarily physical remove. The implementation decides how a
+     * row can be considered as removed.
      */
-    void remove(HTableInterface table, byte[] row);
+    void remove(Table table, byte[] row);
 }

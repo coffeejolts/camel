@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,8 @@ package org.apache.camel.component.mina;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class MinaVmTest extends BaseMinaTest {
 
     @Test
@@ -31,15 +28,18 @@ public class MinaVmTest extends BaseMinaTest {
         Object body = "Hello there!";
         endpoint.expectedBodiesReceived(body);
 
-        template.sendBodyAndHeader("mina:vm://localhost:{{port}}?sync=false&minaLogger=true", body, "cheese", 123);
+        template.sendBodyAndHeader(String.format("mina:vm://localhost:%1$s?sync=false&minaLogger=true", getPort()), body,
+                "cheese", 123);
 
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
+
             public void configure() {
-                from("mina:vm://localhost:{{port}}?sync=false&minaLogger=true")
+                from(String.format("mina:vm://localhost:%1$s?sync=false&minaLogger=true", getPort()))
                         .to("log:before?showAll=true").to("mock:result").to("log:after?showAll=true");
             }
         };

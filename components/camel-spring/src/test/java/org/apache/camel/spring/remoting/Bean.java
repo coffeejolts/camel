@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.spring.remoting;
 
 import org.apache.camel.Message;
@@ -32,6 +31,7 @@ public class Bean {
     }
 
     public static class SubClass extends BaseClass {
+        @Override
         public String hi() {
             return "Hello from Sub";
         }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,24 +17,36 @@
 package org.apache.camel.component.hazelcast.multimap;
 
 import com.hazelcast.core.HazelcastInstance;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.component.hazelcast.HazelcastComponent;
+import org.apache.camel.component.hazelcast.HazelcastCommand;
+import org.apache.camel.component.hazelcast.HazelcastDefaultComponent;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
+import org.apache.camel.spi.UriEndpoint;
 
+/**
+ * Perform operations on <a href="http://www.hazelcast.com/">Hazelcast</a> distributed multimap.
+ */
+@UriEndpoint(firstVersion = "2.7.0", scheme = "hazelcast-multimap", title = "Hazelcast Multimap",
+             syntax = "hazelcast-multimap:cacheName", category = { Category.CACHE, Category.DATAGRID })
 public class HazelcastMultimapEndpoint extends HazelcastDefaultEndpoint {
 
-    public HazelcastMultimapEndpoint(HazelcastInstance hazelcastInstance, String uri, String cacheName, HazelcastComponent component) {
+    public HazelcastMultimapEndpoint(HazelcastInstance hazelcastInstance, String uri, String cacheName,
+                                     HazelcastDefaultComponent component) {
         super(hazelcastInstance, uri, component, cacheName);
+        setCommand(HazelcastCommand.multimap);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         HazelcastMultimapConsumer answer = new HazelcastMultimapConsumer(hazelcastInstance, this, processor, cacheName);
         configureConsumer(answer);
         return answer;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new HazelcastMultimapProducer(hazelcastInstance, this, cacheName);
     }

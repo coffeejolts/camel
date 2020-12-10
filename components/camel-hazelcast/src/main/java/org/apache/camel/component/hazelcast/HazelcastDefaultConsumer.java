@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,15 @@ package org.apache.camel.component.hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
+import org.apache.camel.support.DefaultConsumer;
 
 public class HazelcastDefaultConsumer extends DefaultConsumer {
 
     protected final String cacheName;
     protected HazelcastInstance hazelcastInstance;
 
-    public HazelcastDefaultConsumer(HazelcastInstance hazelcastInstance, Endpoint endpoint, Processor processor, String cacheName) {
+    public HazelcastDefaultConsumer(HazelcastInstance hazelcastInstance, Endpoint endpoint, Processor processor,
+                                    String cacheName) {
         super(endpoint, processor);
         this.cacheName = cacheName;
         this.hazelcastInstance = hazelcastInstance;

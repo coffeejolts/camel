@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,45 +16,52 @@
  */
 package org.apache.camel.converter.dozer;
 
+import java.util.Arrays;
+
+import com.github.dozermapper.core.loader.api.BeanMappingBuilder;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.converter.dozer.dto.CustomerDTO;
 import org.apache.camel.converter.dozer.model.Customer;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.dozer.DozerBeanMapper;
-import org.dozer.loader.api.BeanMappingBuilder;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.apache.camel.converter.dozer.DozerTestArtifactsFactory.createCleanMapper;
 import static org.apache.camel.converter.dozer.DozerTestArtifactsFactory.createDtoCustomer;
 
 public class DozerTypeConverterDTOTest extends CamelTestSupport {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
-        DozerBeanMapper mapper = createCleanMapper();
-        DozerTypeConverterLoader loader = new DozerTypeConverterLoader(context, mapper);
-        loader.addMapping(new BeanMappingBuilder() {
+
+        BeanMappingBuilder beanMappingBuilder = new BeanMappingBuilder() {
             @Override
             protected void configure() {
                 mapping(CustomerDTO.class, Customer.class);
             }
-        });
+        };
+
+        DozerBeanMapperConfiguration config = new DozerBeanMapperConfiguration();
+        config.setBeanMappingBuilders(Arrays.asList(beanMappingBuilder));
+
+        try (DozerTypeConverterLoader dtcl = new DozerTypeConverterLoader(context, config)) {
+        }
     }
 
     @Override
-    protected RouteBuilder createRouteBuilder() throws Exception {
+    protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             @Override
-            public void configure() throws Exception {
+            public void configure() {
                 from("direct:service-in").bean(new CustomerProcessor()).to("mock:verify-model");
             }
         };
     }
 
     @Test
-    public void verifyCamelConversionViaDozer() throws Exception {
+    void verifyCamelConversionViaDozer() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:verify-model");
         mock.expectedMessageCount(1);
 

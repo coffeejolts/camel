@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,14 +21,20 @@ import org.apache.camel.ContextTestSupport;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
+
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 public class SpringWireTapUsingFireAndForgetTest extends ContextTestSupport {
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/SpringWireTapUsingFireAndForgetTest.xml");
     }
 
+    @Test
     public void testFireAndForgetUsingExpression() throws Exception {
         MockEndpoint result = getMockEndpoint("mock:result");
         result.expectedBodiesReceived("Hello World");
@@ -43,13 +49,14 @@ public class SpringWireTapUsingFireAndForgetTest extends ContextTestSupport {
         // should be different exchange instances
         Exchange e1 = result.getReceivedExchanges().get(0);
         Exchange e2 = foo.getReceivedExchanges().get(0);
-        assertNotSame("Should not be same Exchange", e1, e2);
+        assertNotSame(e1, e2, "Should not be same Exchange");
 
         // should have same from endpoint
         assertEquals("direct://start", e1.getFromEndpoint().getEndpointUri());
         assertEquals("direct://start", e2.getFromEndpoint().getEndpointUri());
     }
 
+    @Test
     public void testFireAndForgetUsingProcessor() throws Exception {
         MockEndpoint result = getMockEndpoint("mock:result");
         result.expectedBodiesReceived("Hello World");
@@ -65,7 +72,7 @@ public class SpringWireTapUsingFireAndForgetTest extends ContextTestSupport {
         // should be different exchange instances
         Exchange e1 = result.getReceivedExchanges().get(0);
         Exchange e2 = foo.getReceivedExchanges().get(0);
-        assertNotSame("Should not be same Exchange", e1, e2);
+        assertNotSame(e1, e2, "Should not be same Exchange");
 
         // should have same from endpoint
         assertEquals("direct://start2", e1.getFromEndpoint().getEndpointUri());
@@ -75,6 +82,7 @@ public class SpringWireTapUsingFireAndForgetTest extends ContextTestSupport {
     // START SNIPPET: e1
     public static class MyProcessor implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             // here we prepare the new exchange by setting the payload on the exchange
             // on the IN message.

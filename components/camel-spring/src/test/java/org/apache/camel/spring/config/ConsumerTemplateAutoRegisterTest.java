@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,14 @@ package org.apache.camel.spring.config;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.ConsumerTemplate;
-import org.apache.camel.impl.DefaultConsumerTemplate;
+import org.apache.camel.impl.engine.DefaultConsumerTemplate;
 import org.apache.camel.spring.SpringRunWithTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 @ContextConfiguration
 public class ConsumerTemplateAutoRegisterTest extends SpringRunWithTestSupport {
 
@@ -38,10 +37,10 @@ public class ConsumerTemplateAutoRegisterTest extends SpringRunWithTestSupport {
 
     @Test
     public void testHasTemplate() {
-        assertNotNull("Should have injected a consumer template", template);
-        assertNotNull("The template context should not be null", ((DefaultConsumerTemplate)template).getCamelContext());
+        assertNotNull(template, "Should have injected a consumer template");
+        assertNotNull(((DefaultConsumerTemplate) template).getCamelContext(), "The template context should not be null");
 
         ConsumerTemplate lookup = context.getRegistry().lookupByNameAndType("consumerTemplate", ConsumerTemplate.class);
-        assertNotNull("Should lookup consumer template", lookup);
+        assertNotNull(lookup, "Should lookup consumer template");
     }
 }

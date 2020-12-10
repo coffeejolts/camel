@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,8 +23,9 @@ public interface SecurityConstraint {
      * <p/>
      * The returned value indicates which roles the user must be in to access the restricted resource.
      *
-     * @param url   the web resource
-     * @return <tt>null</tt> if not restricted, otherwise <tt>*</tt> (wildcard) matches any roles, otherwise a comma separated String with roles
+     * @param  url the web resource
+     * @return     <tt>null</tt> if not restricted, otherwise <tt>*</tt> (wildcard) matches any roles, otherwise a comma
+     *             separated String with roles
      */
     String restricted(String url);
 

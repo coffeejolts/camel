@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,9 +21,10 @@ package org.apache.camel.component.file.remote;
  */
 public class FromFtpPreMoveFilePrefixNotStepwiseTest extends FromFtpPreMoveFilePrefixTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/movefile?password=admin&binary=false&consumer.delay=5000"
-                + "&preMove=done/${file:name}&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/movefile?password=admin&binary=false&delay=5000"
+               + "&preMove=done/${file:name}&stepwise=false";
     }
 
 }

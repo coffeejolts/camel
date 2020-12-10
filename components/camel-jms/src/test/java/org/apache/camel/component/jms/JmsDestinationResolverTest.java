@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,78 +16,50 @@
  */
 package org.apache.camel.component.jms;
 
+import javax.jms.ConnectionFactory;
+
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.spring.SpringCamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.apache.camel.util.IOHelper;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+
 public class JmsDestinationResolverTest extends CamelTestSupport {
 
-    protected MockEndpoint resultEndpoint;
     protected String componentName = "activemq";
-    protected String startEndpointUri;
-    private ClassPathXmlApplicationContext applicationContext;
-    
+
     @Test
     public void testSendAndReceiveMessage() throws Exception {
-        assertSendAndReceiveBody("Hello there!");
+        MockEndpoint result = getMockEndpoint("mock:result");
+        result.expectedBodiesReceived("Hello World");
+        result.message(0).header("cheese").isEqualTo(123);
+
+        template.sendBodyAndHeader("direct:start", "Hello World", "cheese", 123);
+
+        assertMockEndpointsSatisfied();
     }
 
-    protected void assertSendAndReceiveBody(Object expectedBody) throws InterruptedException {
-        resultEndpoint.expectedBodiesReceived(expectedBody);
-        resultEndpoint.message(0).header("cheese").isEqualTo(123);
-
-        sendExchange(expectedBody);
-
-        resultEndpoint.assertIsSatisfied();
-    }
-
-    protected void sendExchange(final Object expectedBody) {
-        template.sendBodyAndHeader(startEndpointUri, expectedBody, "cheese", 123);
-    }
-
-
-    @Override
-    @Before
-    public void setUp() throws Exception {
-        startEndpointUri = "activemq:queue:test.a";
-
-        super.setUp();
-
-        resultEndpoint = context.getEndpoint("mock:result", MockEndpoint.class);
-    }
-    
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        applicationContext = createApplicationContext();
-        return SpringCamelContext.springCamelContext(applicationContext);
-        
-    }
-    
-    protected ClassPathXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/component/jms/jmsDestinationResolver.xml");
+        CamelContext camelContext = super.createCamelContext();
+
+        ConnectionFactory connectionFactory = CamelJmsTestHelper.createConnectionFactory();
+        camelContext.addComponent(componentName, jmsComponentAutoAcknowledge(connectionFactory));
+
+        JmsComponent jms = camelContext.getComponent(componentName, JmsComponent.class);
+        jms.getConfiguration().setDestinationResolver(new MyDestinationResolver());
+
+        return camelContext;
     }
 
     @Override
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-        IOHelper.close(applicationContext);
-    }
-
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from(startEndpointUri).to("activemq:queue:logicalNameForTestBQueue");
+                from("direct:start").to("activemq:queue:logicalNameForTestBQueue");
+
                 from("activemq:queue:test.b").to("mock:result");
             }
         };

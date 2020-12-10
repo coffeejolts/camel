@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,17 +16,19 @@
  */
 package org.apache.camel.component.jgroups;
 
-import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.jgroups.Message;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
-import static org.mockito.BDDMockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.BDDMockito.willThrow;
+
+@ExtendWith(MockitoExtension.class)
 public class CamelJGroupsReceiverTest {
 
     // Fixtures
@@ -42,13 +44,15 @@ public class CamelJGroupsReceiverTest {
 
     // Tests
 
-    @Test(expected = JGroupsException.class)
+    @Test
     public void shouldHandleProcessingException() throws Exception {
         // Given
-        willThrow(Exception.class).given(processor).process(any(Exchange.class));
-
+        willThrow(Exception.class).given(processor).process(ArgumentMatchers.isNull());
+        Message message = new Message(null, "someMessage");
+        message.setSrc(null);
         // When
-        receiver.receive(new Message(null, null, "someMessage"));
+        assertThrows(JGroupsException.class,
+                () -> receiver.receive(message));
     }
 
 }

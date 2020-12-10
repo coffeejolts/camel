@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,12 @@
  */
 package org.apache.camel.component.ahc;
 
-import com.ning.http.client.AsyncHttpClientConfig;
-import com.ning.http.client.providers.netty.NettyAsyncHttpProviderConfig;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig;
+import org.junit.jupiter.api.Test;
 
 public class AhcComponentNettyClientConfigTest extends BaseAhcTest {
 
@@ -30,12 +29,7 @@ public class AhcComponentNettyClientConfigTest extends BaseAhcTest {
     protected CamelContext createCamelContext() throws Exception {
         CamelContext context = super.createCamelContext();
 
-        // use netty provider to reuse address
-        NettyAsyncHttpProviderConfig provider = new NettyAsyncHttpProviderConfig();
-        provider.addProperty("reuseAddress", Boolean.TRUE);
-
-        AsyncHttpClientConfig config = new AsyncHttpClientConfig.Builder()
-                .setAsyncHttpClientProviderConfig(provider)
+        DefaultAsyncHttpClientConfig config = new DefaultAsyncHttpClientConfig.Builder()
                 .setFollowRedirect(true)
                 .setMaxRequestRetry(3)
                 .build();
@@ -54,22 +48,22 @@ public class AhcComponentNettyClientConfigTest extends BaseAhcTest {
 
         assertMockEndpointsSatisfied();
     }
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
                 from("direct:start")
-                    .to(getAhcEndpointUri())
-                    .to("mock:result");
+                        .to(getAhcEndpointUri())
+                        .to("mock:result");
 
                 from(getTestServerEndpointUri())
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
                                 // redirect to test the client config worked as we told it to follow redirects
-                                exchange.getOut().setHeader(Exchange.HTTP_RESPONSE_CODE, "301");
-                                exchange.getOut().setHeader("Location", getTestServerEndpointTwoUrl());
+                                exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, "301");
+                                exchange.getMessage().setHeader("Location", getTestServerEndpointTwoUrl());
                             }
                         });
 

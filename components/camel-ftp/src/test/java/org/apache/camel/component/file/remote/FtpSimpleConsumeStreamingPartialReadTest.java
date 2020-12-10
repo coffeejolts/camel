@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,40 +24,36 @@ import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.file.GenericFile;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class FtpSimpleConsumeStreamingPartialReadTest extends FtpServerTestSupport {
 
     @Test
     public void testFtpSimpleConsumeAbsolute() throws Exception {
-        if (!canTest()) {
-            return;
-        }
-
         String expected = "Hello World";
 
         // create file using regular file
 
         // FTP Server does not support absolute path, so lets simulate it
-        String path = FTP_ROOT_DIR + "/tmp/mytemp";
+        String path = service.getFtpRootDir() + "/tmp/mytemp";
         template.sendBodyAndHeader("file:" + path, expected, Exchange.FILE_NAME, "hello.txt");
 
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
         mock.expectedHeaderReceived(Exchange.FILE_NAME, "hello.txt");
 
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         assertMockEndpointsSatisfied();
         GenericFile<?> remoteFile1 = (GenericFile<?>) mock.getExchanges().get(0).getIn().getBody();
         assertTrue(remoteFile1.getBody() instanceof InputStream);
-        
+
         // Wait a little bit for the move to finish.
         Thread.sleep(2000);
-        
+
         File resultFile = new File(path + File.separator + "failed", "hello.txt");
         assertTrue(resultFile.exists());
         assertFalse(resultFile.isDirectory());
@@ -68,27 +64,22 @@ public class FtpSimpleConsumeStreamingPartialReadTest extends FtpServerTestSuppo
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                // notice we use an absolute starting path: /tmp/mytemp
-                // - we must remember to use // slash because of the url separator
-                from("ftp://localhost:" + getPort()
-                         + "//tmp/mytemp?username=admin&password=admin&delay=10s&disconnect=true&streamDownload=true"
-                         + "&move=done&moveFailed=failed")
-                    .routeId("foo").noAutoStartup()
-                    .process(new Processor() {
-                        
-                        @Override
-                        public void process(Exchange exchange) throws Exception {
-                            exchange.getIn().getBody(InputStream.class).read();
-                        }
-                    })
-                    .to("mock:result")
-                    .process(new Processor() {
-                        
-                        @Override
-                        public void process(Exchange exchange) throws Exception {
-                            throw new Exception("INTENTIONAL ERROR");
-                        }
-                    });
+                from("ftp://localhost:{{ftp.server.port}}"
+                     + "/tmp/mytemp?username=admin&password=admin&delay=10000&disconnect=true&streamDownload=true"
+                     + "&move=done&moveFailed=failed&stepwise=false")
+                             .routeId("foo").noAutoStartup().process(new Processor() {
+
+                                 @Override
+                                 public void process(Exchange exchange) throws Exception {
+                                     exchange.getIn().getBody(InputStream.class).read();
+                                 }
+                             }).to("mock:result").process(new Processor() {
+
+                                 @Override
+                                 public void process(Exchange exchange) throws Exception {
+                                     throw new Exception("INTENTIONAL ERROR");
+                                 }
+                             });
             }
         };
     }

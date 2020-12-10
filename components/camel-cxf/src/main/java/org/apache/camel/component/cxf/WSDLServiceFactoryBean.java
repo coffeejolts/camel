@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,8 +26,8 @@ import javax.xml.ws.Provider;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.cxf.endpoint.Endpoint;
 import org.apache.cxf.endpoint.EndpointException;
-import org.apache.cxf.endpoint.EndpointImpl;
 import org.apache.cxf.helpers.CastUtils;
+import org.apache.cxf.jaxws.support.JaxWsEndpointImpl;
 import org.apache.cxf.jaxws.support.JaxWsServiceFactoryBean;
 import org.apache.cxf.service.factory.FactoryBeanListener.Event;
 import org.apache.cxf.service.invoker.Invoker;
@@ -35,29 +35,29 @@ import org.apache.cxf.service.model.EndpointInfo;
 import org.apache.cxf.wsdl.WSDLManager;
 
 /**
- * A service factory bean class that create a service factory without requiring a service class
- * (SEI).
- * It will pick the first one service name and first one port/endpoint name in the WSDL, if 
- * there is service name or port/endpoint name setted.
- * @version 
+ * A service factory bean class that create a service factory without requiring a service class (SEI). It will pick the
+ * first one service name and first one port/endpoint name in the WSDL, if there is service name or port/endpoint name
+ * setted.
  */
 public class WSDLServiceFactoryBean extends JaxWsServiceFactoryBean {
-    
+
     private Definition definition;
 
     public WSDLServiceFactoryBean() {
         setServiceClass(Provider.class);
     }
-    
+
     public WSDLServiceFactoryBean(Class<?> serviceClass) {
         setServiceClass(serviceClass);
     }
-    
+
+    @Override
     public void setServiceClass(Class<?> serviceClass) {
         if (serviceClass != null) {
             super.setServiceClass(serviceClass);
         }
     }
+
     protected Definition getDefinition(String url) {
         if (definition == null) {
             try {
@@ -65,15 +65,16 @@ public class WSDLServiceFactoryBean extends JaxWsServiceFactoryBean {
             } catch (Exception ex) {
                 throw new RuntimeCamelException(ex);
             }
-        } 
-        
+        }
+
         if (this.getServiceQName(false) == null) {
             Map<QName, ?> services = CastUtils.cast(definition.getServices());
             if (services.size() == 0) {
                 throw new IllegalArgumentException("There is no service in the WSDL" + url);
             }
             if (services.size() > 1) {
-                throw new IllegalArgumentException("service name must be specified, there is more than one service in the WSDL" + url);
+                throw new IllegalArgumentException(
+                        "service name must be specified, there is more than one service in the WSDL" + url);
             }
             QName serviceQName = services.keySet().iterator().next();
             this.setServiceName(serviceQName);
@@ -83,12 +84,14 @@ public class WSDLServiceFactoryBean extends JaxWsServiceFactoryBean {
             Service service = definition.getService(getServiceQName(false));
             Map<String, ?> ports = CastUtils.cast(service.getPorts());
             if (ports.size() == 0) {
-                throw new IllegalArgumentException("There is no port/endpoint in the service "
+                throw new IllegalArgumentException(
+                        "There is no port/endpoint in the service "
                                                    + getServiceQName() + "of WSDL"
                                                    + url);
             }
             if (ports.size() > 1) {
-                throw new IllegalArgumentException("Port/endpoint name must be specified, There is more than one port in the service"
+                throw new IllegalArgumentException(
+                        "Port/endpoint name must be specified, There is more than one port in the service"
                                                    + service.getQName()
                                                    + " of the WSDL" + url);
             }
@@ -97,12 +100,16 @@ public class WSDLServiceFactoryBean extends JaxWsServiceFactoryBean {
         }
         return definition;
     }
+
+    @Override
     protected void buildServiceFromWSDL(String url) {
         getDefinition(url);
         super.buildServiceFromWSDL(url);
     }
+
+    @Override
     public Endpoint createEndpoint(EndpointInfo ei) throws EndpointException {
-        Endpoint ep = new EndpointImpl(getBus(), getService(), ei);
+        Endpoint ep = new JaxWsEndpointImpl(getBus(), getService(), ei);
         sendEvent(Event.ENDPOINT_CREATED, ei, ep, getServiceClass());
         return ep;
     }
@@ -111,12 +118,12 @@ public class WSDLServiceFactoryBean extends JaxWsServiceFactoryBean {
     protected void initializeWSDLOperations() {
         // skip this operation that requires service class
     }
-    
+
     @Override
     protected void checkServiceClassAnnotations(Class<?> sc) {
         // skip this operation that requires service class
     }
-    
+
     @Override
     protected Invoker createInvoker() {
         // Camel specific invoker will be set 

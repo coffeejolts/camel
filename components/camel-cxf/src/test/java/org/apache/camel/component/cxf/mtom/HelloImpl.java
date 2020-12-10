@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,7 +16,7 @@
  */
 package org.apache.camel.component.cxf.mtom;
 
-import java.awt.Image;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -25,21 +25,22 @@ import javax.xml.ws.Holder;
 
 import org.apache.camel.cxf.mtom_feature.Hello;
 
-import org.junit.Assert;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Hello Test Impl class
- * @version 
  */
 public class HelloImpl implements Hello {
 
     public void detail(Holder<byte[]> photo, Holder<Image> image) {
-        
-        MtomTestHelper.assertEquals(MtomTestHelper.REQ_PHOTO_DATA,  photo.value);      
-        Assert.assertNotNull(image.value);
+
+        assertArrayEquals(MtomTestHelper.REQ_PHOTO_DATA, photo.value);
+        assertNotNull(image.value);
         if (image.value instanceof BufferedImage) {
-            Assert.assertEquals(41, ((BufferedImage)image.value).getWidth());
-            Assert.assertEquals(39, ((BufferedImage)image.value).getHeight());            
+            assertEquals(41, ((BufferedImage) image.value).getWidth());
+            assertEquals(39, ((BufferedImage) image.value).getHeight());
         }
 
         try {
@@ -47,7 +48,7 @@ public class HelloImpl implements Hello {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        
+
         photo.value = MtomTestHelper.RESP_PHOTO_DATA;
 
     }

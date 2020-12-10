@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,60 +16,45 @@
  */
 package org.apache.camel.processor.idempotent.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
-import org.apache.camel.component.cassandra.CassandraUnitUtils;
-import org.cassandraunit.CassandraCQLUnit;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.apache.camel.component.cassandra.BaseCassandraTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for {@link CassandraIdempotentRepository}
  */
-public class CassandraIdempotentRepositoryTest {
-    @Rule
-    public CassandraCQLUnit cassandraRule = CassandraUnitUtils.cassandraCQLUnit("IdempotentDataSet.cql");
+public class CassandraIdempotentRepositoryTest extends BaseCassandraTest {
 
-    private Cluster cluster;
-    private Session session;
-    private CassandraIdempotentRepository<String> idempotentRepository;
+    private CassandraIdempotentRepository idempotentRepository;
 
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-        CassandraUnitUtils.startEmbeddedCassandra();
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        cluster = CassandraUnitUtils.cassandraCluster();
-        session = cluster.connect(CassandraUnitUtils.KEYSPACE);
-        idempotentRepository = new CassandraIdempotentRepository<String>(session);
+    @Override
+    protected void doPreSetup() throws Exception {
+        idempotentRepository = new CassandraIdempotentRepository(getSession());
         idempotentRepository.start();
+
+        super.doPreSetup();
     }
 
-    @After
+    @Override
+    public void beforeEach(ExtensionContext context) throws Exception {
+        super.beforeEach(context);
+
+        executeScript("IdempotentDataSet.cql");
+    }
+
+    @Override
+    @AfterEach
     public void tearDown() throws Exception {
+        super.tearDown();
         idempotentRepository.stop();
-        session.close();
-        cluster.close();
-    }
-
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-        CassandraUnitUtils.cleanEmbeddedCassandra();
     }
 
     private boolean exists(String key) {
-        return session.execute(
-                "select KEY from CAMEL_IDEMPOTENT where KEY=?", key)
-                .one() != null;
+        return getSession().execute(String.format("select KEY from CAMEL_IDEMPOTENT where KEY='%s'", key)).one() != null;
     }
 
     @Test
@@ -138,6 +123,17 @@ public class CassandraIdempotentRepositoryTest {
         boolean result = idempotentRepository.remove(key);
         // Then
         assertTrue(result);
+    }
+
+    @Test
+    public void testClear() {
+        // Given
+        String key = "Remove_Exists";
+        assertTrue(exists(key));
+        // When
+        idempotentRepository.clear();
+        // Then
+        assertFalse(idempotentRepository.contains(key));
     }
 
 }

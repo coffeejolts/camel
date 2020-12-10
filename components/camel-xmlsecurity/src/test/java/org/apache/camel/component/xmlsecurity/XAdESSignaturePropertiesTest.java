@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -50,6 +50,7 @@ import javax.xml.xpath.XPathFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
+
 import org.xml.sax.SAXException;
 
 import org.apache.camel.Exchange;
@@ -64,27 +65,46 @@ import org.apache.camel.component.xmlsecurity.api.XmlSignatureException;
 import org.apache.camel.component.xmlsecurity.api.XmlSignatureHelper;
 import org.apache.camel.component.xmlsecurity.api.XmlSignatureProperties;
 import org.apache.camel.component.xmlsecurity.util.TestKeystore;
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.spi.Registry;
+import org.apache.camel.support.SimpleRegistry;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.apache.camel.test.junit5.TestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.xmlsecurity.XmlSignatureTest.checkThrownException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
     private static final String NOT_EMPTY = "NOT_EMPTY";
-    private static String payload = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root xmlns=\"http://test/test\"><test>Test Message</test></root>";
+    private static String payload;
 
-    @Before
+    static {
+        boolean includeNewLine = true;
+        if (TestSupport.getJavaMajorVersion() >= 9
+                || TestSupport.isJava18_261_later()) {
+            includeNewLine = false;
+        }
+        payload = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                  + (includeNewLine ? "\n" : "")
+                  + "<root xmlns=\"http://test/test\"><test>Test Message</test></root>";
+    }
+
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         disableJMX();
         super.setUp();
     }
 
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
+    protected Registry createCamelRegistry() throws Exception {
+        Registry registry = new SimpleRegistry();
         registry.bind("keyAccessorDefault", TestKeystore.getKeyAccessor("bob"));
         registry.bind("xmlSignatureProperties", getXmlSignatureProperties("bob"));
 
@@ -98,32 +118,34 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
     @Override
     protected RouteBuilder[] createRouteBuilders() throws Exception {
-        return new RouteBuilder[] {new RouteBuilder() {
+        return new RouteBuilder[] { new RouteBuilder() {
             public void configure() throws Exception {
                 onException(XmlSignatureException.class).handled(true).to("mock:exception");
                 from("direct:enveloped")
-                        .to("xmlsecurity:sign://xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties&parentLocalName=root&parentNamespace=http://test/test")
+                        .to("xmlsecurity-sign:xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties&parentLocalName=root&parentNamespace=http://test/test")
                         .to("mock:result");
             }
         }, new RouteBuilder() {
             public void configure() throws Exception {
                 onException(XmlSignatureException.class).handled(true).to("mock:exception");
-                from("direct:enveloping").to("xmlsecurity:sign://xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties")
+                from("direct:enveloping")
+                        .to("xmlsecurity-sign:xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties")
                         .to("mock:result");
             }
         }, new RouteBuilder() {
             public void configure() throws Exception {
                 onException(XmlSignatureException.class).handled(true).to("mock:exception");
                 from("direct:emptySignatureId").to(
-                        "xmlsecurity:sign://xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties&signatureId=").to(
-                        "mock:result");
+                        "xmlsecurity-sign:xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties&signatureId=")
+                        .to(
+                                "mock:result");
             }
         }, new RouteBuilder() {
             public void configure() throws Exception {
                 onException(Exception.class).handled(false).to("mock:exception");
                 from("direct:detached").to(
-                        "xmlsecurity:sign://detached?keyAccessor=#keyAccessorDefault&xpathsToIdAttributes=#xpathsToIdAttributes&"//
-                                + "schemaResourceUri=org/apache/camel/component/xmlsecurity/Test.xsd&properties=#xmlSignatureProperties")
+                        "xmlsecurity-sign:detached?keyAccessor=#keyAccessorDefault&xpathsToIdAttributes=#xpathsToIdAttributes&"//
+                                           + "schemaResourceUri=org/apache/camel/component/xmlsecurity/Test.xsd&properties=#xmlSignatureProperties")
                         .to("mock:result");
             }
         } };
@@ -139,79 +161,100 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         // signing time
         checkXpath(doc, pathToSignatureProperties + "etsi:SigningTime/text()", prefix2Namespace, NOT_EMPTY);
         // signing certificate
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestMethod/@Algorithm",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestMethod/@Algorithm",
                 prefix2Namespace, DigestMethod.SHA256);
         checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestValue/text()",
                 prefix2Namespace, NOT_EMPTY);
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509IssuerName/text()",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509IssuerName/text()",
                 prefix2Namespace, NOT_EMPTY);
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509SerialNumber/text()",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509SerialNumber/text()",
                 prefix2Namespace, NOT_EMPTY);
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/@URI", prefix2Namespace, "http://certuri");
+        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/@URI", prefix2Namespace,
+                "http://certuri");
 
         // signature policy
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Identifier/text()", prefix2Namespace,
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Identifier/text()",
+                prefix2Namespace,
                 "1.2.840.113549.1.9.16.6.1");
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Identifier/@Qualifier", prefix2Namespace,
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Identifier/@Qualifier",
+                prefix2Namespace,
                 "OIDAsURN");
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Description/text()", prefix2Namespace,
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:Description/text()",
+                prefix2Namespace,
                 "invoice version 3.1");
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyHash/ds:DigestMethod/@Algorithm", prefix2Namespace,
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyHash/ds:DigestMethod/@Algorithm",
+                prefix2Namespace,
                 DigestMethod.SHA256);
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyHash/ds:DigestValue/text()", prefix2Namespace,
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyHash/ds:DigestValue/text()",
+                prefix2Namespace,
                 "Ohixl6upD6av8N7pEvDABhEL6hM=");
         checkXpath(
                 doc,
                 pathToSignatureProperties
-                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[1]/etsi:SPURI/text()",
+                     + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[1]/etsi:SPURI/text()",
                 prefix2Namespace, "http://test.com/sig.policy.pdf");
         checkXpath(
                 doc,
                 pathToSignatureProperties
-                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[1]/etsi:SPUserNotice/etsi:ExplicitText/text()",
+                     + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[1]/etsi:SPUserNotice/etsi:ExplicitText/text()",
                 prefix2Namespace, "display text");
         checkXpath(doc, pathToSignatureProperties
-                + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[2]/text()",
+                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyQualifiers/etsi:SigPolicyQualifier[2]/text()",
                 prefix2Namespace, "category B");
         checkXpath(
                 doc,
                 pathToSignatureProperties
-                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
+                     + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
                 prefix2Namespace, "http://test.com/policy.doc.ref1.txt");
         checkXpath(
                 doc,
                 pathToSignatureProperties
-                        + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
+                     + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId/etsi:SigPolicyId/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
                 prefix2Namespace, "http://test.com/policy.doc.ref2.txt");
 
         // production place
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:City/text()", prefix2Namespace, "Munich");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:StateOrProvince/text()", prefix2Namespace,
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:City/text()", prefix2Namespace,
+                "Munich");
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:StateOrProvince/text()",
+                prefix2Namespace,
                 "Bavaria");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:PostalCode/text()", prefix2Namespace, "80331");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:CountryName/text()", prefix2Namespace, "Germany");
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:PostalCode/text()", prefix2Namespace,
+                "80331");
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignatureProductionPlace/etsi:CountryName/text()", prefix2Namespace,
+                "Germany");
 
         // signer role 
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:ClaimedRoles/etsi:ClaimedRole[1]/text()", prefix2Namespace,
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:ClaimedRoles/etsi:ClaimedRole[1]/text()",
+                prefix2Namespace,
                 "test");
         checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:ClaimedRoles/etsi:ClaimedRole[2]/TestRole/text()",
                 prefix2Namespace, "TestRole");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/text()", prefix2Namespace,
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/text()",
+                prefix2Namespace,
                 "Ahixl6upD6av8N7pEvDABhEL6hM=");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/@Encoding", prefix2Namespace,
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/@Encoding",
+                prefix2Namespace,
                 "http://uri.etsi.org/01903/v1.2.2#DER");
-        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/@Id", prefix2Namespace,
+        checkXpath(doc, pathToSignatureProperties + "etsi:SignerRole/etsi:CertifiedRoles/etsi:CertifiedRole/@Id",
+                prefix2Namespace,
                 "IdCertifiedRole");
 
-        String pathToDataObjectProperties = "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedDataObjectProperties/";
+        String pathToDataObjectProperties
+                = "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedDataObjectProperties/";
         //DataObjectFormat
-        checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:Description/text()", prefix2Namespace, "invoice");
-        checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:MimeType/text()", prefix2Namespace, "text/xml");
+        checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:Description/text()", prefix2Namespace,
+                "invoice");
+        checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:MimeType/text()", prefix2Namespace,
+                "text/xml");
+        checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/@ObjectReference", prefix2Namespace, "#", true);
         checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:Identifier/text()",
                 prefix2Namespace, "1.2.840.113549.1.9.16.6.2");
         checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:Identifier/@Qualifier",
@@ -219,30 +262,35 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         checkXpath(doc, pathToDataObjectProperties + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:Description/text()",
                 prefix2Namespace, "identifier desc");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
+                        + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
                 prefix2Namespace, "http://test.com/dataobject.format.doc.ref1.txt");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
+                        + "etsi:DataObjectFormat/etsi:ObjectIdentifier/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
                 prefix2Namespace, "http://test.com/dataobject.format.doc.ref2.txt");
 
         //commitment 
-        checkXpath(doc, pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Identifier/text()",
+        checkXpath(doc,
+                pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Identifier/text()",
                 prefix2Namespace, "1.2.840.113549.1.9.16.6.4");
-        checkXpath(doc, pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Identifier/@Qualifier",
+        checkXpath(doc,
+                pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Identifier/@Qualifier",
                 prefix2Namespace, "OIDAsURI");
-        checkXpath(doc, pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Description/text()",
+        checkXpath(doc,
+                pathToDataObjectProperties + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:Description/text()",
                 prefix2Namespace, "description for commitment type ID");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
+                        + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:DocumentationReferences/etsi:DocumentationReference[1]/text()",
                 prefix2Namespace, "http://test.com/commitment.ref1.txt");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
+                        + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeId/etsi:DocumentationReferences/etsi:DocumentationReference[2]/text()",
                 prefix2Namespace, "http://test.com/commitment.ref2.txt");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeQualifiers/etsi:CommitmentTypeQualifier[1]/text()", prefix2Namespace,
+                        + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeQualifiers/etsi:CommitmentTypeQualifier[1]/text()",
+                prefix2Namespace,
                 "commitment qualifier");
         checkXpath(doc, pathToDataObjectProperties
-                + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeQualifiers/etsi:CommitmentTypeQualifier[2]/C/text()", prefix2Namespace,
+                        + "etsi:CommitmentTypeIndication/etsi:CommitmentTypeQualifiers/etsi:CommitmentTypeQualifier[2]/C/text()",
+                prefix2Namespace,
                 "c");
     }
 
@@ -250,7 +298,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     public void noSigningTime() throws Exception {
 
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setAddSigningTime(false);
 
         Document doc = testEnveloping();
@@ -268,7 +316,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         XmlSignerEndpoint endpoint = getSignerEndpoint();
         XAdESSignatureProperties newProps = new XAdESSignatureProperties();
         newProps.setAddSigningTime(true);
-        endpoint.setProperties(newProps);
+        endpoint.getConfiguration().setProperties(newProps);
 
         Document doc = testEnveloping();
 
@@ -284,7 +332,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     public void certificateChain() throws Exception {
 
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        endpoint.setProperties(new CertChainXAdESSignatureProperties());
+        endpoint.getConfiguration().setProperties(new CertChainXAdESSignatureProperties());
 
         Document doc = testEnveloping();
 
@@ -292,13 +340,16 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         String pathToSignatureProperties = getPathToSignatureProperties();
 
         // signing certificate
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestMethod/@Algorithm",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestMethod/@Algorithm",
                 prefix2Namespace, DigestMethod.SHA256);
         checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:CertDigest/ds:DigestValue/text()",
                 prefix2Namespace, NOT_EMPTY);
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509IssuerName/text()",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509IssuerName/text()",
                 prefix2Namespace, NOT_EMPTY);
-        checkXpath(doc, pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509SerialNumber/text()",
+        checkXpath(doc,
+                pathToSignatureProperties + "etsi:SigningCertificate/etsi:Cert/etsi:IssuerSerial/ds:X509SerialNumber/text()",
                 prefix2Namespace, NOT_EMPTY);
     }
 
@@ -307,7 +358,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         XmlSignerEndpoint endpoint = getSignerEndpoint();
         XAdESSignatureProperties props = new XAdESSignatureProperties();
         props.setAddSigningTime(false);
-        endpoint.setProperties(props);
+        endpoint.getConfiguration().setProperties(props);
         Document doc = testEnveloping();
         // expecting no Qualifying Properties
         checkNode(doc, "/ds:Signature/ds:Object/etsi:QualifyingProperties", getPrefix2NamespaceMap(), false);
@@ -317,20 +368,22 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     @Test
     public void policyImplied() throws Exception {
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSignaturePolicy(XAdESSignatureProperties.SIG_POLICY_IMPLIED);
         Document doc = testEnveloping();
 
         String pathToSignatureProperties = getPathToSignatureProperties();
-        checkNode(doc, pathToSignatureProperties + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId", getPrefix2NamespaceMap(), false);
-        checkNode(doc, pathToSignatureProperties + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyImplied", getPrefix2NamespaceMap(),
+        checkNode(doc, pathToSignatureProperties + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyId",
+                getPrefix2NamespaceMap(), false);
+        checkNode(doc, pathToSignatureProperties + "etsi:SignaturePolicyIdentifier/etsi:SignaturePolicyImplied",
+                getPrefix2NamespaceMap(),
                 true);
     }
 
     @Test
     public void policyNone() throws Exception {
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSignaturePolicy(XAdESSignatureProperties.SIG_POLICY_NONE);
         Document doc = testEnveloping();
 
@@ -363,7 +416,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         props.setSignatureProductionPlacePostalCode("");
         props.setSignatureProductionPlaceStateOrProvince("");
 
-        endpoint.setProperties(props);
+        endpoint.getConfiguration().setProperties(props);
         Document doc = testEnveloping();
         // expecting no Qualifying Properties
         checkNode(doc, "/ds:Signature/ds:Object/etsi:QualifyingProperties", getPrefix2NamespaceMap(), false);
@@ -379,26 +432,26 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     @Test
     public void prefixAndNamespace() throws Exception {
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setPrefix("p");
         props.setNamespace(XAdESSignatureProperties.HTTP_URI_ETSI_ORG_01903_V1_1_1);
         props.setCommitmentTypeIdDescription(null);
-        props.setCommitmentTypeIdDocumentationReferences(Collections.<String> emptyList());
+        props.setCommitmentTypeIdDocumentationReferences(Collections.emptyList());
         props.setCommitmentTypeIdQualifier(null);
         props.setDataObjectFormatIdentifierDescription(null);
-        props.setDataObjectFormatIdentifierDocumentationReferences(Collections.<String> emptyList());
+        props.setDataObjectFormatIdentifierDocumentationReferences(Collections.emptyList());
         props.setDataObjectFormatIdentifierQualifier(null);
         props.setSigPolicyIdDescription(null);
-        props.setSigPolicyIdDocumentationReferences(Collections.<String> emptyList());
+        props.setSigPolicyIdDocumentationReferences(Collections.emptyList());
         props.setSigPolicyIdQualifier(null);
         // the following lists must be set to empty because otherwise they would contain XML fragments with a wrong namespace
-        props.setSigPolicyQualifiers(Collections.<String> emptyList());
-        props.setSignerClaimedRoles(Collections.<String> emptyList());
-        props.setCommitmentTypeQualifiers(Collections.<String> emptyList());
+        props.setSigPolicyQualifiers(Collections.emptyList());
+        props.setSignerClaimedRoles(Collections.emptyList());
+        props.setCommitmentTypeQualifiers(Collections.emptyList());
 
         Document doc = testEnveloping();
 
-        Map<String, String> prefix2Namespace = new TreeMap<String, String>();
+        Map<String, String> prefix2Namespace = new TreeMap<>();
         prefix2Namespace.put("ds", XMLSignature.XMLNS);
         prefix2Namespace.put("etsi", XAdESSignatureProperties.HTTP_URI_ETSI_ORG_01903_V1_1_1);
 
@@ -412,7 +465,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
     @Test
     public void headers() throws Exception {
-        Map<String, Object> header = new TreeMap<String, Object>();
+        Map<String, Object> header = new TreeMap<>();
 
         header.put(XmlSignatureConstants.HEADER_XADES_PREFIX, "ns1");
         header.put(XmlSignatureConstants.HEADER_XADES_NAMESPACE, XAdESSignatureProperties.HTTP_URI_ETSI_ORG_01903_V1_2_2);
@@ -423,15 +476,15 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         header.put(XmlSignatureConstants.HEADER_XADES_DATA_OBJECT_FORMAT_ENCODING, "base64");
 
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         // the following lists must be set to empty because otherwise they would contain XML fragments with a wrong namespace
-        props.setSigPolicyQualifiers(Collections.<String> emptyList());
-        props.setSignerClaimedRoles(Collections.<String> emptyList());
-        props.setCommitmentTypeQualifiers(Collections.<String> emptyList());
+        props.setSigPolicyQualifiers(Collections.emptyList());
+        props.setSignerClaimedRoles(Collections.emptyList());
+        props.setCommitmentTypeQualifiers(Collections.emptyList());
 
         Document doc = testEnveloping("direct:enveloping", header);
 
-        Map<String, String> prefix2Namespace = new TreeMap<String, String>();
+        Map<String, String> prefix2Namespace = new TreeMap<>();
         prefix2Namespace.put("ds", XMLSignature.XMLNS);
         prefix2Namespace.put("etsi", XAdESSignatureProperties.HTTP_URI_ETSI_ORG_01903_V1_2_2);
 
@@ -444,10 +497,12 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
         checkXpath(doc, "/ds:Signature/ds:Object/etsi:QualifyingProperties/@Id", prefix2Namespace, "QualId");
 
-        checkXpath(doc, "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedDataObjectProperties/@Id",
+        checkXpath(doc,
+                "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedDataObjectProperties/@Id",
                 prefix2Namespace, "ObjId");
 
-        checkXpath(doc, "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedSignatureProperties/@Id",
+        checkXpath(doc,
+                "/ds:Signature/ds:Object/etsi:QualifyingProperties/etsi:SignedProperties/etsi:SignedSignatureProperties/@Id",
                 prefix2Namespace, "SigId");
 
         checkXpath(
@@ -467,7 +522,7 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     @Test
     public void detached() throws Exception {
         String detachedPayload = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + //
-                "<ns:root xmlns:ns=\"http://test\"><a ID=\"myID\"><b>bValue</b></a></ns:root>";
+                                 "<ns:root xmlns:ns=\"http://test\"><a ID=\"myID\"><b>bValue</b></a></ns:root>";
         setupMock();
         sendBody("direct:detached", detachedPayload);
         assertMockEndpointsSatisfied();
@@ -483,16 +538,16 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         testExceptionSigPolicyIdMissing(null);
     }
 
-    private void testExceptionSigPolicyIdMissing(String value) throws InterruptedException, Exception {
+    private void testExceptionSigPolicyIdMissing(String value) throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSigPolicyId(value);
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(mock, XmlSignatureException.class,
-                "The XAdES-EPES confguration is invalid. The signature policy identifier is missing.", null);
+                "The XAdES-EPES configuration is invalid. The signature policy identifier is missing.", null);
     }
 
     @Test
@@ -505,16 +560,16 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         testExceptionSigPolicyDigestMissing(null);
     }
 
-    private void testExceptionSigPolicyDigestMissing(String value) throws InterruptedException, Exception {
+    private void testExceptionSigPolicyDigestMissing(String value) throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSignaturePolicyDigestValue(value);
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(mock, XmlSignatureException.class,
-                "The XAdES-EPES confguration is invalid. The digest value for the signature policy is missing.", null);
+                "The XAdES-EPES configuration is invalid. The digest value for the signature policy is missing.", null);
     }
 
     @Test
@@ -527,16 +582,16 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         testExceptionSigPolicyDigestAlgoMissing(null);
     }
 
-    private void testExceptionSigPolicyDigestAlgoMissing(String value) throws InterruptedException, Exception {
+    private void testExceptionSigPolicyDigestAlgoMissing(String value) throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSignaturePolicyDigestAlgorithm(value);
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(mock, XmlSignatureException.class,
-                "The XAdES-EPES confguration is invalid. The digest algorithm for the signature policy is missing.", null);
+                "The XAdES-EPES configuration is invalid. The digest algorithm for the signature policy is missing.", null);
     }
 
     @Test
@@ -544,15 +599,15 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSignerClaimedRoles(Collections.singletonList("<ClaimedRole>wrong XML fragment<ClaimedRole>")); // Element 'ClaimedRole' is not closed correctly
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(
                 mock,
                 XmlSignatureException.class,
-                "The XAdES confguration is invalid. The list of the claimed roles contains the invalid entry '<ClaimedRole>wrong XML fragment<ClaimedRole>'. An entry must either be a text or"
-                        + " an XML fragment with the root element 'ClaimedRole' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
+                "The XAdES configuration is invalid. The list of the claimed roles contains the invalid entry '<ClaimedRole>wrong XML fragment<ClaimedRole>'. An entry must either be a text or"
+                                             + " an XML fragment with the root element 'ClaimedRole' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
                 null);
     }
 
@@ -561,15 +616,16 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
-        props.setCommitmentTypeQualifiers(Collections.singletonList("<CommitmentTypeQualifier>wrong XML fragment<CommitmentTypeQualifier>")); // end tag is not correct
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
+        props.setCommitmentTypeQualifiers(
+                Collections.singletonList("<CommitmentTypeQualifier>wrong XML fragment<CommitmentTypeQualifier>")); // end tag is not correct
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(
                 mock,
                 XmlSignatureException.class,
-                "The XAdES confguration is invalid. The list of the commitment type qualifiers contains the invalid entry '<CommitmentTypeQualifier>wrong XML fragment<CommitmentTypeQualifier>'."
-                        + " An entry must either be a text or an XML fragment with the root element 'CommitmentTypeQualifier' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
+                "The XAdES configuration is invalid. The list of the commitment type qualifiers contains the invalid entry '<CommitmentTypeQualifier>wrong XML fragment<CommitmentTypeQualifier>'."
+                                             + " An entry must either be a text or an XML fragment with the root element 'CommitmentTypeQualifier' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
                 null);
     }
 
@@ -578,15 +634,15 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSigPolicyQualifiers(Collections.singletonList("<SigPolicyQualifier>wrong XML fragment<SigPolicyQualifier>")); // end tag is not correct
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(
                 mock,
                 XmlSignatureException.class,
-                "The XAdES confguration is invalid. The list of the signatue policy qualifiers contains the invalid entry '<SigPolicyQualifier>wrong XML fragment<SigPolicyQualifier>'."
-                        + " An entry must either be a text or an XML fragment with the root element 'SigPolicyQualifier' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
+                "The XAdES configuration is invalid. The list of the signatue policy qualifiers contains the invalid entry '<SigPolicyQualifier>wrong XML fragment<SigPolicyQualifier>'."
+                                             + " An entry must either be a text or an XML fragment with the root element 'SigPolicyQualifier' with the namespace 'http://uri.etsi.org/01903/v1.3.2#'.",
                 null);
     }
 
@@ -595,124 +651,153 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         MockEndpoint mock = getMockEndpoint("mock:exception");
         mock.expectedMessageCount(1);
         XmlSignerEndpoint endpoint = getSignerEndpoint();
-        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getProperties();
+        XAdESSignatureProperties props = (XAdESSignatureProperties) endpoint.getConfiguration().getProperties();
         props.setSigPolicyQualifiers(Collections
-                .singletonList("<SigPolicyQualifier xmlns=\"http://invalid.com\">XML fragment with wrong namespace for root element</SigPolicyQualifier>"));
-        sendBody("direct:enveloping", payload, Collections.<String, Object> emptyMap());
+                .singletonList(
+                        "<SigPolicyQualifier xmlns=\"http://invalid.com\">XML fragment with wrong namespace for root element</SigPolicyQualifier>"));
+        sendBody("direct:enveloping", payload, Collections.emptyMap());
         assertMockEndpointsSatisfied();
         checkThrownException(
                 mock,
                 XmlSignatureException.class,
-                "The XAdES confguration is invalid. The root element 'SigPolicyQualifier' of the provided XML fragment "
-                        + "'<SigPolicyQualifier xmlns=\"http://invalid.com\">XML fragment with wrong namespace for root element</SigPolicyQualifier>' has the invalid namespace 'http://invalid.com'."
-                        + " The correct namespace is 'http://uri.etsi.org/01903/v1.3.2#'.", null);
+                "The XAdES configuration is invalid. The root element 'SigPolicyQualifier' of the provided XML fragment "
+                                             + "'<SigPolicyQualifier xmlns=\"http://invalid.com\">XML fragment with wrong namespace for root element</SigPolicyQualifier>' has the invalid namespace 'http://invalid.com'."
+                                             + " The correct namespace is 'http://uri.etsi.org/01903/v1.3.2#'.",
+                null);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void namespaceNull() throws Exception {
-        new XAdESSignatureProperties().setNamespace(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setNamespace(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signingCertificateURIsNull() throws Exception {
-        new XAdESSignatureProperties().setSigningCertificateURIs(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSigningCertificateURIs(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void sigPolicyInvalid() throws Exception {
-        new XAdESSignatureProperties().setSignaturePolicy("invalid");
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSignaturePolicy("invalid"));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void sigPolicyIdDocumentationReferencesNull() throws Exception {
-        new XAdESSignatureProperties().setSigPolicyIdDocumentationReferences(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSigPolicyIdDocumentationReferences(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void sigPolicyIdDocumentationReferencesNullEntry() throws Exception {
-        new XAdESSignatureProperties().setSigPolicyIdDocumentationReferences(Collections.<String> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setSigPolicyIdDocumentationReferences(Collections.<String> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void sigPolicyIdDocumentationReferencesEmptyEntry() throws Exception {
-        new XAdESSignatureProperties().setSigPolicyIdDocumentationReferences(Collections.<String> singletonList(""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setSigPolicyIdDocumentationReferences(Collections.<String> singletonList("")));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void dataObjectFormatIdentifierDocumentationReferencesNull() throws Exception {
-        new XAdESSignatureProperties().setDataObjectFormatIdentifierDocumentationReferences(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setDataObjectFormatIdentifierDocumentationReferences(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void dataObjectFormatIdentifierDocumentationReferencesNullEntry() throws Exception {
-        new XAdESSignatureProperties().setDataObjectFormatIdentifierDocumentationReferences(Collections.<String> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setDataObjectFormatIdentifierDocumentationReferences(Collections.<String> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void dataObjectFormatIdentifierDocumentationReferencesEmptyEntry() throws Exception {
-        new XAdESSignatureProperties().setDataObjectFormatIdentifierDocumentationReferences(Collections.<String> singletonList(""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setDataObjectFormatIdentifierDocumentationReferences(Collections.<String> singletonList("")));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signerClaimedRolesNull() throws Exception {
-        new XAdESSignatureProperties().setSignerClaimedRoles(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSignerClaimedRoles(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signerClaimedRolesNullEntry() throws Exception {
-        new XAdESSignatureProperties().setSignerClaimedRoles(Collections.<String> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSignerClaimedRoles(Collections.<String> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signerClaimedRolesEmptyEntry() throws Exception {
-        new XAdESSignatureProperties().setSignerClaimedRoles(Collections.<String> singletonList(""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSignerClaimedRoles(Collections.<String> singletonList("")));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signerCertifiedRolesNull() throws Exception {
-        new XAdESSignatureProperties().setSignerCertifiedRoles(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setSignerCertifiedRoles(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void signerCertifiedRolesNullEntry() throws Exception {
-        new XAdESSignatureProperties().setSignerCertifiedRoles(Collections.<XAdESEncapsulatedPKIData> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setSignerCertifiedRoles(Collections.<XAdESEncapsulatedPKIData> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeIdDocumentationReferencesNull() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeIdDocumentationReferences(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setCommitmentTypeIdDocumentationReferences(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeIdDocumentationReferencesNullEntry() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeIdDocumentationReferences(Collections.<String> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setCommitmentTypeIdDocumentationReferences(Collections.<String> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeIdDocumentationReferencesEmptyEntry() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeIdDocumentationReferences(Collections.<String> singletonList(""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties()
+                        .setCommitmentTypeIdDocumentationReferences(Collections.<String> singletonList("")));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeQualifiersNull() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeQualifiers(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setCommitmentTypeQualifiers(null));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeQualifiersNullEntry() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeQualifiers(Collections.<String> singletonList(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setCommitmentTypeQualifiers(Collections.<String> singletonList(null)));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void commitmentTypeQualifiersEmptyEntry() throws Exception {
-        new XAdESSignatureProperties().setCommitmentTypeQualifiers(Collections.<String> singletonList(""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new XAdESSignatureProperties().setCommitmentTypeQualifiers(Collections.<String> singletonList("")));
     }
 
     //
 
     private XmlSignerEndpoint getSignerEndpoint() {
         return (XmlSignerEndpoint) context().getEndpoint(
-                "xmlsecurity:sign://xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties");
+                "xmlsecurity-sign:xades?keyAccessor=#keyAccessorDefault&properties=#xmlSignatureProperties");
     }
 
     private String getPathToSignatureProperties() {
@@ -720,22 +805,25 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     }
 
     static Map<String, String> getPrefix2NamespaceMap() {
-        Map<String, String> prefix2Namespace = new TreeMap<String, String>();
+        Map<String, String> prefix2Namespace = new TreeMap<>();
         prefix2Namespace.put("ds", XMLSignature.XMLNS);
         prefix2Namespace.put("etsi", XAdESSignatureProperties.HTTP_URI_ETSI_ORG_01903_V1_3_2);
         return prefix2Namespace;
     }
 
-    private Document testEnveloping() throws InterruptedException, SAXException, IOException, ParserConfigurationException, Exception {
+    private Document testEnveloping()
+            throws InterruptedException, SAXException, IOException, ParserConfigurationException, Exception {
         return testEnveloping("direct:enveloping");
     }
 
-    protected Document testEnveloping(String fromUri) throws InterruptedException, SAXException, IOException, ParserConfigurationException,
+    protected Document testEnveloping(String fromUri)
+            throws InterruptedException, SAXException, IOException, ParserConfigurationException,
             Exception {
         return testEnveloping(fromUri, Collections.<String, Object> emptyMap());
     }
 
-    protected Document testEnveloping(String fromUri, Map<String, Object> headers) throws InterruptedException, SAXException, IOException,
+    protected Document testEnveloping(String fromUri, Map<String, Object> headers)
+            throws InterruptedException, SAXException, IOException,
             ParserConfigurationException, Exception {
         MockEndpoint mock = setupMock();
         sendBody(fromUri, payload, headers);
@@ -769,11 +857,13 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         props.setSignaturePolicyDigestAlgorithm(DigestMethod.SHA256);
         props.setSignaturePolicyDigestValue("Ohixl6upD6av8N7pEvDABhEL6hM=");
         props.setSigPolicyQualifiers(Arrays
-            .asList(new String[] {
-                "<SigPolicyQualifier xmlns=\"http://uri.etsi.org/01903/v1.3.2#\"><SPURI>http://test.com/sig.policy.pdf</SPURI><SPUserNotice><ExplicitText>display text</ExplicitText>"
-                    + "</SPUserNotice></SigPolicyQualifier>", "category B" }));
-        props.setSigPolicyIdDocumentationReferences(Arrays.asList(new String[] {"http://test.com/policy.doc.ref1.txt",
-            "http://test.com/policy.doc.ref2.txt" }));
+                .asList(new String[] {
+                        "<SigPolicyQualifier xmlns=\"http://uri.etsi.org/01903/v1.3.2#\"><SPURI>http://test.com/sig.policy.pdf</SPURI><SPUserNotice><ExplicitText>display text</ExplicitText>"
+                                       + "</SPUserNotice></SigPolicyQualifier>",
+                        "category B" }));
+        props.setSigPolicyIdDocumentationReferences(Arrays.asList(new String[] {
+                "http://test.com/policy.doc.ref1.txt",
+                "http://test.com/policy.doc.ref2.txt" }));
         // production place
         props.setSignatureProductionPlaceCity("Munich");
         props.setSignatureProductionPlaceCountryName("Germany");
@@ -781,10 +871,12 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         props.setSignatureProductionPlaceStateOrProvince("Bavaria");
 
         //role
-        props.setSignerClaimedRoles(Arrays.asList(new String[] {"test",
-            "<a:ClaimedRole xmlns:a=\"http://uri.etsi.org/01903/v1.3.2#\"><TestRole>TestRole</TestRole></a:ClaimedRole>" }));
-        props.setSignerCertifiedRoles(Collections.singletonList(new XAdESEncapsulatedPKIData("Ahixl6upD6av8N7pEvDABhEL6hM=",
-            "http://uri.etsi.org/01903/v1.2.2#DER", "IdCertifiedRole")));
+        props.setSignerClaimedRoles(Arrays.asList(new String[] {
+                "test",
+                "<a:ClaimedRole xmlns:a=\"http://uri.etsi.org/01903/v1.3.2#\"><TestRole>TestRole</TestRole></a:ClaimedRole>" }));
+        props.setSignerCertifiedRoles(Collections.singletonList(new XAdESEncapsulatedPKIData(
+                "Ahixl6upD6av8N7pEvDABhEL6hM=",
+                "http://uri.etsi.org/01903/v1.2.2#DER", "IdCertifiedRole")));
 
         // data object format
         props.setDataObjectFormatDescription("invoice");
@@ -793,16 +885,18 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
         props.setDataObjectFormatIdentifierQualifier("OIDAsURN");
         props.setDataObjectFormatIdentifierDescription("identifier desc");
         props.setDataObjectFormatIdentifierDocumentationReferences(Arrays.asList(new String[] {
-            "http://test.com/dataobject.format.doc.ref1.txt", "http://test.com/dataobject.format.doc.ref2.txt" }));
+                "http://test.com/dataobject.format.doc.ref1.txt", "http://test.com/dataobject.format.doc.ref2.txt" }));
 
         //commitment
         props.setCommitmentTypeId("1.2.840.113549.1.9.16.6.4");
         props.setCommitmentTypeIdQualifier("OIDAsURI");
         props.setCommitmentTypeIdDescription("description for commitment type ID");
-        props.setCommitmentTypeIdDocumentationReferences(Arrays.asList(new String[] {"http://test.com/commitment.ref1.txt",
-            "http://test.com/commitment.ref2.txt" }));
-        props.setCommitmentTypeQualifiers(Arrays.asList(new String[] {"commitment qualifier",
-            "<c:CommitmentTypeQualifier xmlns:c=\"http://uri.etsi.org/01903/v1.3.2#\"><C>c</C></c:CommitmentTypeQualifier>" }));
+        props.setCommitmentTypeIdDocumentationReferences(Arrays.asList(new String[] {
+                "http://test.com/commitment.ref1.txt",
+                "http://test.com/commitment.ref2.txt" }));
+        props.setCommitmentTypeQualifiers(Arrays.asList(new String[] {
+                "commitment qualifier",
+                "<c:CommitmentTypeQualifier xmlns:c=\"http://uri.etsi.org/01903/v1.3.2#\"><C>c</C></c:CommitmentTypeQualifier>" }));
         return props;
     }
 
@@ -810,10 +904,12 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
         SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
 
-        Source schema1 = new StreamSource(new File("target/test-classes/org/apache/camel/component/xmlsecurity/xades/XAdES.xsd"));
-        Source schema2 = new StreamSource(new File(
-                "target/test-classes/org/apache/camel/component/xmlsecurity/xades/xmldsig-core-schema.xsd"));
-        Schema schema = factory.newSchema(new Source[] {schema2, schema1 });
+        Source schema1
+                = new StreamSource(new File("target/test-classes/org/apache/camel/component/xmlsecurity/xades/XAdES.xsd"));
+        Source schema2 = new StreamSource(
+                new File(
+                        "target/test-classes/org/apache/camel/component/xmlsecurity/xades/xmldsig-core-schema.xsd"));
+        Schema schema = factory.newSchema(new Source[] { schema2, schema1 });
 
         Validator validator = schema.newValidator();
 
@@ -822,31 +918,41 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
     }
 
     static void checkXpath(Document doc, String xpathString, final Map<String, String> prefix2Namespace, String expectedResult)
-        throws XPathExpressionException {
+            throws XPathExpressionException {
+        checkXpath(doc, xpathString, prefix2Namespace, expectedResult, false);
+    }
+
+    static void checkXpath(
+            Document doc, String xpathString, final Map<String, String> prefix2Namespace, String expectedResult,
+            boolean startsWith)
+            throws XPathExpressionException {
 
         XPathExpression expr = getXpath(xpathString, prefix2Namespace);
         String result = (String) expr.evaluate(doc, XPathConstants.STRING);
         assertNotNull("The xpath " + xpathString + " returned a null value", result);
-        if (NOT_EMPTY.equals(expectedResult)) {
-            assertTrue("Not empty result for xpath " + xpathString + " expected", !result.isEmpty());
+        if (startsWith) {
+            assertTrue(result.startsWith(expectedResult));
+        } else if (NOT_EMPTY.equals(expectedResult)) {
+            assertTrue(!result.isEmpty(), "Not empty result for xpath " + xpathString + " expected");
         } else {
             assertEquals(expectedResult, result);
         }
     }
 
     private void checkNode(Document doc, String xpathString, final Map<String, String> prefix2Namespace, boolean exists)
-        throws XPathExpressionException {
+            throws XPathExpressionException {
 
         XPathExpression expr = getXpath(xpathString, prefix2Namespace);
         Object result = expr.evaluate(doc, XPathConstants.NODE);
         if (exists) {
-            assertNotNull("The xpath " + xpathString + " returned null, expected was a node", result);
+            assertNotNull(result, "The xpath " + xpathString + " returned null, expected was a node");
         } else {
-            assertNull("The xpath " + xpathString + " returned a node, expected was none: ", result);
+            assertNull(result, "The xpath " + xpathString + " returned a node, expected was none: ");
         }
     }
 
-    static XPathExpression getXpath(String xpathString, final Map<String, String> prefix2Namespace) throws XPathExpressionException {
+    static XPathExpression getXpath(String xpathString, final Map<String, String> prefix2Namespace)
+            throws XPathExpressionException {
         XPathFactory xpathFactory = XPathFactory.newInstance();
         XPath xpath = xpathFactory.newXPath();
         NamespaceContext nc = new NamespaceContext() {
@@ -888,17 +994,17 @@ public class XAdESSignaturePropertiesTest extends CamelTestSupport {
 
         private String alias = "bob";
 
-        public CertChainXAdESSignatureProperties() {
+        CertChainXAdESSignatureProperties() {
             setAddSigningTime(false);
         }
 
         @Override
-        protected X509Certificate getSigningCertificate() throws Exception { //NOPMD
+        protected X509Certificate getSigningCertificate() throws Exception {
             return null;
         }
 
         @Override
-        protected X509Certificate[] getSigningCertificateChain() throws Exception { //NOPMD
+        protected X509Certificate[] getSigningCertificateChain() throws Exception {
             Certificate[] certs = keystore.getCertificateChain(alias);
             X509Certificate[] result = new X509Certificate[certs.length];
             int counter = 0;

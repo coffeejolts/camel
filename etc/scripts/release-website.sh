@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -15,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
 VERSION=${1}
 DOWNLOAD=${2:-/tmp/camel-release}
@@ -26,10 +26,10 @@ COMPLIST=( "camel-spring:spring"
   "camel-cxf:cxf"
   "camel-spring-integration:spring/integration"
   "camel-spring-security:spring-security"
-  "camel-blueprint:blueprint" )
+  "karaf/camel-blueprint:blueprint" )
 SITE_DIR="${DOWNLOAD}/websites/production/camel"
 WEBSITE_URL="https://svn.apache.org/repos/infra/websites/production/camel/content"
-
+GIT_WEBSITE_URL="https://gitbox.apache.org/repos/asf/camel-website.git"
 
 if [ -z "${VERSION}" -o ! -d "${DOWNLOAD}" ]
 then
@@ -60,9 +60,9 @@ done
 echo
 
 echo "################################################################################"
-echo "                           CHECKOUT SCHEMAS WEBSITE                             "
+echo "                           CHECKOUT CAMEL WEBSITE                               "
 echo "################################################################################"
-cd "${SITE_DIR}/${VERSION}" && svn co --quiet --non-interactive "${WEBSITE_URL}/schema/"
+cd "${SITE_DIR}/${VERSION}" && git clone "${GIT_WEBSITE_URL}"
 
 echo "################################################################################"
 echo "                           PUBLISH CAMEL SCHEMAS                                "
@@ -70,7 +70,7 @@ echo "##########################################################################
 for comp in ${COMPLIST[*]}; do
   src=${comp%:*}
   dest=${comp#*:}
-  cp ${DOWNLOAD}/${VERSION}/org/apache/camel/${src}/${VERSION}/*.xsd ${SITE_DIR}/${VERSION}/schema/${dest}/
+  cp ${DOWNLOAD}/${VERSION}/org/apache/camel/${src}/${VERSION}/*.xsd ${SITE_DIR}/${VERSION}/camel-website/static/schema/${dest}/
   # update_latest_released_schema("${SITE_DIR}/content/schema/${dest}/")
 done
 echo
@@ -86,7 +86,7 @@ wget -e robots=off --wait 3 --no-check-certificate \
 echo "################################################################################"
 echo "                           CHECKOUT MANUAL WEBSITE                             "
 echo "################################################################################"
-cd "${SITE_DIR}/${VERSION}" && svn co --quiet --non-interactive "${WEBSITE_URL}/manual/"
+cd "${SITE_DIR}/${VERSION}" && svn co --non-interactive "${WEBSITE_URL}/manual/"
 
 echo "################################################################################"
 echo "                           PUBLISH CAMEL MANUAL                                "
@@ -98,14 +98,13 @@ echo "NOTE: Manual steps required! Check the schemas and manual files for new ar
 echo "      add them to the repository as required and commit your changes. This step"
 echo "      is intentionally not automated at this point to avoid errors."
 echo
-echo "cd ${SITE_DIR}/${VERSION}/schema/"
-echo "svn status"
-echo "svn add <schema-${VERSION}-qualifier>.xsd"
-echo "svn ci -m \"Uploading released schemas for camel-${VERSION}\""
+echo "cd ${SITE_DIR}/${VERSION}/camel-website/"
+echo "git status"
+echo "git add <schema-${VERSION}-qualifier>.xsd"
+echo "git commit -m \"Add XML schemas for Camel ${VERSION}\""
 echo
 echo "cd ${SITE_DIR}/${VERSION}/manual/"
 echo "svn status"
 echo "svn add camel-manual-${VERSION}.html"
-echo "svn add camel-manual-${VERSION}.pdf"
 echo "svn ci -m \"Uploading released manuals for camel-${VERSION}\""
 echo

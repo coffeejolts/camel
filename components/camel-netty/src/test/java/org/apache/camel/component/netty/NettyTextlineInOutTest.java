@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,18 +17,18 @@
 package org.apache.camel.component.netty;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class NettyTextlineInOutTest extends BaseNettyTest {
 
     @Test
     public void testTextlineInOut() throws Exception {
         getMockEndpoint("mock:result").expectedBodiesReceived("Hello World");
 
-        String reply = template.requestBody("netty:tcp://localhost:{{port}}?textline=true&sync=true", "Hello World", String.class);
+        String reply
+                = template.requestBody("netty:tcp://localhost:{{port}}?textline=true&sync=true", "Hello World", String.class);
         assertEquals("Bye World", reply);
 
         assertMockEndpointsSatisfied();
@@ -40,10 +40,10 @@ public class NettyTextlineInOutTest extends BaseNettyTest {
             @Override
             public void configure() throws Exception {
                 from("netty:tcp://localhost:{{port}}?textline=true&sync=true")
-                    // body should be a String when using textline codec
-                    .validate(body().isInstanceOf(String.class))
-                    .to("mock:result")
-                    .transform(body().regexReplaceAll("Hello", "Bye"));
+                        // body should be a String when using textline codec
+                        .validate(body().isInstanceOf(String.class))
+                        .to("mock:result")
+                        .transform(body().regexReplaceAll("Hello", "Bye"));
             }
         };
     }

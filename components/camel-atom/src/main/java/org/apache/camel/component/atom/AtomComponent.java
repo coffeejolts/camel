@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,19 +22,16 @@ import java.util.Map;
 import org.apache.camel.Endpoint;
 import org.apache.camel.component.feed.FeedComponent;
 import org.apache.camel.component.feed.FeedEndpoint;
+import org.apache.camel.spi.annotations.Component;
 import org.apache.camel.util.URISupport;
 
 /**
- * An <a href="http://camel.apache.org/atom.html">Atom Component</a>.
- * <p/>
- * Camel uses Apache Abdera as the Atom implementation.
- *
- * @version 
+ * To consume Atom RSS feeds.
  */
+@Component("atom")
 public class AtomComponent extends FeedComponent {
 
     public AtomComponent() {
-        super(AtomEndpoint.class);
     }
 
     @Override
@@ -43,7 +40,8 @@ public class AtomComponent extends FeedComponent {
     }
 
     @Override
-    protected void afterConfiguration(String uri, String remaining, Endpoint endpoint, Map<String, Object> parameters) throws Exception {
+    protected void afterConfiguration(String uri, String remaining, Endpoint endpoint, Map<String, Object> parameters)
+            throws Exception {
         AtomEndpoint atom = (AtomEndpoint) endpoint;
         if (atom.getFeedUri() != null) {
             // already set so do not change it

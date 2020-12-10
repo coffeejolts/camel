@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,12 @@
  */
 package org.apache.camel.component.spring.ws.type;
 
-import org.apache.camel.spi.Metadata;
-import org.apache.camel.spi.UriParams;
-import org.apache.camel.spi.UriPath;
 import org.springframework.xml.xpath.XPathExpression;
 
-@UriParams
 public class EndpointMappingKey {
-    @UriPath @Metadata(required = "true")
-    private EndpointMappingType type;
-    @UriPath @Metadata(required = "true")
-    private String lookupKey;
-
-    /* expression in case type is 'xpath' */
-    private XPathExpression expression;
+    private final EndpointMappingType type;
+    private final String lookupKey;
+    private final XPathExpression expression;
 
     public EndpointMappingKey(EndpointMappingType type, String lookupKey, XPathExpression expression) {
         this.type = type;
@@ -41,24 +33,12 @@ public class EndpointMappingKey {
         return type;
     }
 
-    public void setType(EndpointMappingType type) {
-        this.type = type;
-    }
-
     public String getLookupKey() {
         return lookupKey;
     }
 
-    public void setLookupKey(String lookupKey) {
-        this.lookupKey = lookupKey;
-    }
-
     public XPathExpression getExpression() {
         return expression;
-    }
-
-    public void setExpression(XPathExpression expression) {
-        this.expression = expression;
     }
 
     @Override

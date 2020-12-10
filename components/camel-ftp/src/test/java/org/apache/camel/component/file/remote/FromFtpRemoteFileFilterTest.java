@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,60 +16,59 @@
  */
 package org.apache.camel.component.file.remote;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.file.GenericFile;
 import org.apache.camel.component.file.GenericFileFilter;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * Unit test to verify FTP filter option.
  */
 public class FromFtpRemoteFileFilterTest extends FtpServerTestSupport {
 
+    @BindToRegistry("myFilter")
+    private MyFileFilter filter = new MyFileFilter<>();
+
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/filefilter?password=admin&filter=#myFilter";
+        return "ftp://admin@localhost:{{ftp.server.port}}/filefilter?password=admin&filter=#myFilter";
     }
 
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry jndi = super.createRegistry();
-        jndi.bind("myFilter", new MyFileFilter<Object>());
-        return jndi;
-    }
-
-    @Override
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         prepareFtpServer();
     }
-    
+
+    // Skip testing on AIX as it have an issue with this test with the file
+    // filter
+    @DisabledOnOs(OS.AIX)
     @Test
     public void testFtpFilter() throws Exception {
-        if (isPlatform("aix")) {
-            // skip testing on AIX as it have an issue with this test with the file filter
-            return;
-        }
 
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(2);
         mock.expectedBodiesReceivedInAnyOrder("Report 1", "Report 2");
-        
+
         mock.assertIsSatisfied();
     }
 
     private void prepareFtpServer() throws Exception {
-        // prepares the FTP Server by creating files on the server that we want to unit
-        // test that we can pool        
+        // prepares the FTP Server by creating files on the server that we want
+        // to unit
+        // test that we can pool
         sendFile(getFtpUrl(), "Hello World", "hello.txt");
         sendFile(getFtpUrl(), "Report 1", "report1.txt");
         sendFile(getFtpUrl(), "Bye World", "bye.txt");
         sendFile(getFtpUrl(), "Report 2", "report2.txt");
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
@@ -81,8 +80,9 @@ public class FromFtpRemoteFileFilterTest extends FtpServerTestSupport {
     // START SNIPPET: e1
     public class MyFileFilter<T> implements GenericFileFilter<T> {
 
+        @Override
         public boolean accept(GenericFile<T> file) {
-            // we only want report files 
+            // we only want report files
             return file.getFileName().startsWith("report");
         }
     }

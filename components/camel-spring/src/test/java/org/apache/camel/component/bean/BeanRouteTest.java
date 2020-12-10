@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,34 +17,38 @@
 package org.apache.camel.component.bean;
 
 import org.apache.camel.spring.SpringTestSupport;
-
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class BeanRouteTest extends SpringTestSupport {
     protected Object body = "James";
 
+    @Test
     public void testSayHello() throws Exception {
         Object value = template.requestBody("bean:myBean?method=sayHello", body);
 
-        assertEquals("Returned value", "Hello James!", value);
+        assertEquals("Hello James!", value, "Returned value");
     }
 
+    @Test
     public void testSayGoodbye() throws Exception {
         Object value = template.requestBody("bean:myBean?method=sayGoodbye", body);
 
-        assertEquals("Returned value", "Bye James!", value);
+        assertEquals("Bye James!", value, "Returned value");
     }
 
+    @Test
     public void testChooseMethodUsingBodyType() throws Exception {
         Object value = template.requestBody("bean:myBean", 4);
 
-        assertEquals("Returned value", 8L, value);
+        assertEquals(8L, value, "Returned value");
     }
 
+    @Test
     public void testAmbiguousMethodCallFails() throws Exception {
         try {
             Object value = template.requestBody("bean:myBean", body);
@@ -54,6 +58,7 @@ public class BeanRouteTest extends SpringTestSupport {
         }
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/component/bean/camelContext.xml");
     }

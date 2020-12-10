@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,6 +25,7 @@ import org.apache.camel.spring.spi.SpringTransactionPolicy;
  */
 public class TransactionalClientDataSourceLookupTypeTest extends TransactionalClientDataSourceTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         // START SNIPPET: e1
         // Notice that we use the SpringRouteBuilder that has a few more features than
@@ -48,14 +49,12 @@ public class TransactionalClientDataSourceLookupTypeTest extends TransactionalCl
 
                 // START SNIPPET: e2
                 // set the required policy for this route
-                from("direct:okay").policy(required).
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Elephant in Action")).bean("bookService");
+                from("direct:okay").policy(required).setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 // set the required policy for this route
-                from("direct:fail").policy(required).
-                    setBody(constant("Tiger in Action")).bean("bookService").
-                    setBody(constant("Donkey in Action")).bean("bookService");
+                from("direct:fail").policy(required).setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
                 // END SNIPPET: e2
             }
         };

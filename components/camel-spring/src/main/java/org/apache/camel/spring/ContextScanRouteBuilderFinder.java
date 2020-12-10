@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,26 +27,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 
 /**
- * A helper class which will find all {@link org.apache.camel.builder.RouteBuilder} instances on the
- * Spring {@link org.springframework.context.ApplicationContext}.
- *
- * @version 
+ * A helper class which will find all {@link org.apache.camel.builder.RouteBuilder} instances on the Spring
+ * {@link org.springframework.context.ApplicationContext}.
  */
 public class ContextScanRouteBuilderFinder {
     private static final Logger LOG = LoggerFactory.getLogger(ContextScanRouteBuilderFinder.class);
     private final ApplicationContext applicationContext;
     private final PackageScanFilter filter;
+    private final boolean includeNonSingletons;
 
-    public ContextScanRouteBuilderFinder(SpringCamelContext camelContext, PackageScanFilter filter) {
+    public ContextScanRouteBuilderFinder(SpringCamelContext camelContext, PackageScanFilter filter,
+                                         boolean includeNonSingletons) {
         this.applicationContext = camelContext.getApplicationContext();
         this.filter = filter;
+        this.includeNonSingletons = includeNonSingletons;
     }
 
     /**
      * Appends all the {@link org.apache.camel.builder.RouteBuilder} instances that can be found in the context
      */
     public void appendBuilders(List<RoutesBuilder> list) {
-        Map<String, RoutesBuilder> beans = applicationContext.getBeansOfType(RoutesBuilder.class, true, true);
+        Map<String, RoutesBuilder> beans = applicationContext.getBeansOfType(RoutesBuilder.class, includeNonSingletons, true);
 
         for (Entry<String, RoutesBuilder> entry : beans.entrySet()) {
             Object bean = entry.getValue();

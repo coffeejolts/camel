@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,8 +24,13 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *
@@ -34,22 +39,18 @@ public class FromFileToHdfsTest extends HdfsTestSupport {
 
     private static final Path TEMP_DIR = new Path(new File("target/outbox/").getAbsolutePath());
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
-        if (!canTest()) {
-            return;
-        }
+        checkTest();
         deleteDirectory("target/inbox");
         deleteDirectory("target/outbox");
         super.setUp();
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
-        if (!canTest()) {
-            return;
-        }
-
         super.tearDown();
         Configuration conf = new Configuration();
         Path dir = new Path("target/outbox");
@@ -59,43 +60,35 @@ public class FromFileToHdfsTest extends HdfsTestSupport {
 
     @Test
     public void testFileToHdfs() throws Exception {
-        if (!canTest()) {
-            return;
-        }
-
         NotifyBuilder notify = new NotifyBuilder(context).whenDone(1).create();
 
         template.sendBodyAndHeader("file:target/inbox", "Hello World", Exchange.FILE_NAME, "hello.txt");
 
-        notify.matchesMockWaitTime();
+        notify.matchesWaitTime();
 
         File delete = new File("target/inbox/hello.txt");
-        assertTrue("File should be deleted " + delete, !delete.exists());
+        assertFalse(delete.exists(), "File should be deleted " + delete);
 
         File create = new File(TEMP_DIR + "/output.txt");
-        assertTrue("File should be created " + create, create.exists());
+        assertTrue(create.exists(), "File should be created " + create);
     }
 
     @Test
     public void testTwoFilesToHdfs() throws Exception {
-        if (!canTest()) {
-            return;
-        }
-
         NotifyBuilder notify = new NotifyBuilder(context).whenDone(2).create();
 
         template.sendBodyAndHeader("file:target/inbox", "Hello World", Exchange.FILE_NAME, "hello.txt");
         template.sendBodyAndHeader("file:target/inbox", "Bye World", Exchange.FILE_NAME, "bye.txt");
 
-        notify.matchesMockWaitTime();
+        notify.matchesWaitTime();
 
         File delete = new File("target/inbox/hello.txt");
-        assertTrue("File should be deleted " + delete, !delete.exists());
+        assertFalse(delete.exists(), "File should be deleted " + delete);
         delete = new File("target/inbox/bye.txt");
-        assertTrue("File should be deleted " + delete, !delete.exists());
+        assertFalse(delete.exists(), "File should be deleted " + delete);
 
         File create = new File(TEMP_DIR + "/output.txt");
-        assertTrue("File should be created " + create, create.exists());
+        assertTrue(create.exists(), "File should be created " + create);
     }
 
     @Override
@@ -104,7 +97,7 @@ public class FromFileToHdfsTest extends HdfsTestSupport {
             @Override
             public void configure() throws Exception {
                 from("file:target/inbox?delete=true")
-                    .to("hdfs:///" + TEMP_DIR.toUri() + "/output.txt?fileSystemType=LOCAL");
+                        .to("hdfs:localhost/" + TEMP_DIR.toUri() + "/output.txt?fileSystemType=LOCAL");
             }
         };
     }

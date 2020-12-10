@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,24 +21,19 @@ import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 
 public class NettyOptionTest extends NettyTCPSyncTest {
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
                 from("netty:tcp://localhost:{{port}}?sync=true&option.child.keepAlive=false")
-                    .process(new Processor() {
-                        public void process(Exchange exchange) throws Exception {
-                            if (exchange.getIn().getBody() instanceof Poetry) {
-                                Poetry poetry = (Poetry) exchange.getIn().getBody();
-                                poetry.setPoet("Dr. Sarojini Naidu");
-                                exchange.getOut().setBody(poetry);
-                                return;
+                        .process(new Processor() {
+                            public void process(Exchange exchange) throws Exception {
+                                exchange.getOut().setBody(
+                                        "When You Go Home, Tell Them Of Us And Say, For Your Tomorrow, We Gave Our Today.");
                             }
-                            exchange.getOut().setBody("When You Go Home, Tell Them Of Us And Say, For Your Tomorrow, We Gave Our Today.");                           
-                        }
-                    });                
+                        });
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,18 +17,19 @@
 package org.apache.camel.component.jms.issues;
 
 import java.util.List;
+
 import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.CamelJmsTestHelper;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.spi.RouteStartupOrder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -37,6 +38,14 @@ public class JmsDirectStartupOrderIssueTest extends CamelTestSupport {
 
     @Test
     public void testJmsDirectStartupOrderIssue() throws Exception {
+        // send messages to queue so there is messages on the queue before we start the route
+        template.sendBody("activemq:queue:foo", "Hello World");
+        template.sendBody("activemq:queue:foo", "Hello Camel");
+        template.sendBody("activemq:queue:foo", "Bye World");
+        template.sendBody("activemq:queue:foo", "Bye Camel");
+
+        context.getRouteController().startRoute("amq");
+
         getMockEndpoint("mock:result").expectedMessageCount(4);
 
         assertMockEndpointsSatisfied();
@@ -50,33 +59,25 @@ public class JmsDirectStartupOrderIssueTest extends CamelTestSupport {
         assertEquals("amq", order.get(1).getRoute().getId());
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 
         ConnectionFactory connectionFactory = CamelJmsTestHelper.createPersistentConnectionFactory();
         camelContext.addComponent("activemq", jmsComponentAutoAcknowledge(connectionFactory));
 
-        ProducerTemplate producer = camelContext.createProducerTemplate();
-
-        // send messages to queue so there is messages on the queue when we start
-        producer.sendBody("activemq:queue:foo", "Hello World");
-        producer.sendBody("activemq:queue:foo", "Hello Camel");
-        producer.sendBody("activemq:queue:foo", "Bye World");
-        producer.sendBody("activemq:queue:foo", "Bye Camel");
-
-        producer.stop();
-
         return camelContext;
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("activemq:queue:foo").routeId("amq").startupOrder(100)
-                    .to("direct:foo");
+                from("activemq:queue:foo").routeId("amq").startupOrder(100).autoStartup(false)
+                        .to("direct:foo");
 
                 from("direct:foo").routeId("direct").startupOrder(1)
-                    .to("mock:result");
+                        .to("mock:result");
             }
         };
     }

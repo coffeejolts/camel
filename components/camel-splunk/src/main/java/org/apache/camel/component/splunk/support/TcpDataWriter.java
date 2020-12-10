@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.net.Socket;
 
 import com.splunk.Args;
-import com.splunk.Input;
 import com.splunk.Service;
+import com.splunk.TcpInput;
 import org.apache.camel.component.splunk.SplunkEndpoint;
 
 public class TcpDataWriter extends SplunkDataWriter {
@@ -37,14 +37,13 @@ public class TcpDataWriter extends SplunkDataWriter {
 
     @Override
     protected Socket createSocket(Service service) throws IOException {
-        Input input = service.getInputs().get(String.valueOf(port));
+        TcpInput input = (TcpInput) service.getInputs().get(String.valueOf(port));
         if (input == null) {
             throw new RuntimeException("no input defined for port " + port);
         }
         if (input.isDisabled()) {
             throw new RuntimeException(String.format("input on port %d is disabled", port));
         }
-        Socket socket = service.open(port);
-        return socket;
+        return input.attach();
     }
 }

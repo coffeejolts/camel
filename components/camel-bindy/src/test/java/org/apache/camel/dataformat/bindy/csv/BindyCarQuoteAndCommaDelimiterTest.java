@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,32 +16,37 @@
  */
 package org.apache.camel.dataformat.bindy.csv;
 
-import java.util.List;
-import java.util.Map;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.apache.camel.dataformat.bindy.format.factories.DefaultFactoryRegistry;
 import org.apache.camel.dataformat.bindy.model.car.Car;
 import org.apache.camel.dataformat.bindy.model.car.Car.Colour;
 import org.apache.camel.model.dataformat.BindyType;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class BindyCarQuoteAndCommaDelimiterTest extends CamelTestSupport {
 
-    private static final String HEADER = "\"stockid\";\"make\";\"model\";\"deriv\";\"series\";\"registration\";\"chassis\";\"engine\";\"year\""
-            + ";\"klms\";\"body\";\"colour\";\"enginesize\";\"trans\";\"fuel\";\"options\";\"desc\";\"status\";\"Reserve_price\";\"nvic\"";
-    private static final String ROW = "\"SS552\";\"TOYOTA\";\"KLUGER\";\"CV 4X4\";\"MCU28R UPGRADE\";\"TBA\";\"\";\"\";\"2005\";\"155000.0\";\"4D WAGON\""
-            + ";\"BLACK\";\"3.3 LTR\";\"5 Sp Auto\";\"MULTI POINT FINJ\";\"POWER MIRRORS, POWER STEERING, POWER WINDOWS, CRUISE CONTROL,"
-            + " ENGINE IMMOBILISER, BRAKE ASSIST, DUAL AIRBAG PACKAGE, ANTI-LOCK BRAKING, CENTRAL LOCKING REMOTE CONTROL, ALARM SYSTEM/REMOTE"
-            + " ANTI THEFT, AUTOMATIC AIR CON / CLIMATE CONTROL, ELECTRONIC BRAKE FORCE DISTRIBUTION, CLOTH TRIM, LIMITED SLIP DIFFERENTIAL,"
-            + " RADIO CD WITH 6 SPEAKERS\";\"Dual Airbag Package, Anti-lock Braking, Automatic Air Con / Climate Control, Alarm System/Remote"
-            + " Anti Theft, Brake Assist, Cruise Control, Central Locking Remote Control, Cloth Trim, Electronic Brake Force Distribution,"
-            + " Engine Immobiliser, Limited Slip Differential, Power Mirrors, Power Steering, Power Windows, Radio CD with 6 Speakers"
-            + " CV GOOD KLMS AUTO POWER OPTIONS GOOD KLMS   \";\"Used\";\"0.0\";\"EZR05I\"\n";
+    private static final String HEADER
+            = "\"stockid\";\"make\";\"model\";\"deriv\";\"series\";\"registration\";\"chassis\";\"engine\";\"year\""
+              + ";\"klms\";\"body\";\"colour\";\"enginesize\";\"trans\";\"fuel\";\"options\";\"desc\";\"status\";\"Reserve_price\";\"nvic\"";
+    private static final String ROW
+            = "\"SS552\";\"TOYOTA\";\"KLUGER\";\"CV 4X4\";\"MCU28R UPGRADE\";\"TBA\";\"\";\"\";\"2005\";\"155000.0\";\"4D WAGON\""
+              + ";\"BLACK\";\"3.3 LTR\";\"5 Sp Auto\";\"MULTI POINT FINJ\";\"POWER MIRRORS, POWER STEERING, POWER WINDOWS, CRUISE CONTROL,"
+              + " ENGINE IMMOBILISER, BRAKE ASSIST, DUAL AIRBAG PACKAGE, ANTI-LOCK BRAKING, CENTRAL LOCKING REMOTE CONTROL, ALARM SYSTEM/REMOTE"
+              + " ANTI THEFT, AUTOMATIC AIR CON / CLIMATE CONTROL, ELECTRONIC BRAKE FORCE DISTRIBUTION, CLOTH TRIM, LIMITED SLIP DIFFERENTIAL,"
+              + " RADIO CD WITH 6 SPEAKERS\";\"Dual Airbag Package, Anti-lock Braking, Automatic Air Con / Climate Control, Alarm System/Remote"
+              + " Anti Theft, Brake Assist, Cruise Control, Central Locking Remote Control, Cloth Trim, Electronic Brake Force Distribution,"
+              + " Engine Immobiliser, Limited Slip Differential, Power Mirrors, Power Steering, Power Windows, Radio CD with 6 Speakers"
+              + " CV GOOD KLMS AUTO POWER OPTIONS GOOD KLMS   \";\"Used\";\"0.0\";\"EZR05I\"\n";
+
+    @BeforeEach
+    public void setup() {
+        context.getRegistry().bind("defaultFactoryRegistry", new DefaultFactoryRegistry());
+    }
 
     @Test
     public void testBindyUnmarshalQuoteAndCommaDelimiter() throws Exception {
@@ -52,9 +57,7 @@ public class BindyCarQuoteAndCommaDelimiterTest extends CamelTestSupport {
 
         assertMockEndpointsSatisfied();
 
-        Map<?, ?> map1 = (Map<?, ?>) mock.getReceivedExchanges().get(0).getIn().getBody(List.class).get(0);
-
-        Car rec1 = (Car) map1.values().iterator().next();
+        Car rec1 = mock.getReceivedExchanges().get(0).getIn().getBody(Car.class);
 
         assertEquals("SS552", rec1.getStockid());
         assertEquals("TOYOTA", rec1.getMake());
@@ -87,16 +90,16 @@ public class BindyCarQuoteAndCommaDelimiterTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
 
-                BindyCsvDataFormat camelDataFormat =
-                        new BindyCsvDataFormat("org.apache.camel.dataformat.bindy.model.car");
-                camelDataFormat.setLocale("en");
+                Class<?> type = org.apache.camel.dataformat.bindy.model.car.Car.class;
+                BindyCsvDataFormat dataFormat = new BindyCsvDataFormat();
+                dataFormat.setClassType(type);
+                dataFormat.setLocale("en");
 
                 from("direct:out")
-                        .unmarshal().bindy(BindyType.Csv, "org.apache.camel.dataformat.bindy.model.car")
+                        .unmarshal().bindy(BindyType.Csv, type)
                         .to("mock:out");
-
                 from("direct:in")
-                        .marshal(camelDataFormat)
+                        .marshal(dataFormat)
                         .to("mock:in");
             }
         };
@@ -120,13 +123,13 @@ public class BindyCarQuoteAndCommaDelimiterTest extends CamelTestSupport {
         car.setTrans("5 Sp Auto");
         car.setFuel("MULTI POINT FINJ");
         car.setOptions("POWER MIRRORS, POWER STEERING, POWER WINDOWS, CRUISE CONTROL,"
-                + " ENGINE IMMOBILISER, BRAKE ASSIST, DUAL AIRBAG PACKAGE, ANTI-LOCK BRAKING, CENTRAL LOCKING REMOTE CONTROL, ALARM SYSTEM/REMOTE"
-                + " ANTI THEFT, AUTOMATIC AIR CON / CLIMATE CONTROL, ELECTRONIC BRAKE FORCE DISTRIBUTION, CLOTH TRIM, LIMITED SLIP DIFFERENTIAL,"
-                + " RADIO CD WITH 6 SPEAKERS");
+                       + " ENGINE IMMOBILISER, BRAKE ASSIST, DUAL AIRBAG PACKAGE, ANTI-LOCK BRAKING, CENTRAL LOCKING REMOTE CONTROL, ALARM SYSTEM/REMOTE"
+                       + " ANTI THEFT, AUTOMATIC AIR CON / CLIMATE CONTROL, ELECTRONIC BRAKE FORCE DISTRIBUTION, CLOTH TRIM, LIMITED SLIP DIFFERENTIAL,"
+                       + " RADIO CD WITH 6 SPEAKERS");
         car.setDesc("Dual Airbag Package, Anti-lock Braking, Automatic Air Con / Climate Control, Alarm System/Remote"
-                + " Anti Theft, Brake Assist, Cruise Control, Central Locking Remote Control, Cloth Trim, Electronic Brake Force Distribution,"
-                + " Engine Immobiliser, Limited Slip Differential, Power Mirrors, Power Steering, Power Windows, Radio CD with 6 Speakers"
-                + " CV GOOD KLMS AUTO POWER OPTIONS GOOD KLMS   ");
+                    + " Anti Theft, Brake Assist, Cruise Control, Central Locking Remote Control, Cloth Trim, Electronic Brake Force Distribution,"
+                    + " Engine Immobiliser, Limited Slip Differential, Power Mirrors, Power Steering, Power Windows, Radio CD with 6 Speakers"
+                    + " CV GOOD KLMS AUTO POWER OPTIONS GOOD KLMS   ");
         car.setStatus("Used");
         car.setNvic("EZR05I");
         return car;

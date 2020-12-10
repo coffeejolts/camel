@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,31 +18,21 @@ package org.apache.camel.component.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
-import org.quartz.JobDetail;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class QuartzRouteFireNowTest extends BaseQuartzTest {
+
     protected MockEndpoint resultEndpoint;
 
     @Test
     public void testQuartzRoute() throws Exception {
         resultEndpoint = getMockEndpoint("mock:result");
-        resultEndpoint.expectedMessageCount(2);
+        resultEndpoint.expectedMinimumMessageCount(2);
         resultEndpoint.message(0).header("triggerName").isEqualTo("myTimerName");
         resultEndpoint.message(0).header("triggerGroup").isEqualTo("myGroup");
 
         // lets test the receive worked
         resultEndpoint.assertIsSatisfied();
-
-        JobDetail job = resultEndpoint.getReceivedExchanges().get(0).getIn().getHeader("jobDetail", JobDetail.class);
-        assertNotNull(job);
-
-        assertEquals("simple", job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_TYPE));
-        assertEquals(25000L, job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_INTERVAL));
-        assertEquals(2, job.getJobDataMap().get(QuartzConstants.QUARTZ_TRIGGER_SIMPLE_REPEAT_COUNTER));
     }
 
     @Override
@@ -50,7 +40,9 @@ public class QuartzRouteFireNowTest extends BaseQuartzTest {
         return new RouteBuilder() {
             public void configure() {
                 // START SNIPPET: example
-                from("quartz://myGroup/myTimerName?fireNow=true&trigger.repeatInterval=25000&trigger.repeatCount=2").to("mock:result");
+                from("quartz://myGroup/myTimerName?fireNow=true&trigger.repeatInterval=2000&trigger.repeatCount=2")
+                        .to("log:quartz")
+                        .to("mock:result");
                 // END SNIPPET: example
             }
         };

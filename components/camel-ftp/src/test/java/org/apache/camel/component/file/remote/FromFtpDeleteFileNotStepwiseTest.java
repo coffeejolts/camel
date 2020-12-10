@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,8 @@ package org.apache.camel.component.file.remote;
  */
 public class FromFtpDeleteFileNotStepwiseTest extends FromFtpDeleteFileTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/deletefile?password=admin&binary=false&delete=true&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/deletefile?password=admin&binary=false&delete=true&stepwise=false";
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,16 +20,16 @@ import java.util.Date;
 
 import org.apache.camel.ServiceStatus;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.direct.DirectComponent;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.quartz.QuartzComponent;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 public class SimpleScheduledCombinedRoutePolicyTest extends CamelTestSupport {
-    
+
     @Override
     public boolean isUseRouteBuilder() {
         return false;
@@ -37,12 +37,14 @@ public class SimpleScheduledCombinedRoutePolicyTest extends CamelTestSupport {
 
     @Test
     public void testScheduledStartAndStopRoutePolicy() throws Exception {
-        MockEndpoint success = context.getEndpoint("mock:success", MockEndpoint.class);        
+        MockEndpoint success = context.getEndpoint("mock:success", MockEndpoint.class);
         success.expectedMessageCount(1);
-        
-        context.getComponent("quartz", QuartzComponent.class).setPropertiesFile("org/apache/camel/routepolicy/quartz/myquartz.properties");
+
+        context.getComponent("direct", DirectComponent.class).setBlock(false);
+        context.getComponent("quartz", QuartzComponent.class)
+                .setPropertiesFile("org/apache/camel/routepolicy/quartz/myquartz.properties");
         context.addRoutes(new RouteBuilder() {
-            public void configure() {   
+            public void configure() {
                 SimpleScheduledRoutePolicy policy = new SimpleScheduledRoutePolicy();
                 long startTime = System.currentTimeMillis() + 3000L;
                 long stopTime = System.currentTimeMillis() + 8000L;
@@ -52,21 +54,21 @@ public class SimpleScheduledCombinedRoutePolicyTest extends CamelTestSupport {
                 policy.setRouteStopDate(new Date(stopTime));
                 policy.setRouteStopRepeatCount(1);
                 policy.setRouteStopRepeatInterval(3000);
-                
+
                 from("direct:start")
-                    .routeId("test")
-                    .routePolicy(policy)
-                    .to("mock:success");
+                        .routeId("test")
+                        .routePolicy(policy)
+                        .to("mock:success");
             }
         });
         context.start();
-        
+
         Thread.sleep(5000);
-        assertTrue(context.getRouteStatus("test") == ServiceStatus.Started);
+        assertSame(ServiceStatus.Started, context.getRouteController().getRouteStatus("test"));
         template.sendBody("direct:start", "Ready or not, Here, I come");
         Thread.sleep(5000);
-        assertTrue(context.getRouteStatus("test") == ServiceStatus.Stopped);
-        
+        assertSame(ServiceStatus.Stopped, context.getRouteController().getRouteStatus("test"));
+
         context.getComponent("quartz", QuartzComponent.class).stop();
         success.assertIsSatisfied();
     }

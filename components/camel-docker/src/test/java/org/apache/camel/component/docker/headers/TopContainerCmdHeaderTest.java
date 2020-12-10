@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,14 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.TopContainerCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Top Container Request headers are applied properly
@@ -36,9 +36,8 @@ public class TopContainerCmdHeaderTest extends BaseDockerHeaderTest<TopContainer
     @Mock
     private TopContainerCmd mockObject;
 
-    @Ignore
     @Test
-    public void topContainerHeaderTest() {
+    void topContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
         String psArgs = "aux";
@@ -47,17 +46,16 @@ public class TopContainerCmdHeaderTest extends BaseDockerHeaderTest<TopContainer
         headers.put(DockerConstants.DOCKER_CONTAINER_ID, containerId);
         headers.put(DockerConstants.DOCKER_PS_ARGS, psArgs);
 
-
         template.sendBodyAndHeaders("direct:in", "", headers);
 
         Mockito.verify(dockerClient, Mockito.times(1)).topContainerCmd(containerId);
-        Mockito.verify(mockObject, Mockito.times(1)).withPsArgs(Matchers.eq(psArgs));
+        Mockito.verify(mockObject, Mockito.times(1)).withPsArgs(eq(psArgs));
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.topContainerCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.topContainerCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

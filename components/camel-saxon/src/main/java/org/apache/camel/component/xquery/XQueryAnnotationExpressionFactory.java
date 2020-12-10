@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,27 +20,24 @@ import java.lang.annotation.Annotation;
 
 import org.w3c.dom.Node;
 
-import net.sf.saxon.functions.Collection;
-
+import net.sf.saxon.functions.CollectionFn;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Expression;
-import org.apache.camel.component.bean.DefaultAnnotationExpressionFactory;
-import org.apache.camel.language.LanguageAnnotation;
-import org.apache.camel.language.NamespacePrefix;
+import org.apache.camel.support.language.DefaultAnnotationExpressionFactory;
+import org.apache.camel.support.language.LanguageAnnotation;
+import org.apache.camel.support.language.NamespacePrefix;
 import org.apache.camel.util.ObjectHelper;
 
-/**
- * @version 
- */
 public class XQueryAnnotationExpressionFactory extends DefaultAnnotationExpressionFactory {
 
     @Override
-    public Expression createExpression(CamelContext camelContext, Annotation annotation,
-                                       LanguageAnnotation languageAnnotation, Class<?> expressionReturnType) {
+    public Expression createExpression(
+            CamelContext camelContext, Annotation annotation,
+            LanguageAnnotation languageAnnotation, Class<?> expressionReturnType) {
         String xQuery = getExpressionFromAnnotation(annotation);
         XQueryBuilder builder = XQueryBuilder.xquery(xQuery);
         if (annotation instanceof XQuery) {
-            XQuery xQueryAnnotation = (XQuery)annotation;
+            XQuery xQueryAnnotation = (XQuery) annotation;
             builder.setStripsAllWhiteSpace(xQueryAnnotation.stripsAllWhiteSpace());
             if (ObjectHelper.isNotEmpty(xQueryAnnotation.headerName())) {
                 builder.setHeaderName(xQueryAnnotation.headerName());
@@ -54,7 +51,7 @@ public class XQueryAnnotationExpressionFactory extends DefaultAnnotationExpressi
         }
         if (expressionReturnType.isAssignableFrom(String.class)) {
             builder.setResultsFormat(ResultFormat.String);
-        } else if (expressionReturnType.isAssignableFrom(Collection.class)) {
+        } else if (expressionReturnType.isAssignableFrom(CollectionFn.class)) {
             builder.setResultsFormat(ResultFormat.List);
         } else if (expressionReturnType.isAssignableFrom(Node.class)) {
             builder.setResultsFormat(ResultFormat.DOM);

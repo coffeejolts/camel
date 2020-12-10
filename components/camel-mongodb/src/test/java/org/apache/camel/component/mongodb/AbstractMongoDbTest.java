@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,56 +18,69 @@ package org.apache.camel.component.mongodb;
 
 import java.util.Formatter;
 
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.Mongo;
-import com.mongodb.WriteConcern;
-import com.mongodb.util.JSON;
-
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExecutionException;
-import org.apache.camel.component.properties.PropertiesComponent;
-import org.apache.camel.spring.SpringCamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.impl.DefaultCamelContext;
+import org.apache.camel.test.infra.mongodb.services.MongoDBService;
+import org.apache.camel.test.infra.mongodb.services.MongoDBServiceFactory;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.util.IOHelper;
 import org.apache.camel.util.ObjectHelper;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.bson.Document;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class AbstractMongoDbTest extends CamelTestSupport {
 
-    protected static Mongo mongo;
-    protected static DB db;
-    protected static DBCollection testCollection;
-    protected static DBCollection dynamicCollection;
-    
+    @RegisterExtension
+    public static MongoDBService service = MongoDBServiceFactory.createService();
+
+    protected static final String SCHEME = "mongodb";
+    protected static final String USER = "test-user";
+    protected static final String PASSWORD = "test-pwd";
+
+    protected static MongoClient mongo;
+    protected static MongoDatabase db;
+    protected static MongoCollection<Document> testCollection;
+    protected static MongoCollection<Document> dynamicCollection;
+
     protected static String dbName = "test";
     protected static String testCollectionName;
     protected static String dynamicCollectionName;
 
-    protected ApplicationContext applicationContext;
-
     @Override
-    public void doPostSetup() {
-        mongo = applicationContext.getBean(Mongo.class);
-        db = mongo.getDB(dbName);
+    public void doPreSetup() throws Exception {
+        super.doPreSetup();
 
-        // Refresh the test collection - drop it and recreate it. We don't do this for the database because MongoDB would create large
-        // store files each time
-        testCollectionName = "camelTest";
-        testCollection = db.getCollection(testCollectionName);
-        testCollection.drop();
-        testCollection = db.getCollection(testCollectionName);
-        
-        dynamicCollectionName = testCollectionName.concat("Dynamic");
-        dynamicCollection = db.getCollection(dynamicCollectionName);
-        dynamicCollection.drop();
-        dynamicCollection = db.getCollection(dynamicCollectionName);
-
+        mongo = MongoClients.create(service.getReplicaSetUrl());
+        db = mongo.getDatabase(dbName);
     }
 
     @Override
+    public void doPostSetup() {
+        // Refresh the test collection - drop it and recreate it. We don't do
+        // this for the database because MongoDB would create large
+        // store files each time
+        testCollectionName = "camelTest";
+        testCollection = db.getCollection(testCollectionName, Document.class);
+        testCollection.drop();
+        testCollection = db.getCollection(testCollectionName, Document.class);
+
+        dynamicCollectionName = testCollectionName.concat("Dynamic");
+        dynamicCollection = db.getCollection(dynamicCollectionName, Document.class);
+        dynamicCollection.drop();
+        dynamicCollection = db.getCollection(dynamicCollectionName, Document.class);
+    }
+
+    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         testCollection.drop();
         dynamicCollection.drop();
@@ -77,34 +90,68 @@ public abstract class AbstractMongoDbTest extends CamelTestSupport {
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        applicationContext = new AnnotationConfigApplicationContext(EmbedMongoConfiguration.class);
-        CamelContext ctx = SpringCamelContext.springCamelContext(applicationContext);
-        PropertiesComponent pc = new PropertiesComponent("classpath:mongodb.test.properties");
-        ctx.addComponent("properties", pc);
+        MongoDbComponent component = new MongoDbComponent();
+        component.setMongoConnection(mongo);
+
+        @SuppressWarnings("deprecation")
+        CamelContext ctx = new DefaultCamelContext();
+        ctx.getPropertiesComponent().setLocation("classpath:mongodb.test.properties");
+        ctx.addComponent(SCHEME, component);
+
         return ctx;
+    }
+
+    /**
+     * Useful to simulate the presence of an authenticated user with name {@value #USER} and password {@value #PASSWORD}
+     */
+    protected void createAuthorizationUser() {
+        MongoDatabase admin = mongo.getDatabase("admin");
+        MongoCollection<Document> usersCollection = admin.getCollection("system.users");
+        if (usersCollection.countDocuments() == 0) {
+            usersCollection.insertOne(Document.parse("{\n"
+                                                     + "    \"_id\": \"admin.test-user\",\n"
+                                                     + "    \"user\": \"test-user\",\n"
+                                                     + "    \"db\": \"admin\",\n"
+                                                     + "    \"credentials\": {\n"
+                                                     + "        \"SCRAM-SHA-1\": {\n"
+                                                     + "            \"iterationCount\": 10000,\n"
+                                                     + "            \"salt\": \"gmmPAoNdvFSWCV6PGnNcAw==\",\n"
+                                                     + "            \"storedKey\": \"qE9u1Ax7Y40hisNHL2b8/LAvG7s=\",\n"
+                                                     + "            \"serverKey\": \"RefeJcxClt9JbOP/VnrQ7YeQh6w=\"\n"
+                                                     + "        }\n" + "    },\n"
+                                                     + "    \"roles\": [\n" + "        {\n"
+                                                     + "            \"role\": \"readWrite\",\n"
+                                                     + "            \"db\": \"test\"\n"
+                                                     + "        }\n"
+                                                     + "    ]\n"
+                                                     + "}"));
+        }
     }
 
     protected void pumpDataIntoTestCollection() {
         // there should be 100 of each
-        String[] scientists = {"Einstein", "Darwin", "Copernicus", "Pasteur", "Curie", "Faraday", "Newton", "Bohr", "Galilei", "Maxwell"};
+        String[] scientists
+                = { "Einstein", "Darwin", "Copernicus", "Pasteur", "Curie", "Faraday", "Newton", "Bohr", "Galilei", "Maxwell" };
         for (int i = 1; i <= 1000; i++) {
             int index = i % scientists.length;
             Formatter f = new Formatter();
-            String doc = f.format("{\"_id\":\"%d\", \"scientist\":\"%s\", \"fixedField\": \"fixedValue\"}", i, scientists[index]).toString();
+            String doc
+                    = f.format("{\"_id\":\"%d\", \"scientist\":\"%s\", \"fixedField\": \"fixedValue\"}", i, scientists[index])
+                            .toString();
             IOHelper.close(f);
-            testCollection.insert((DBObject) JSON.parse(doc), WriteConcern.SAFE);
+            testCollection.insertOne(Document.parse(doc));
         }
-        assertEquals("Data pumping of 1000 entries did not complete entirely", 1000L, testCollection.count());
+        assertEquals(1000L, testCollection.countDocuments(), "Data pumping of 1000 entries did not complete entirely");
     }
 
     protected CamelMongoDbException extractAndAssertCamelMongoDbException(Object result, String message) {
-        assertTrue("Result is not an Exception", result instanceof Throwable);
-        assertTrue("Result is not an CamelExecutionException", result instanceof CamelExecutionException);
+        assertTrue(result instanceof Throwable, "Result is not an Exception");
+        assertTrue(result instanceof CamelExecutionException, "Result is not an CamelExecutionException");
         Throwable exc = ((CamelExecutionException) result).getCause();
-        assertTrue("Result is not an CamelMongoDbException", exc instanceof CamelMongoDbException);
+        assertTrue(exc instanceof CamelMongoDbException, "Result is not an CamelMongoDbException");
         CamelMongoDbException camelExc = ObjectHelper.cast(CamelMongoDbException.class, exc);
         if (message != null) {
-            assertTrue("CamelMongoDbException doesn't contain desired message string", camelExc.getMessage().contains(message));
+            assertTrue(camelExc.getMessage().contains(message), "CamelMongoDbException doesn't contain desired message string");
         }
         return camelExc;
     }

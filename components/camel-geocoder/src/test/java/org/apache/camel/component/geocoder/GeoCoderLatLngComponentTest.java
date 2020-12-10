@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,10 +18,11 @@ package org.apache.camel.component.geocoder;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
-public class GeoCoderLatLngComponentTest extends CamelTestSupport {
+@EnabledIfEnvironmentVariable(named = "CAMEL_GEOCODER_APIKEY", matches = ".+")
+public class GeoCoderLatLngComponentTest extends GeoCoderApiKeyTestBase {
 
     @Test
     public void testGeoCoder() throws Exception {
@@ -32,7 +33,7 @@ public class GeoCoderLatLngComponentTest extends CamelTestSupport {
 
         // the address header overrides the endpoint configuration
         template.sendBody("direct:start", "Hello");
-        
+
         assertMockEndpointsSatisfied();
     }
 
@@ -40,12 +41,10 @@ public class GeoCoderLatLngComponentTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("direct:start")
-                    .to("geocoder:latlng:40.714224,-73.961452")
-                    .to("log:result")
-                    .log("Location ${header.CamelGeocoderAddress} is at lat/lng: ${header.CamelGeocoderLatlng}"
-                        + " and in city ${header.CamelGeoCoderCity} in country ${header.CamelGeoCoderCountryLong}")
-                    .to("mock:result");
+                from("direct:start").to("geocoder:latlng:40.714224,-73.961452?apiKey=" + getApiKey()).to("log:result")
+                        .log("Location ${header.CamelGeocoderAddress} is at lat/lng: ${header.CamelGeocoderLatlng}"
+                             + " and in city ${header.CamelGeoCoderCity} in country ${header.CamelGeoCoderCountryLong}")
+                        .to("mock:result");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,13 @@
  */
 package org.apache.camel.component.file.remote;
 
-/**
- * @version 
- */
-public class FromFtpNoEndpointPathRelativeMoveToAbsoluteNotStepwiseTest extends FromFtpNoEndpointPathRelativeMoveToAbsoluteTest {
+public class FromFtpNoEndpointPathRelativeMoveToAbsoluteNotStepwiseTest
+        extends FromFtpNoEndpointPathRelativeMoveToAbsoluteTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "?password=admin&recursive=true&binary=false"
-                + "&move=/.done/${file:name}&initialDelay=2500&delay=5000&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}?password=admin&recursive=true&binary=false"
+               + "&move=/.done/${file:name}&initialDelay=2500&delay=5000&stepwise=false";
     }
 
 }

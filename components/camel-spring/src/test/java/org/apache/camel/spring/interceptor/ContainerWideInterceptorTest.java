@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,14 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.TestSupport;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class ContainerWideInterceptorTest extends TestSupport {
 
     private CamelContext camel1;
@@ -34,7 +36,8 @@ public class ContainerWideInterceptorTest extends TestSupport {
     private ContainerWideInterceptor myInterceptor;
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         super.setUp();
         ac = new ClassPathXmlApplicationContext("/org/apache/camel/spring/interceptor/ContainerWideInterceptorTest.xml");
         camel1 = ac.getBean("camel1", CamelContext.class);
@@ -43,12 +46,14 @@ public class ContainerWideInterceptorTest extends TestSupport {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    @AfterEach
+    public void tearDown() throws Exception {
         super.tearDown();
         camel2.stop();
         camel1.stop();
     }
 
+    @Test
     public void testOne() throws Exception {
         int start = myInterceptor.getCount();
 
@@ -64,9 +69,10 @@ public class ContainerWideInterceptorTest extends TestSupport {
 
         // lets see if the counter is +1 since last (has 1 step in the route)
         int delta = myInterceptor.getCount() - start;
-        assertEquals("Should have been counted +1", 1, delta);
+        assertEquals(1, delta, "Should have been counted +1");
     }
 
+    @Test
     public void testTwo() throws Exception {
         int start = myInterceptor.getCount();
 
@@ -82,7 +88,7 @@ public class ContainerWideInterceptorTest extends TestSupport {
 
         // lets see if the counter is +2 since last (has 2 steps in the route)
         int delta = myInterceptor.getCount() - start;
-        assertEquals("Should have been counted +2", 2, delta);
+        assertEquals(2, delta, "Should have been counted +2");
     }
 
 }

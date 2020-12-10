@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,13 +23,13 @@ import java.util.Map;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
-/**
- * @version 
- */
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class MailProducerUnsupportedCharsetTest extends CamelTestSupport {
 
     @Override
@@ -44,7 +44,8 @@ public class MailProducerUnsupportedCharsetTest extends CamelTestSupport {
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("pop3://jones@localhost?password=secret&delay=1000&ignoreUnsupportedCharset=true").to("mock:result");
+                from("pop3://jones@localhost?password=secret&initialDelay=100&delay=100&ignoreUnsupportedCharset=true")
+                        .to("mock:result");
             }
         });
         context.start();
@@ -53,7 +54,7 @@ public class MailProducerUnsupportedCharsetTest extends CamelTestSupport {
         mock.expectedBodiesReceived("Hello World", "Bye World");
         mock.allMessages().header("Content-Type").isEqualTo("text/plain");
 
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put("To", "jones@localhost");
         headers.put("Content-Type", "text/plain");
         template.sendBodyAndHeaders("smtp://localhost?ignoreUnsupportedCharset=true", "Hello World", headers);
@@ -73,7 +74,8 @@ public class MailProducerUnsupportedCharsetTest extends CamelTestSupport {
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("pop3://jones@localhost?password=secret&delay=1000&ignoreUnsupportedCharset=false").to("mock:result");
+                from("pop3://jones@localhost?password=secret&initialDelay=100&delay=100&ignoreUnsupportedCharset=false")
+                        .to("mock:result");
             }
         });
         context.start();
@@ -82,7 +84,7 @@ public class MailProducerUnsupportedCharsetTest extends CamelTestSupport {
         mock.expectedBodiesReceived("Hello World");
         mock.allMessages().header("Content-Type").isEqualTo("text/plain");
 
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put("To", "jones@localhost");
         headers.put("Content-Type", "text/plain");
         template.sendBodyAndHeaders("smtp://localhost?ignoreUnsupportedCharset=false", "Hello World", headers);

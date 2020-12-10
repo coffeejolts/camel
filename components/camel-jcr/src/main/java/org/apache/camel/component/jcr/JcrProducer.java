@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -33,7 +33,8 @@ import javax.jcr.Value;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.TypeConverter;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
+import org.apache.camel.util.ObjectHelper;
 import org.apache.jackrabbit.util.Text;
 
 public class JcrProducer extends DefaultProducer {
@@ -42,6 +43,7 @@ public class JcrProducer extends DefaultProducer {
         super(jcrEndpoint);
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         TypeConverter converter = exchange.getContext().getTypeConverter();
         Session session = openSession();
@@ -49,8 +51,8 @@ public class JcrProducer extends DefaultProducer {
         String operation = determineOperation(message);
         try {
             if (JcrConstants.JCR_INSERT.equals(operation)) {
-                Node base = findOrCreateNode(session.getRootNode(), getJcrEndpoint().getBase());
-                Node node = findOrCreateNode(base, getNodeName(message));
+                Node base = findOrCreateNode(session.getRootNode(), getJcrEndpoint().getBase(), "");
+                Node node = findOrCreateNode(base, getNodeName(message), getNodeType(message));
                 Map<String, Object> headers = filterComponentHeaders(message.getHeaders());
                 for (String key : headers.keySet()) {
                     Object header = message.getHeader(key);
@@ -91,46 +93,47 @@ public class JcrProducer extends DefaultProducer {
     }
 
     private Map<String, Object> filterComponentHeaders(Map<String, Object> properties) {
-        Map<String, Object> result = new HashMap<String, Object>(properties.size());
+        Map<String, Object> result = new HashMap<>(properties.size());
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             String key = entry.getKey();
-            if (!key.equals(JcrConstants.JCR_NODE_NAME) && !key.equals(JcrConstants.JCR_OPERATION)) {
+            if (!key.equals(JcrConstants.JCR_NODE_NAME) && !key.equals(JcrConstants.JCR_OPERATION)
+                    && !key.equals(JcrConstants.JCR_NODE_TYPE)) {
                 result.put(entry.getKey(), entry.getValue());
             }
         }
         return result;
     }
-    
+
     private Class<?> classForJCRType(Property property) throws RepositoryException {
         switch (property.getType()) {
-        case PropertyType.STRING:
-            return String.class;
-        case PropertyType.BINARY:
-            return InputStream.class;
-        case PropertyType.BOOLEAN:
-            return Boolean.class;
-        case PropertyType.LONG:
-            return Long.class;
-        case PropertyType.DOUBLE:
-            return Double.class;
-        case PropertyType.DECIMAL:
-            return BigDecimal.class;
-        case PropertyType.DATE:
-            return Calendar.class;
-        case PropertyType.NAME:
-            return String.class;
-        case PropertyType.PATH:
-            return String.class;
-        case PropertyType.REFERENCE:
-            return String.class;
-        case PropertyType.WEAKREFERENCE:
-            return String.class;
-        case PropertyType.URI:
-            return String.class;
-        case PropertyType.UNDEFINED:
-            return String.class;
-        default:
-            throw new IllegalArgumentException("unknown type: " + property.getType());
+            case PropertyType.STRING:
+                return String.class;
+            case PropertyType.BINARY:
+                return InputStream.class;
+            case PropertyType.BOOLEAN:
+                return Boolean.class;
+            case PropertyType.LONG:
+                return Long.class;
+            case PropertyType.DOUBLE:
+                return Double.class;
+            case PropertyType.DECIMAL:
+                return BigDecimal.class;
+            case PropertyType.DATE:
+                return Calendar.class;
+            case PropertyType.NAME:
+                return String.class;
+            case PropertyType.PATH:
+                return String.class;
+            case PropertyType.REFERENCE:
+                return String.class;
+            case PropertyType.WEAKREFERENCE:
+                return String.class;
+            case PropertyType.URI:
+                return String.class;
+            case PropertyType.UNDEFINED:
+                return String.class;
+            default:
+                throw new IllegalArgumentException("unknown type: " + property.getType());
         }
     }
 
@@ -144,7 +147,12 @@ public class JcrProducer extends DefaultProducer {
         return nodeName != null ? nodeName : message.getExchange().getExchangeId();
     }
 
-    private Node findOrCreateNode(Node parent, String path) throws RepositoryException {
+    private String getNodeType(Message message) {
+        String nodeType = message.getHeader(JcrConstants.JCR_NODE_TYPE, String.class);
+        return nodeType != null ? nodeType : "";
+    }
+
+    private Node findOrCreateNode(Node parent, String path, String nodeType) throws RepositoryException {
         Node result = parent;
         for (String component : path.split("/")) {
             component = Text.escapeIllegalJcrChars(component);
@@ -152,7 +160,11 @@ public class JcrProducer extends DefaultProducer {
                 if (result.hasNode(component)) {
                     result = result.getNode(component);
                 } else {
-                    result = result.addNode(component);
+                    if (ObjectHelper.isNotEmpty(nodeType)) {
+                        result = result.addNode(component, nodeType);
+                    } else {
+                        result = result.addNode(component);
+                    }
                 }
             }
         }
@@ -160,10 +172,15 @@ public class JcrProducer extends DefaultProducer {
     }
 
     protected Session openSession() throws RepositoryException {
-        return getJcrEndpoint().getRepository().login(getJcrEndpoint().getCredentials());
+        if (ObjectHelper.isEmpty(getJcrEndpoint().getWorkspaceName())) {
+            return getJcrEndpoint().getRepository().login(getJcrEndpoint().getCredentials());
+        } else {
+            return getJcrEndpoint().getRepository().login(getJcrEndpoint().getCredentials(),
+                    getJcrEndpoint().getWorkspaceName());
+        }
     }
 
     private JcrEndpoint getJcrEndpoint() {
-        return (JcrEndpoint)getEndpoint();
+        return (JcrEndpoint) getEndpoint();
     }
 }

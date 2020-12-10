@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,10 +16,12 @@
  */
 package org.apache.camel.component.websocket;
 
+import java.net.InetSocketAddress;
+
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
+import org.apache.camel.support.DefaultConsumer;
 
 public class WebsocketConsumer extends DefaultConsumer implements WebsocketProducerConsumer {
 
@@ -31,17 +33,18 @@ public class WebsocketConsumer extends DefaultConsumer implements WebsocketProdu
     }
 
     @Override
-    public void start() throws Exception {
-        super.start();
+    public void doStart() throws Exception {
+        super.doStart();
         endpoint.connect(this);
     }
 
     @Override
-    public void stop() throws Exception {
+    public void doStop() throws Exception {
         endpoint.disconnect(this);
-        super.stop();
+        super.doStop();
     }
 
+    @Override
     public WebsocketEndpoint getEndpoint() {
         return endpoint;
     }
@@ -50,15 +53,22 @@ public class WebsocketConsumer extends DefaultConsumer implements WebsocketProdu
         return endpoint.getPath();
     }
 
-    public void sendMessage(final String connectionKey, final String message) {
-        sendMessage(connectionKey, (Object)message);
+    public void sendMessage(
+            final String connectionKey,
+            final String message,
+            final InetSocketAddress remote) {
+        sendMessage(connectionKey, (Object) message, remote);
     }
 
-    public void sendMessage(final String connectionKey, final Object message) {
+    public void sendMessage(
+            final String connectionKey,
+            final Object message,
+            final InetSocketAddress remote) {
 
         final Exchange exchange = getEndpoint().createExchange();
 
         // set header and body
+        exchange.getIn().setHeader(WebsocketConstants.REMOTE_ADDRESS, remote);
         exchange.getIn().setHeader(WebsocketConstants.CONNECTION_KEY, connectionKey);
         exchange.getIn().setBody(message);
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,27 +16,31 @@
  */
 package org.apache.camel.component.netty.http;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 import org.apache.camel.Converter;
 import org.apache.camel.Exchange;
-import org.apache.camel.FallbackConverter;
+import org.apache.camel.component.netty.NettyConverter;
 import org.apache.camel.spi.TypeConverterRegistry;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 
-@Converter
+@Converter(generateLoader = true)
 public final class NettyHttpConverter {
 
     private NettyHttpConverter() {
     }
 
     /**
-     * A fallback converter that allows us to easily call Java beans and use the raw Netty {@link HttpRequest} as parameter types.
+     * A fallback converter that allows us to easily call Java beans and use the raw Netty {@link HttpRequest} as
+     * parameter types.
      */
-    @FallbackConverter
+    @Converter(fallback = true)
     public static Object convertToHttpRequest(Class<?> type, Exchange exchange, Object value, TypeConverterRegistry registry) {
         // if we want to covert to HttpRequest
         if (value != null && HttpRequest.class.isAssignableFrom(type)) {
@@ -52,8 +56,8 @@ public final class NettyHttpConverter {
             }
             if (msg != null && msg.getBody() == value) {
                 // ensure the http request content is reset so we can read all the content out-of-the-box
-                HttpRequest request = msg.getHttpRequest();
-                request.getContent().resetReaderIndex();
+                FullHttpRequest request = msg.getHttpRequest();
+                request.content().resetReaderIndex();
                 return request;
             }
         }
@@ -62,9 +66,10 @@ public final class NettyHttpConverter {
     }
 
     /**
-     * A fallback converter that allows us to easily call Java beans and use the raw Netty {@link HttpRequest} as parameter types.
+     * A fallback converter that allows us to easily call Java beans and use the raw Netty {@link HttpRequest} as
+     * parameter types.
      */
-    @FallbackConverter
+    @Converter(fallback = true)
     public static Object convertToHttpResponse(Class<?> type, Exchange exchange, Object value, TypeConverterRegistry registry) {
         // if we want to covert to convertToHttpResponse
         if (value != null && HttpResponse.class.isAssignableFrom(type)) {
@@ -87,28 +92,37 @@ public final class NettyHttpConverter {
     }
 
     @Converter
-    public static String toString(HttpResponse response, Exchange exchange) {
+    public static String toString(FullHttpResponse response, Exchange exchange) {
         String contentType = response.headers().get(Exchange.CONTENT_TYPE);
         String charset = NettyHttpHelper.getCharsetFromContentType(contentType);
         if (charset == null && exchange != null) {
             charset = exchange.getProperty(Exchange.CHARSET_NAME, String.class);
         }
         if (charset != null) {
-            return response.getContent().toString(Charset.forName(charset));
+            return response.content().toString(Charset.forName(charset));
         } else {
-            return response.getContent().toString(Charset.defaultCharset());
+            return response.content().toString(Charset.defaultCharset());
         }
     }
 
     @Converter
-    public static byte[] toBytes(HttpResponse response, Exchange exchange) {
-        return response.getContent().toByteBuffer().array();
+    public static byte[] toBytes(FullHttpResponse response, Exchange exchange) {
+        return NettyConverter.toByteArray(response.content(), exchange);
     }
 
     @Converter
-    public static InputStream toInputStream(HttpResponse response, Exchange exchange) {
-        byte[] bytes = toBytes(response, exchange);
-        return new ByteArrayInputStream(bytes);
+    public static InputStream toInputStream(FullHttpResponse response, Exchange exchange) {
+        return NettyConverter.toInputStream(response.content(), exchange);
+    }
+
+    @Converter
+    public static ByteBuf toByteBuf(NettyChannelBufferStreamCache cache, Exchange exchange) throws Exception {
+        // reset so we read from the beginning of the cache stream
+        cache.reset();
+        int len = (int) cache.length();
+        ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(len);
+        buf.writeBytes(cache, len);
+        return buf;
     }
 
 }

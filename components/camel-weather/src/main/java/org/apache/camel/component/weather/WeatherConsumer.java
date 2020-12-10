@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,18 +16,23 @@
  */
 package org.apache.camel.component.weather;
 
-import java.net.URL;
-
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.ScheduledPollConsumer;
+import org.apache.camel.support.ScheduledPollConsumer;
 import org.apache.camel.util.ObjectHelper;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class WeatherConsumer extends ScheduledPollConsumer {
     public static final long DEFAULT_CONSUMER_DELAY = 60 * 60 * 1000L;
+
     private static final Logger LOG = LoggerFactory.getLogger(WeatherConsumer.class);
+
     private final String query;
 
     public WeatherConsumer(WeatherEndpoint endpoint, Processor processor, String query) {
@@ -43,23 +48,37 @@ public class WeatherConsumer extends ScheduledPollConsumer {
     @Override
     protected int poll() throws Exception {
         LOG.debug("Going to execute the Weather query {}", query);
-        String weather = getEndpoint().getCamelContext().getTypeConverter().mandatoryConvertTo(String.class, new URL(query));
-        LOG.debug("Got back the Weather information {}", weather);
-        if (ObjectHelper.isEmpty(weather)) {
-            throw new IllegalStateException("Got the unexpected value '" + weather + "' as the result of the query '" + query + "'");
+        HttpClient httpClient = getEndpoint().getConfiguration().getHttpClient();
+        HttpGet getMethod = new HttpGet(query);
+        try {
+            HttpResponse response = httpClient.execute(getMethod);
+            if (HttpStatus.SC_OK != response.getStatusLine().getStatusCode()) {
+                LOG.warn("HTTP call for weather returned error status code {} - {} as a result with query: {}", status,
+                        response.getStatusLine().getStatusCode(), query);
+                return 0;
+            }
+            String weather = EntityUtils.toString(response.getEntity(), "UTF-8");
+            LOG.debug("Got back the Weather information {}", weather);
+            if (ObjectHelper.isEmpty(weather)) {
+                // empty response
+                return 0;
+            }
+
+            Exchange exchange = getEndpoint().createExchange();
+            String header = getEndpoint().getConfiguration().getHeaderName();
+            if (header != null) {
+                exchange.getIn().setHeader(header, weather);
+            } else {
+                exchange.getIn().setBody(weather);
+            }
+            exchange.getIn().setHeader(WeatherConstants.WEATHER_QUERY, query);
+
+            getProcessor().process(exchange);
+
+            return 1;
+        } finally {
+            getMethod.releaseConnection();
         }
-
-        Exchange exchange = getEndpoint().createExchange();
-        String header = getEndpoint().getConfiguration().getHeaderName();
-        if (header != null) {
-            exchange.getIn().setHeader(header, weather);
-        } else {
-            exchange.getIn().setBody(weather);
-        }
-        exchange.getIn().setHeader(WeatherConstants.WEATHER_QUERY, query);
-
-        getProcessor().process(exchange);
-
-        return 1;
     }
+
 }

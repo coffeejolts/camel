@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,24 +16,27 @@
  */
 package org.apache.camel.spring.config;
 
-import org.apache.camel.impl.DefaultPackageScanClassResolver;
+import org.apache.camel.ExtendedCamelContext;
+import org.apache.camel.impl.engine.DefaultPackageScanClassResolver;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class DefaultPackageResolverConfigureTest extends SpringTestSupport {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/config/PackageResolverTest.xml");
     }
 
+    @Test
     public void testSetAcceptableSchema() throws Exception {
-        DefaultPackageScanClassResolver resolver = (DefaultPackageScanClassResolver)context.getPackageScanClassResolver();
+        DefaultPackageScanClassResolver resolver
+                = (DefaultPackageScanClassResolver) context.adapt(ExtendedCamelContext.class).getPackageScanClassResolver();
         assertNotNull(resolver);
-        // just check the accept schema
-        assertTrue("We should accept the test:!", resolver.isAcceptableScheme("test://test"));
-        assertTrue("We should accept the test2:!", resolver.isAcceptableScheme("test2://test"));
-        
     }
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,20 @@
  */
 package org.apache.camel.spring.config;
 
-import junit.framework.TestCase;
-
 import org.apache.camel.util.IOHelper;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
-public class AnotherCamelProxyTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+public class AnotherCamelProxyTest {
+
+    @Test
     public void testAnotherCamelProxy() throws Exception {
         // START SNIPPET: e1
-        AbstractApplicationContext ac = new ClassPathXmlApplicationContext("org/apache/camel/spring/config/AnotherCamelProxyTest.xml");
+        AbstractApplicationContext ac
+                = new ClassPathXmlApplicationContext("org/apache/camel/spring/config/AnotherCamelProxyTest.xml");
 
         MyProxySender sender = ac.getBean("myProxySender", MyProxySender.class);
         String reply = sender.hello("Camel");

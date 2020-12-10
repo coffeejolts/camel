@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,54 +26,56 @@ import java.util.Properties;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMessage.RecipientType;
 
 import com.google.api.client.repackaged.org.apache.commons.codec.binary.Base64;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.mail.internal.GmailUsersMessagesApiMethod;
 import org.apache.camel.component.google.mail.internal.GoogleMailApiCollection;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
- * Test class for {@link com.google.api.services.gmail.Gmail$Users$Messages}
- * APIs.
+ * Test class for {@link com.google.api.services.gmail.Gmail$Users$Messages} APIs.
  */
 public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSupport {
 
     // userid of the currently authenticated user
     public static final String CURRENT_USERID = "me";
     private static final Logger LOG = LoggerFactory.getLogger(GmailUsersMessagesIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleMailApiCollection.getCollection().getApiName(GmailUsersMessagesApiMethod.class).getName();
+    private static final String PATH_PREFIX
+            = GoogleMailApiCollection.getCollection().getApiName(GmailUsersMessagesApiMethod.class).getName();
 
     @Test
     public void testMessages() throws Exception {
 
         // ==== Send test email ====
         Message testEmail = createTestEmail();
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleMail.userId", CURRENT_USERID);
         // parameter type is com.google.api.services.gmail.model.Message
         headers.put("CamelGoogleMail.content", testEmail);
 
         com.google.api.services.gmail.model.Message result = requestBodyAndHeaders("direct://SEND", null, headers);
-        assertNotNull("send result", result);
+        assertNotNull(result, "send result");
         String testEmailId = result.getId();
 
         // ==== Search for message we just sent ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         headers.put("CamelGoogleMail.q", "subject:\"Hello from camel-google-mail\"");
         // using String message body for single parameter "userId"
         ListMessagesResponse listOfMessages = requestBody("direct://LIST", CURRENT_USERID);
         assertTrue(idInList(testEmailId, listOfMessages));
 
         // ===== trash it ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleMail.userId", CURRENT_USERID);
         // parameter type is String
@@ -81,14 +83,14 @@ public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSup
         requestBodyAndHeaders("direct://TRASH", null, headers);
 
         // ==== Search for message we just trashed ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         headers.put("CamelGoogleMail.q", "subject:\"Hello from camel-google-mail\"");
         // using String message body for single parameter "userId"
         listOfMessages = requestBody("direct://LIST", CURRENT_USERID);
         assertFalse(idInList(testEmailId, listOfMessages));
 
         // ===== untrash it ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleMail.userId", CURRENT_USERID);
         // parameter type is String
@@ -96,14 +98,14 @@ public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSup
         requestBodyAndHeaders("direct://UNTRASH", null, headers);
 
         // ==== Search for message we just trashed ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         headers.put("CamelGoogleMail.q", "subject:\"Hello from camel-google-mail\"");
         // using String message body for single parameter "userId"
         listOfMessages = requestBody("direct://LIST", CURRENT_USERID);
         assertTrue(idInList(testEmailId, listOfMessages));
 
         // ===== permanently delete it ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         // parameter type is String
         headers.put("CamelGoogleMail.userId", CURRENT_USERID);
         // parameter type is String
@@ -111,7 +113,7 @@ public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSup
         requestBodyAndHeaders("direct://DELETE", null, headers);
 
         // ==== Search for message we just deleted ====
-        headers = new HashMap<String, Object>();
+        headers = new HashMap<>();
         headers.put("CamelGoogleMail.q", "subject:\"Hello from camel-google-mail\"");
         // using String message body for single parameter "userId"
         listOfMessages = requestBody("direct://LIST", CURRENT_USERID);
@@ -119,7 +121,7 @@ public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSup
     }
 
     private boolean idInList(String testEmailId, ListMessagesResponse listOfMessages) {
-        assertNotNull("list result", listOfMessages);
+        assertNotNull(listOfMessages, "list result");
         assertTrue(!listOfMessages.getMessages().isEmpty());
         boolean foundMessage = false;
         for (Message m : listOfMessages.getMessages()) {
@@ -131,7 +133,8 @@ public class GmailUsersMessagesIntegrationTest extends AbstractGoogleMailTestSup
     }
 
     private Message createTestEmail() throws MessagingException, IOException {
-        com.google.api.services.gmail.model.Profile profile = requestBody("google-mail://users/getProfile?inBody=userId", CURRENT_USERID);
+        com.google.api.services.gmail.model.Profile profile
+                = requestBody("google-mail://users/getProfile?inBody=userId", CURRENT_USERID);
         Properties props = new Properties();
         Session session = Session.getDefaultInstance(props, null);
         MimeMessage mm = new MimeMessage(session);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,7 +24,6 @@ import com.splunk.Index;
 import com.splunk.Receiver;
 import com.splunk.Service;
 import org.apache.camel.component.splunk.SplunkEndpoint;
-import org.apache.camel.component.splunk.event.SplunkEvent;
 
 public class SubmitDataWriter extends SplunkDataWriter {
     private String index;
@@ -34,13 +33,13 @@ public class SubmitDataWriter extends SplunkDataWriter {
     }
 
     @Override
-    protected void doWrite(SplunkEvent event) throws IOException {
+    protected synchronized void doWrite(String event) throws IOException {
         Index index = getIndex();
         if (index != null) {
-            index.submit(args, event.toString());
+            index.submit(args, event);
         } else {
             Receiver receiver = endpoint.getService().getReceiver();
-            receiver.submit(args, event.toString());
+            receiver.submit(args, event);
         }
     }
 

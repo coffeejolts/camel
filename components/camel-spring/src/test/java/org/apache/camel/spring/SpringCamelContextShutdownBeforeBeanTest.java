@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,8 +17,11 @@
 package org.apache.camel.spring;
 
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SpringCamelContextShutdownBeforeBeanTest extends SpringTestSupport {
 
@@ -27,6 +30,7 @@ public class SpringCamelContextShutdownBeforeBeanTest extends SpringTestSupport 
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/SpringCamelContextShutdownBeforeBeanTest.xml");
     }
 
+    @Test
     public void testShutdown() throws Exception {
         ShutdownOrderBean order = (ShutdownOrderBean) context.getRegistry().lookupByName("order");
 
@@ -47,7 +51,6 @@ public class SpringCamelContextShutdownBeforeBeanTest extends SpringTestSupport 
 
         // stop spring to cause shutdown of Camel
         applicationContext.close();
-        applicationContext.destroy();
 
         assertEquals(3, order.getStart().size());
         assertEquals(3, order.getShutdown().size());

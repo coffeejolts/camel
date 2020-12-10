@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,10 +22,9 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.camel.component.zookeeper.NaturalSortComparator.Order;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NaturalSortComparatorTest {
 
@@ -33,9 +32,11 @@ public class NaturalSortComparatorTest {
     public void testSortOrder() throws Exception {
 
         List<String> sorted = Arrays
-            .asList(new String[] {"0", "1", "3", "4.0", "11", "30", "55", "225", "333", "camel-2.1.0", "camel-2.1.1", "camel-2.1.1-SNAPSHOT", "camel-2.2.0"});
+                .asList(new String[] {
+                        "0", "1", "3", "4.0", "11", "30", "55", "225", "333", "camel-2.1.0", "camel-2.1.1",
+                        "camel-2.1.1-SNAPSHOT", "camel-2.2.0" });
 
-        List<String> unsorted = new ArrayList<String>(sorted);
+        List<String> unsorted = new ArrayList<>(sorted);
         Collections.shuffle(unsorted);
         Collections.sort(unsorted, new NaturalSortComparator());
         compareLists(sorted, unsorted);

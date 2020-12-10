@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,26 @@ package org.apache.camel.component.infinispan;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class InfinispanConsumerEntryCreatedTest extends InfinispanTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     private MockEndpoint mockResult;
 
     @Test
     public void consumerReceivedPreAndPostEntryCreatedEventNotifications() throws Exception {
         mockResult.expectedMessageCount(2);
 
-        mockResult.message(0).outHeader(InfinispanConstants.EVENT_TYPE).isEqualTo("CACHE_ENTRY_CREATED");
-        mockResult.message(0).outHeader(InfinispanConstants.IS_PRE).isEqualTo(true);
-        mockResult.message(0).outHeader(InfinispanConstants.CACHE_NAME).isNotNull();
-        mockResult.message(0).outHeader(InfinispanConstants.KEY).isEqualTo(KEY_ONE);
+        mockResult.message(0).header(InfinispanConstants.EVENT_TYPE).isEqualTo("CACHE_ENTRY_CREATED");
+        mockResult.message(0).header(InfinispanConstants.IS_PRE).isEqualTo(true);
+        mockResult.message(0).header(InfinispanConstants.CACHE_NAME).isNotNull();
+        mockResult.message(0).header(InfinispanConstants.KEY).isEqualTo(KEY_ONE);
 
-        mockResult.message(1).outHeader(InfinispanConstants.EVENT_TYPE).isEqualTo("CACHE_ENTRY_CREATED");
-        mockResult.message(1).outHeader(InfinispanConstants.IS_PRE).isEqualTo(false);
-        mockResult.message(1).outHeader(InfinispanConstants.CACHE_NAME).isNotNull();
-        mockResult.message(1).outHeader(InfinispanConstants.KEY).isEqualTo(KEY_ONE);
+        mockResult.message(1).header(InfinispanConstants.EVENT_TYPE).isEqualTo("CACHE_ENTRY_CREATED");
+        mockResult.message(1).header(InfinispanConstants.IS_PRE).isEqualTo(false);
+        mockResult.message(1).header(InfinispanConstants.CACHE_NAME).isNotNull();
+        mockResult.message(1).header(InfinispanConstants.KEY).isEqualTo(KEY_ONE);
 
         currentCache().put(KEY_ONE, VALUE_ONE);
         mockResult.assertIsSatisfied();
@@ -49,10 +49,9 @@ public class InfinispanConsumerEntryCreatedTest extends InfinispanTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() {
-                from("infinispan://localhost?cacheContainer=#cacheContainer&sync=false&eventTypes=CACHE_ENTRY_CREATED")
+                from("infinispan:default?cacheContainer=#cacheContainer&sync=false&eventTypes=CACHE_ENTRY_CREATED")
                         .to("mock:result");
             }
         };
     }
 }
-

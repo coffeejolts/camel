@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,19 +17,13 @@
 package org.apache.camel.routepolicy.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 /**
- * Test CronScheduledRoutePolicy also works if the route has been configured
- * with noAutoStartup
+ * Test CronScheduledRoutePolicy also works if the route has been configured with noAutoStartup
  */
 public class RouteAutoStopFalseCronScheduledPolicyTest extends CamelTestSupport {
-
-    @Override
-    public boolean isUseRouteBuilder() {
-        return false;
-    }
 
     @Test
     public void testCronPolicy() throws Exception {
@@ -48,7 +42,6 @@ public class RouteAutoStopFalseCronScheduledPolicyTest extends CamelTestSupport 
                         .to("mock:foo");
             }
         });
-        context.start();
 
         assertMockEndpointsSatisfied();
     }

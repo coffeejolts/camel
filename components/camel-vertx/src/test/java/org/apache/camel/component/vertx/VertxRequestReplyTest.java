@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,10 @@ package org.apache.camel.component.vertx;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class VertxRequestReplyTest extends VertxBaseTestSupport {
 
     protected String startUri = "direct:start";
@@ -47,19 +46,14 @@ public class VertxRequestReplyTest extends VertxBaseTestSupport {
         assertEquals("Bye World", out2);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                // camel-vertx cannot be ran with JDK 1.6
-                org.junit.Assume.assumeTrue(!isJava16());
-
-                VertxComponent vertx = getContext().getComponent("vertx", VertxComponent.class);
-                vertx.setPort(getPort());
-
                 from(startUri).to(middleUri).to(resultUri);
 
                 from(middleUri)
-                    .transform(simple("Bye ${body}"));
+                        .transform(simple("Bye ${body}"));
             }
         };
     }

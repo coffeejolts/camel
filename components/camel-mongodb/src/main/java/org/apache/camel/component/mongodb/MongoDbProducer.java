@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,43 +17,96 @@
 package org.apache.camel.component.mongodb;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-import com.mongodb.AggregationOutput;
-import com.mongodb.BasicDBList;
-import com.mongodb.BasicDBObject;
-import com.mongodb.CommandResult;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
-import com.mongodb.WriteResult;
-
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.DistinctIterable;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.ReplaceOptions;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import org.apache.camel.Exchange;
-import org.apache.camel.Message;
+import org.apache.camel.InvalidPayloadException;
+import org.apache.camel.Processor;
 import org.apache.camel.TypeConverter;
-import org.apache.camel.impl.DefaultProducer;
-import org.apache.camel.util.MessageHelper;
+import org.apache.camel.support.DefaultProducer;
+import org.apache.camel.support.MessageHelper;
 import org.apache.camel.util.ObjectHelper;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.mongodb.client.model.Filters.eq;
+import static org.apache.camel.component.mongodb.MongoDbConstants.BATCH_SIZE;
+import static org.apache.camel.component.mongodb.MongoDbConstants.COLLECTION;
+import static org.apache.camel.component.mongodb.MongoDbConstants.COLLECTION_INDEX;
+import static org.apache.camel.component.mongodb.MongoDbConstants.CRITERIA;
+import static org.apache.camel.component.mongodb.MongoDbConstants.DATABASE;
+import static org.apache.camel.component.mongodb.MongoDbConstants.FIELDS_PROJECTION;
+import static org.apache.camel.component.mongodb.MongoDbConstants.LIMIT;
+import static org.apache.camel.component.mongodb.MongoDbConstants.MONGO_ID;
+import static org.apache.camel.component.mongodb.MongoDbConstants.MULTIUPDATE;
+import static org.apache.camel.component.mongodb.MongoDbConstants.NUM_TO_SKIP;
+import static org.apache.camel.component.mongodb.MongoDbConstants.OID;
+import static org.apache.camel.component.mongodb.MongoDbConstants.OPERATION_HEADER;
+import static org.apache.camel.component.mongodb.MongoDbConstants.RECORDS_AFFECTED;
+import static org.apache.camel.component.mongodb.MongoDbConstants.RECORDS_MATCHED;
+import static org.apache.camel.component.mongodb.MongoDbConstants.RESULT_PAGE_SIZE;
+import static org.apache.camel.component.mongodb.MongoDbConstants.RESULT_TOTAL_SIZE;
+import static org.apache.camel.component.mongodb.MongoDbConstants.SORT_BY;
+import static org.apache.camel.component.mongodb.MongoDbConstants.UPSERT;
+import static org.apache.camel.component.mongodb.MongoDbConstants.WRITERESULT;
 
 /**
  * The MongoDb producer.
  */
 public class MongoDbProducer extends DefaultProducer {
+
     private static final Logger LOG = LoggerFactory.getLogger(MongoDbProducer.class);
+
+    private final Map<MongoDbOperation, Processor> operations = new HashMap<>();
     private MongoDbEndpoint endpoint;
+
+    {
+        bind(MongoDbOperation.aggregate, createDoAggregate());
+        bind(MongoDbOperation.bulkWrite, createDoBulkWrite());
+        bind(MongoDbOperation.command, createDoCommand());
+        bind(MongoDbOperation.count, createDoCount());
+        bind(MongoDbOperation.findDistinct, createDoDistinct());
+        bind(MongoDbOperation.findAll, createDoFindAll());
+        bind(MongoDbOperation.findById, createDoFindById());
+        bind(MongoDbOperation.findOneByQuery, createDoFindOneByQuery());
+        bind(MongoDbOperation.getColStats, createDoGetColStats());
+        bind(MongoDbOperation.getDbStats, createDoGetDbStats());
+        bind(MongoDbOperation.insert, createDoInsert());
+        bind(MongoDbOperation.remove, createDoRemove());
+        bind(MongoDbOperation.save, createDoSave());
+        bind(MongoDbOperation.update, createDoUpdate());
+    }
 
     public MongoDbProducer(MongoDbEndpoint endpoint) {
         super(endpoint);
         this.endpoint = endpoint;
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         MongoDbOperation operation = endpoint.getOperation();
-        Object header = exchange.getIn().getHeader(MongoDbConstants.OPERATION_HEADER);
+        Object header = exchange.getIn().getHeader(OPERATION_HEADER);
         if (header != null) {
             LOG.debug("Overriding default operation with operation specified on header: {}", header);
             try {
@@ -61,7 +114,7 @@ public class MongoDbProducer extends DefaultProducer {
                     operation = ObjectHelper.cast(MongoDbOperation.class, header);
                 } else {
                     // evaluate as a String
-                    operation = MongoDbOperation.valueOf(exchange.getIn().getHeader(MongoDbConstants.OPERATION_HEADER, String.class));
+                    operation = MongoDbOperation.valueOf(exchange.getIn().getHeader(OPERATION_HEADER, String.class));
                 }
             } catch (Exception e) {
                 throw new CamelMongoDbException("Operation specified on header is not supported. Value: " + header, e);
@@ -78,349 +131,48 @@ public class MongoDbProducer extends DefaultProducer {
 
     /**
      * Entry method that selects the appropriate MongoDB operation and executes it
-     * 
-     * @param operation
-     * @param exchange
-     * @throws Exception
      */
     protected void invokeOperation(MongoDbOperation operation, Exchange exchange) throws Exception {
-        switch (operation) {
-        case count:
-            doCount(exchange);
-            break;
-
-        case findOneByQuery:
-            doFindOneByQuery(exchange);
-            break;
-
-        case findById:
-            doFindById(exchange);
-            break;
-
-        case findAll:
-            doFindAll(exchange);
-            break;
-
-        case insert:
-            doInsert(exchange);
-            break;
-
-        case save:
-            doSave(exchange);
-            break;
-
-        case update:
-            doUpdate(exchange);
-            break;
-
-        case remove:
-            doRemove(exchange);
-            break;
-        
-        case aggregate:
-            doAggregate(exchange);
-            break;
-        
-        case getDbStats:
-            doGetStats(exchange, MongoDbOperation.getDbStats);
-            break;
-
-        case getColStats:
-            doGetStats(exchange, MongoDbOperation.getColStats);
-            break;
-        case command:
-            doCommand(exchange);
-            break;
-        default:
+        Processor processor = operations.get(operation);
+        if (processor != null) {
+            processor.process(exchange);
+        } else {
             throw new CamelMongoDbException("Operation not supported. Value: " + operation);
         }
     }
 
+    private MongoDbProducer bind(MongoDbOperation operation, Function<Exchange, Object> mongoDbFunction) {
+        operations.put(operation, wrap(mongoDbFunction, operation));
+        return this;
+    }
+
     // ----------- MongoDB operations ----------------
 
-    protected void doCommand(Exchange exchange) throws Exception {
-        DBObject result = null;
-        DB db = calculateDb(exchange);
-        DBObject cmdObj = exchange.getIn().getMandatoryBody(DBObject.class);
-
-        //TODO Manage the read preference
-        result = db.command(cmdObj);
-
-
-        Message responseMessage = prepareResponseMessage(exchange, MongoDbOperation.command);
-        responseMessage.setBody(result);
+    private Document createDbStatsCommand() {
+        return new Document("dbStats", 1).append("scale", 1);
     }
 
-    protected void doGetStats(Exchange exchange, MongoDbOperation operation) throws Exception {
-        DBObject result = null;
-
-        if (operation == MongoDbOperation.getColStats) {
-            result = calculateCollection(exchange).getStats();
-        } else if (operation == MongoDbOperation.getDbStats) {
-            // if it's a DB, also take into account the dynamicity option and the DB that is used
-            result = calculateDb(exchange).getStats();
-        } else {
-            throw new CamelMongoDbException("Internal error: wrong operation for getStats variant" + operation);
-        }
-
-        Message responseMessage = prepareResponseMessage(exchange, operation);
-        responseMessage.setBody(result);
+    private Document createCollStatsCommand(String collectionName) {
+        return new Document("collStats", collectionName);
     }
 
-    protected void doRemove(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        DBObject removeObj = exchange.getIn().getMandatoryBody(DBObject.class);
-
-        WriteConcern wc = extractWriteConcern(exchange);
-        WriteResult result = wc == null ? dbCol.remove(removeObj) : dbCol.remove(removeObj, wc);
-
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.remove);
-        // we always return the WriteResult, because whether the getLastError was called or not,
-        // the user will have the means to call it or obtain the cached CommandResult
-        processAndTransferWriteResult(result, exchange);
-        resultMessage.setHeader(MongoDbConstants.RECORDS_AFFECTED, result.getN());
-    }
-
-    @SuppressWarnings("unchecked")
-    protected void doUpdate(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        List<DBObject> saveObj = exchange.getIn().getMandatoryBody((Class<List<DBObject>>)(Class<?>)List.class);
-        if (saveObj.size() != 2) {
-            throw new CamelMongoDbException("MongoDB operation = insert, failed because body is not a List of DBObject objects with size = 2");
-        }
-
-        DBObject updateCriteria = saveObj.get(0);
-        DBObject objNew = saveObj.get(1);
-
-        Boolean multi = exchange.getIn().getHeader(MongoDbConstants.MULTIUPDATE, Boolean.class);
-        Boolean upsert = exchange.getIn().getHeader(MongoDbConstants.UPSERT, Boolean.class);
-
-        WriteResult result;
-        WriteConcern wc = extractWriteConcern(exchange);
-        // In API 2.7, the default upsert and multi values of update(DBObject, DBObject) are false, false, so we unconditionally invoke the
-        // full-signature method update(DBObject, DBObject, boolean, boolean). However, the default behaviour may change in the future, 
-        // so it's safer to be explicit at this level for full determinism
-        if (multi == null && upsert == null) {
-            // for update with no multi nor upsert but with specific WriteConcern there is no update signature without multi and upsert args,
-            // so assume defaults
-            result = wc == null ? dbCol.update(updateCriteria, objNew) : dbCol.update(updateCriteria, objNew, false, false, wc);
-        } else {
-            // we calculate the final boolean values so that if any of these
-            // parameters is null, it is resolved to false
-            result = wc == null ? dbCol.update(updateCriteria, objNew, calculateBooleanValue(upsert), calculateBooleanValue(multi)) : dbCol
-                .update(updateCriteria, objNew, calculateBooleanValue(upsert), calculateBooleanValue(multi), wc);
-        }
-
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.update);
-        // we always return the WriteResult, because whether the getLastError was called or not, the user will have the means to call it or 
-        // obtain the cached CommandResult
-        processAndTransferWriteResult(result, exchange);
-        resultMessage.setHeader(MongoDbConstants.RECORDS_AFFECTED, result.getN());
-    }
-
-    protected void doSave(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        DBObject saveObj = exchange.getIn().getMandatoryBody(DBObject.class);
-
-        WriteConcern wc = extractWriteConcern(exchange);
-        WriteResult result = wc == null ? dbCol.save(saveObj) : dbCol.save(saveObj, wc);
-        exchange.getIn().setHeader(MongoDbConstants.OID, saveObj.get("_id"));
-
-        prepareResponseMessage(exchange, MongoDbOperation.save);
-        // we always return the WriteResult, because whether the getLastError was called or not, the user will have the means to call it or 
-        // obtain the cached CommandResult
-        processAndTransferWriteResult(result, exchange);
-    }
-
-    protected void doFindById(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        Object o = exchange.getIn().getMandatoryBody();
-        DBObject ret;
-
-        DBObject fieldFilter = exchange.getIn().getHeader(MongoDbConstants.FIELDS_FILTER, DBObject.class);
-        if (fieldFilter == null) {
-            ret = dbCol.findOne(o);
-        } else {
-            ret = dbCol.findOne(o, fieldFilter);
-        }
-
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.save);
-        resultMessage.setBody(ret);
-        resultMessage.setHeader(MongoDbConstants.RESULT_TOTAL_SIZE, ret == null ? 0 : 1);
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    protected void doInsert(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        boolean singleInsert = true;
-        Object insert = exchange.getIn().getBody(DBObject.class);
-        // body could not be converted to DBObject, check to see if it's of type List<DBObject>
-        if (insert == null) {
-            insert = exchange.getIn().getBody(List.class);
-            // if the body of type List was obtained, ensure that all items are of type DBObject and cast the List to List<DBObject>
-            if (insert != null) {
-                singleInsert = false;
-                insert = attemptConvertToList((List)insert, exchange);
-            } else {
-                throw new CamelMongoDbException("MongoDB operation = insert, Body is not conversible to type DBObject nor List<DBObject>");
-            }
-        }
-
-        WriteResult result;
-        WriteConcern wc = extractWriteConcern(exchange);
-        if (singleInsert) {
-            DBObject insertObject = (DBObject) insert;
-            result = wc == null ? dbCol.insert(insertObject) : dbCol.insert(insertObject, wc);
-            exchange.getIn().setHeader(MongoDbConstants.OID, insertObject.get("_id"));
-        } else {
-            List<DBObject> insertObjects = (List<DBObject>) insert;
-            result = wc == null ? dbCol.insert(insertObjects) : dbCol.insert(insertObjects, wc);
-            List<Object> oids = new ArrayList<Object>(insertObjects.size());
-            for (DBObject insertObject : insertObjects) {
-                oids.add(insertObject.get("_id"));
-            }
-            exchange.getIn().setHeader(MongoDbConstants.OID, oids);
-        }
-
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.insert);
-        // we always return the WriteResult, because whether the getLastError was called or not, the user will have the means to call it or 
-        // obtain the cached CommandResult
-        processAndTransferWriteResult(result, exchange);
-        resultMessage.setBody(result);
-    }
-
-    protected void doFindAll(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        // do not use getMandatoryBody, because if the body is empty we want to retrieve all objects in the collection
-        DBObject query = null;
-        // do not run around looking for a type converter unless there is a need for it
-        if (exchange.getIn().getBody() != null) {
-            query = exchange.getIn().getBody(DBObject.class);
-        }
-        DBObject fieldFilter = exchange.getIn().getHeader(MongoDbConstants.FIELDS_FILTER, DBObject.class);
-
-        // get the batch size and number to skip
-        Integer batchSize = exchange.getIn().getHeader(MongoDbConstants.BATCH_SIZE, Integer.class);
-        Integer numToSkip = exchange.getIn().getHeader(MongoDbConstants.NUM_TO_SKIP, Integer.class);
-        Integer limit = exchange.getIn().getHeader(MongoDbConstants.LIMIT, Integer.class);
-        DBObject sortBy = exchange.getIn().getHeader(MongoDbConstants.SORT_BY, DBObject.class);
-        DBCursor ret = null;
-        try {
-            if (query == null && fieldFilter == null) {
-                ret = dbCol.find(new BasicDBObject());
-            } else if (fieldFilter == null) {
-                ret = dbCol.find(query);
-            } else {
-                ret = dbCol.find(query, fieldFilter);
-            }
-
-            if (sortBy != null) {
-                ret.sort(sortBy);
-            }
-
-            if (batchSize != null) {
-                ret.batchSize(batchSize.intValue());
-            }
-
-            if (numToSkip != null) {
-                ret.skip(numToSkip.intValue());
-            }
-
-            if (limit != null) {
-                ret.limit(limit.intValue());
-            }
-
-            Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.findAll);
-            if (MongoDbOutputType.DBCursor.equals(endpoint.getOutputType())) {
-                resultMessage.setBody(ret.iterator());
-            } else {
-                resultMessage.setBody(ret.toArray());
-                resultMessage.setHeader(MongoDbConstants.RESULT_TOTAL_SIZE, ret.count());
-                resultMessage.setHeader(MongoDbConstants.RESULT_PAGE_SIZE, ret.size());
-            }
-        } finally {
-            // make sure the cursor is closed
-            if (ret != null) {
-                ret.close();
-            }
-        }
-
-    }
-
-    protected void doFindOneByQuery(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        DBObject o = exchange.getIn().getMandatoryBody(DBObject.class);
-        DBObject ret;
-
-        DBObject fieldFilter = exchange.getIn().getHeader(MongoDbConstants.FIELDS_FILTER, DBObject.class);
-        if (fieldFilter == null) {
-            ret = dbCol.findOne(o);
-        } else {
-            ret = dbCol.findOne(o, fieldFilter);
-        }
-
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.findOneByQuery);
-        resultMessage.setBody(ret);
-        resultMessage.setHeader(MongoDbConstants.RESULT_TOTAL_SIZE, ret == null ? 0 : 1);
-    }
-
-    protected void doCount(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        DBObject query = exchange.getIn().getBody(DBObject.class);
-        Long answer;
-        if (query == null) {
-            answer = dbCol.count();
-        } else {
-            answer = dbCol.count(query);
-        }
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.count);
-        resultMessage.setBody(answer);
-    }
-    
-    /**
-    * All headers except collection and database are non available for this
-    * operation.
-    * 
-    * @param exchange
-    * @throws Exception
-    */
-    protected void doAggregate(Exchange exchange) throws Exception {
-        DBCollection dbCol = calculateCollection(exchange);
-        DBObject query = exchange.getIn().getMandatoryBody(DBObject.class);
-
-        // Impossible with java driver to get the batch size and number to skip
-        Iterable<DBObject> dbIterator = null;
-        AggregationOutput aggregationResult = null;
-
-        // Allow body to be a pipeline
-        // @see http://docs.mongodb.org/manual/core/aggregation/
-        if (query instanceof BasicDBList) {
-            BasicDBList queryList = (BasicDBList)query;
-            aggregationResult = dbCol.aggregate((DBObject)queryList.get(0), queryList
-                .subList(1, queryList.size()).toArray(new BasicDBObject[queryList.size() - 1]));
-        } else {
-            aggregationResult = dbCol.aggregate(query);
-        }
-
-        dbIterator = aggregationResult.results();
-        Message resultMessage = prepareResponseMessage(exchange, MongoDbOperation.aggregate);
-        resultMessage.setBody(dbIterator);
-    }
     // --------- Convenience methods -----------------------
-    private DB calculateDb(Exchange exchange) throws Exception {
-        // dynamic calculation is an option. In most cases it won't be used and we should not penalise all users with running this
-        // resolution logic on every Exchange if they won't be using this functionality at all
+    private MongoDatabase calculateDb(Exchange exchange) {
+        // dynamic calculation is an option. In most cases it won't be used and
+        // we should not penalise all users with running this
+        // resolution logic on every Exchange if they won't be using this
+        // functionality at all
         if (!endpoint.isDynamicity()) {
-            return endpoint.getDb();
+            return endpoint.getMongoDatabase();
         }
 
-        String dynamicDB = exchange.getIn().getHeader(MongoDbConstants.DATABASE, String.class);
-        DB db = null;
+        String dynamicDB = exchange.getIn().getHeader(DATABASE, String.class);
+        MongoDatabase db;
 
         if (dynamicDB == null) {
-            db = endpoint.getDb();
+            db = endpoint.getMongoDatabase();
         } else {
-            db = endpoint.getMongoConnection().getDB(dynamicDB);
+            db = endpoint.getMongoConnection().getDatabase(dynamicDB);
         }
 
         if (LOG.isDebugEnabled()) {
@@ -429,30 +181,43 @@ public class MongoDbProducer extends DefaultProducer {
         return db;
     }
 
-    private DBCollection calculateCollection(Exchange exchange) throws Exception {
-        // dynamic calculation is an option. In most cases it won't be used and we should not penalise all users with running this
-        // resolution logic on every Exchange if they won't be using this functionality at all
+    private String calculateCollectionName(Exchange exchange) {
         if (!endpoint.isDynamicity()) {
-            return endpoint.getDbCollection();
+            return endpoint.getCollection();
         }
-        
-        String dynamicDB = exchange.getIn().getHeader(MongoDbConstants.DATABASE, String.class);
-        String dynamicCollection = exchange.getIn().getHeader(MongoDbConstants.COLLECTION, String.class);
-                
-        @SuppressWarnings("unchecked")
-        List<DBObject> dynamicIndex = exchange.getIn().getHeader(MongoDbConstants.COLLECTION_INDEX, List.class);
+        String dynamicCollection = exchange.getIn().getHeader(COLLECTION, String.class);
+        if (dynamicCollection == null) {
+            return endpoint.getCollection();
+        }
+        return dynamicCollection;
+    }
 
-        DBCollection dbCol = null;
-        
+    private MongoCollection<Document> calculateCollection(Exchange exchange) {
+        // dynamic calculation is an option. In most cases it won't be used and
+        // we should not penalise all users with running this
+        // resolution logic on every Exchange if they won't be using this
+        // functionality at all
+        if (!endpoint.isDynamicity()) {
+            return endpoint.getMongoCollection().withWriteConcern(endpoint.getWriteConcernBean());
+        }
+
+        String dynamicDB = exchange.getIn().getHeader(DATABASE, String.class);
+        String dynamicCollection = exchange.getIn().getHeader(COLLECTION, String.class);
+
+        @SuppressWarnings("unchecked")
+        List<Bson> dynamicIndex = exchange.getIn().getHeader(COLLECTION_INDEX, List.class);
+
+        MongoCollection<Document> dbCol;
+
         if (dynamicDB == null && dynamicCollection == null) {
-            dbCol = endpoint.getDbCollection();
+            dbCol = endpoint.getMongoCollection().withWriteConcern(endpoint.getWriteConcernBean());
         } else {
-            DB db = calculateDb(exchange);
+            MongoDatabase db = calculateDb(exchange);
 
             if (dynamicCollection == null) {
-                dbCol = db.getCollection(endpoint.getCollection());
+                dbCol = db.getCollection(endpoint.getCollection(), Document.class);
             } else {
-                dbCol = db.getCollection(dynamicCollection);
+                dbCol = db.getCollection(dynamicCollection, Document.class);
 
                 // on the fly add index
                 if (dynamicIndex == null) {
@@ -464,70 +229,434 @@ public class MongoDbProducer extends DefaultProducer {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Dynamic database and/or collection selected: {}->{}", dbCol.getDB().getName(), dbCol.getName());
+            LOG.debug("Dynamic database and/or collection selected: {}->{}", endpoint.getDatabase(), endpoint.getCollection());
         }
         return dbCol;
     }
-    
-    private boolean calculateBooleanValue(Boolean b) {
-        return b == null ? false : b.booleanValue();      
-    }
-    
-    private void processAndTransferWriteResult(WriteResult result, Exchange exchange) {
-        // determine where to set the WriteResult: as the OUT body or as an IN message header
-        if (endpoint.isWriteResultAsHeader()) {
-            exchange.getOut().setHeader(MongoDbConstants.WRITERESULT, result);
-        } else {
-            exchange.getOut().setBody(result);
-        }
-    }
-
-    private WriteConcern extractWriteConcern(Exchange exchange) throws CamelMongoDbException {
-        Object o = exchange.getIn().getHeader(MongoDbConstants.WRITECONCERN);
-
-        if (o == null) {
-            return null;
-        } else if (o instanceof WriteConcern) {
-            return ObjectHelper.cast(WriteConcern.class, o);
-        } else if (o instanceof String) {
-            WriteConcern answer = WriteConcern.valueOf(ObjectHelper.cast(String.class, o));
-            if (answer == null) {
-                throw new CamelMongoDbException("WriteConcern specified in the " + MongoDbConstants.WRITECONCERN + " header, with value " + o
-                                                + " could not be resolved to a WriteConcern type");
-            }
-        }
-
-        // should never get here
-        LOG.warn("A problem occurred while resolving the Exchange's Write Concern");
-        return null;
-    }
 
     @SuppressWarnings("rawtypes")
-    private List<DBObject> attemptConvertToList(List insertList, Exchange exchange) throws CamelMongoDbException {
-        List<DBObject> dbObjectList = new ArrayList<DBObject>(insertList.size());
+    private List<Document> attemptConvertToList(Collection insertList, Exchange exchange) throws CamelMongoDbException {
+        List<Document> documentList = new ArrayList<>(insertList.size());
         TypeConverter converter = exchange.getContext().getTypeConverter();
         for (Object item : insertList) {
             try {
-                DBObject dbObject = converter.mandatoryConvertTo(DBObject.class, item);
-                dbObjectList.add(dbObject);
+                Document document = converter.mandatoryConvertTo(Document.class, item);
+                documentList.add(document);
             } catch (Exception e) {
-                throw new CamelMongoDbException("MongoDB operation = insert, Assuming List variant of MongoDB insert operation, but List contains non-DBObject items", e);
+                throw new CamelMongoDbException(
+                        "MongoDB operation = insert, Assuming List variant of MongoDB insert operation, but List contains non-Document items",
+                        e);
             }
         }
-        return dbObjectList;
-    }
-
-    private Message prepareResponseMessage(Exchange exchange, MongoDbOperation operation) {
-        Message answer = exchange.getOut();
-        MessageHelper.copyHeaders(exchange.getIn(), answer, false);
-        if (isWriteOperation(operation) && endpoint.isWriteResultAsHeader()) {
-            answer.setBody(exchange.getIn().getBody());
-        }
-        return answer;
+        return documentList;
     }
 
     private boolean isWriteOperation(MongoDbOperation operation) {
         return MongoDbComponent.WRITE_OPERATIONS.contains(operation);
     }
 
+    private Processor wrap(Function<Exchange, Object> supplier, MongoDbOperation operation) {
+        return exchange -> {
+            Object result = supplier.apply(exchange);
+            copyHeaders(exchange);
+            moveBodyToOutIfResultIsReturnedAsHeader(exchange, operation);
+            processAndTransferResult(result, exchange, operation);
+        };
+    }
+
+    private void copyHeaders(Exchange exchange) {
+        MessageHelper.copyHeaders(exchange.getIn(), exchange.getMessage(), false);
+    }
+
+    private void moveBodyToOutIfResultIsReturnedAsHeader(Exchange exchange, MongoDbOperation operation) {
+        if (isWriteOperation(operation) && endpoint.isWriteResultAsHeader()) {
+            exchange.getMessage().setBody(exchange.getIn().getBody());
+        }
+    }
+
+    private void processAndTransferResult(Object result, Exchange exchange, MongoDbOperation operation) {
+        // determine where to set the WriteResult: as the OUT body or as an IN
+        // message header
+        if (isWriteOperation(operation) && endpoint.isWriteResultAsHeader()) {
+            exchange.getMessage().setHeader(WRITERESULT, result);
+        } else {
+            exchange.getMessage().setBody(result);
+        }
+    }
+
+    private Function<Exchange, Object> createDoGetColStats() {
+        return exch -> calculateDb(exch).runCommand(createCollStatsCommand(calculateCollectionName(exch)));
+    }
+
+    private Function<Exchange, Object> createDoFindOneByQuery() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+
+                Bson query = exchange.getIn().getHeader(CRITERIA, Bson.class);
+                if (null == query) {
+                    query = exchange.getIn().getMandatoryBody(Bson.class);
+                }
+
+                Bson sortBy = exchange.getIn().getHeader(SORT_BY, Bson.class);
+                Bson fieldFilter = exchange.getIn().getHeader(FIELDS_PROJECTION, Bson.class);
+                if (fieldFilter == null) {
+                    fieldFilter = new Document();
+                }
+
+                if (sortBy == null) {
+                    sortBy = new Document();
+                }
+
+                Document ret = dbCol
+                        .find(query)
+                        .projection(fieldFilter)
+                        .sort(sortBy)
+                        .allowDiskUse(exchange.getIn().getHeader(MongoDbConstants.ALLOW_DISK_USE, Boolean.class))
+                        .first();
+
+                exchange.getMessage().setHeader(RESULT_TOTAL_SIZE, ret == null ? 0 : 1);
+                return ret;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Payload is no Document", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoCount() {
+        return exchange -> {
+            Bson query = exchange.getIn().getHeader(CRITERIA, Bson.class);
+            if (query == null) {
+                query = exchange.getContext().getTypeConverter().tryConvertTo(Bson.class, exchange, exchange.getIn().getBody());
+            }
+            if (query == null) {
+                query = new Document();
+            }
+            return calculateCollection(exchange).countDocuments(query);
+        };
+    }
+
+    private Function<Exchange, Object> createDoDistinct() {
+        return exchange -> {
+            List<String> result = new ArrayList<>();
+            MongoCollection<Document> dbCol = calculateCollection(exchange);
+
+            // get the parameters out of the Exchange Header
+            String distinctFieldName = exchange.getIn().getHeader(MongoDbConstants.DISTINCT_QUERY_FIELD, String.class);
+            Bson query
+                    = exchange.getContext().getTypeConverter().tryConvertTo(Bson.class, exchange, exchange.getIn().getBody());
+            DistinctIterable<String> ret;
+            if (query != null) {
+                ret = dbCol.distinct(distinctFieldName, query, String.class);
+            } else {
+                ret = dbCol.distinct(distinctFieldName, String.class);
+            }
+            try {
+                ret.iterator().forEachRemaining(result::add);
+                exchange.getMessage().setHeader(MongoDbConstants.RESULT_PAGE_SIZE, result.size());
+            } finally {
+                ret.iterator().close();
+            }
+            return result;
+        };
+    }
+
+    private Function<Exchange, Object> createDoFindAll() {
+        return exchange -> {
+            Iterable<Document> result;
+            MongoCollection<Document> dbCol = calculateCollection(exchange);
+            // do not use getMandatoryBody, because if the body is empty we want
+            // to retrieve all objects in the collection
+            Bson query = exchange.getIn().getHeader(CRITERIA, Bson.class);
+            // do not run around looking for a type converter unless there is a
+            // need for it
+            if (query == null && exchange.getIn().getBody() != null) {
+                query = exchange.getContext().getTypeConverter().tryConvertTo(Bson.class, exchange, exchange.getIn().getBody());
+            }
+            Bson fieldFilter = exchange.getIn().getHeader(FIELDS_PROJECTION, Bson.class);
+
+            // get the batch size and number to skip
+            Integer batchSize = exchange.getIn().getHeader(BATCH_SIZE, Integer.class);
+            Integer numToSkip = exchange.getIn().getHeader(NUM_TO_SKIP, Integer.class);
+            Integer limit = exchange.getIn().getHeader(LIMIT, Integer.class);
+            Document sortBy = exchange.getIn().getHeader(SORT_BY, Document.class);
+            FindIterable<Document> ret;
+            if (query == null && fieldFilter == null) {
+                ret = dbCol.find();
+            } else if (fieldFilter == null) {
+                ret = dbCol.find(query);
+            } else if (query != null) {
+                ret = dbCol.find(query).projection(fieldFilter);
+            } else {
+                ret = dbCol.find().projection(fieldFilter);
+            }
+
+            if (sortBy != null) {
+                ret.sort(sortBy);
+            }
+
+            if (batchSize != null) {
+                ret.batchSize(batchSize);
+            }
+
+            if (numToSkip != null) {
+                ret.skip(numToSkip);
+            }
+
+            if (limit != null) {
+                ret.limit(limit);
+            }
+
+            ret.allowDiskUse(exchange.getIn().getHeader(MongoDbConstants.ALLOW_DISK_USE, Boolean.class));
+            if (!MongoDbOutputType.MongoIterable.equals(endpoint.getOutputType())) {
+                try {
+                    result = new ArrayList<>();
+                    ret.iterator().forEachRemaining(((List<Document>) result)::add);
+                    exchange.getMessage().setHeader(RESULT_PAGE_SIZE, ((List<Document>) result).size());
+                } finally {
+                    ret.iterator().close();
+                }
+            } else {
+                result = ret;
+            }
+            return result;
+        };
+    }
+
+    private Function<Exchange, Object> createDoInsert() {
+        return exchange -> {
+            MongoCollection<Document> dbCol = calculateCollection(exchange);
+
+            // is it batch or single insert
+            boolean singleInsert = true;
+            Object insert = exchange.getIn().getBody();
+            boolean array = insert != null && insert.getClass().isArray();
+            if (array) {
+                Object[] arr = (Object[]) insert;
+                insert = Arrays.asList(arr);
+            }
+            if (insert instanceof Collection) {
+                // if the body of type List was obtained, ensure that all items
+                // are of type Document and cast the List to List<Document>
+                singleInsert = false;
+                insert = attemptConvertToList((Collection<?>) insert, exchange);
+            } else {
+                // okay its not a list, then maybe its a document
+                if (!(insert instanceof Document)) {
+                    // try to convert to document
+                    insert = exchange.getContext().getTypeConverter().tryConvertTo(Document.class, exchange, insert);
+                }
+                if (insert == null) {
+                    throw new CamelMongoDbException(
+                            "MongoDB operation = insert, Body is not conversible to type Document nor List<Document>");
+                }
+            }
+
+            if (singleInsert) {
+                Document insertObject = (Document) insert;
+                dbCol.insertOne(insertObject);
+                exchange.getIn().setHeader(OID, insertObject.get(MONGO_ID));
+            } else {
+                @SuppressWarnings("unchecked")
+                List<Document> insertObjects = (List<Document>) insert;
+                dbCol.insertMany(insertObjects);
+                List<Object> objectIdentification = new ArrayList<>(insertObjects.size());
+                objectIdentification.addAll(
+                        insertObjects.stream().map(insertObject -> insertObject.get(MONGO_ID)).collect(Collectors.toList()));
+                exchange.getIn().setHeader(OID, objectIdentification);
+            }
+            return insert;
+        };
+    }
+
+    private Function<Exchange, Object> createDoUpdate() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+
+                Bson updateCriteria = exchange.getIn().getHeader(CRITERIA, Bson.class);
+                Bson objNew;
+                if (null == updateCriteria) {
+                    @SuppressWarnings("unchecked")
+                    List<Bson> saveObj = exchange.getIn().getMandatoryBody((Class<List<Bson>>) Class.class.cast(List.class));
+                    if (saveObj.size() != 2) {
+                        throw new CamelMongoDbException(
+                                "MongoDB operation = insert, failed because body is not a List of Document objects with size = 2");
+                    }
+
+                    updateCriteria = saveObj.get(0);
+                    objNew = saveObj.get(1);
+                } else {
+                    objNew = exchange.getIn().getMandatoryBody(Bson.class);
+                }
+
+                Boolean multi = exchange.getIn().getHeader(MULTIUPDATE, Boolean.class);
+                Boolean upsert = exchange.getIn().getHeader(UPSERT, Boolean.class);
+
+                UpdateResult result;
+                UpdateOptions options = new UpdateOptions();
+                if (upsert != null) {
+                    options.upsert(upsert);
+                }
+
+                if (multi == null || !multi) {
+                    result = dbCol.updateOne(updateCriteria, objNew, options);
+                } else {
+                    result = dbCol.updateMany(updateCriteria, objNew, options);
+                }
+
+                exchange.getMessage().setHeader(RECORDS_AFFECTED, result.getModifiedCount());
+                exchange.getMessage().setHeader(RECORDS_MATCHED, result.getMatchedCount());
+                return result;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for update", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoRemove() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+                Bson removeObj = exchange.getIn().getMandatoryBody(Bson.class);
+
+                DeleteResult result = dbCol.deleteMany(removeObj);
+                if (result.wasAcknowledged()) {
+                    exchange.getMessage().setHeader(RECORDS_AFFECTED, result.getDeletedCount());
+                }
+                return result;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for remove", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoAggregate() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+                @SuppressWarnings("unchecked")
+                List<Bson> query = exchange.getIn().getMandatoryBody((Class<List<Bson>>) Class.class.cast(List.class));
+
+                // Allow body to be a pipeline
+                // @see http://docs.mongodb.org/manual/core/aggregation/
+                List<Bson> queryList;
+                if (query != null) {
+                    queryList = new ArrayList<>(query);
+                } else {
+                    queryList = Collections.singletonList(exchange.getIn().getMandatoryBody(Bson.class));
+                }
+
+                // The number to skip must be in body query
+                AggregateIterable<Document> aggregationResult = dbCol.aggregate(queryList);
+
+                // get the batch size
+                Integer batchSize = exchange.getIn().getHeader(MongoDbConstants.BATCH_SIZE, Integer.class);
+
+                if (batchSize != null) {
+                    aggregationResult.batchSize(batchSize);
+                }
+
+                aggregationResult.allowDiskUse(exchange.getIn().getHeader(MongoDbConstants.ALLOW_DISK_USE, Boolean.class));
+
+                Iterable<Document> result;
+                if (!MongoDbOutputType.MongoIterable.equals(endpoint.getOutputType())) {
+                    try {
+                        result = new ArrayList<>();
+                        aggregationResult.iterator().forEachRemaining(((List<Document>) result)::add);
+                        exchange.getMessage().setHeader(MongoDbConstants.RESULT_PAGE_SIZE, ((List<Document>) result).size());
+                    } finally {
+                        aggregationResult.iterator().close();
+                    }
+                } else {
+                    result = aggregationResult;
+                }
+
+                return result;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for aggregate", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoCommand() {
+        return exchange -> {
+            try {
+                MongoDatabase db = calculateDb(exchange);
+                Document cmdObj = exchange.getIn().getMandatoryBody(Document.class);
+                return db.runCommand(cmdObj);
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for command", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoGetDbStats() {
+        return exchange1 -> calculateDb(exchange1).runCommand(createDbStatsCommand());
+    }
+
+    private Function<Exchange, Object> createDoFindById() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+                Object id = exchange.getIn().getMandatoryBody();
+                Bson o = Filters.eq(MONGO_ID, id);
+                Document ret;
+
+                Bson fieldFilter = exchange.getIn().getHeader(FIELDS_PROJECTION, Bson.class);
+                if (fieldFilter == null) {
+                    fieldFilter = new Document();
+                }
+                ret = dbCol
+                        .find(o)
+                        .projection(fieldFilter)
+                        .allowDiskUse(exchange.getIn().getHeader(MongoDbConstants.ALLOW_DISK_USE, Boolean.class))
+                        .first();
+                exchange.getMessage().setHeader(RESULT_TOTAL_SIZE, ret == null ? 0 : 1);
+                return ret;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for findById", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoSave() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+                Document saveObj = exchange.getIn().getMandatoryBody(Document.class);
+                ReplaceOptions options = new ReplaceOptions().upsert(true);
+                UpdateResult result;
+                if (null == saveObj.get(MONGO_ID)) {
+                    result = dbCol.replaceOne(Filters.where("false"), saveObj, options);
+                    exchange.getIn().setHeader(OID, result.getUpsertedId().asObjectId().getValue());
+                } else {
+                    result = dbCol.replaceOne(eq(MONGO_ID, saveObj.get(MONGO_ID)), saveObj, options);
+                    exchange.getIn().setHeader(OID, saveObj.get(MONGO_ID));
+                }
+                return result;
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Body incorrect type for save", e);
+            }
+        };
+    }
+
+    private Function<Exchange, Object> createDoBulkWrite() {
+        return exchange -> {
+            try {
+                MongoCollection<Document> dbCol = calculateCollection(exchange);
+
+                Boolean ordered = exchange.getIn().getHeader(MongoDbConstants.BULK_ORDERED, Boolean.TRUE, Boolean.class);
+                BulkWriteOptions options = new BulkWriteOptions().ordered(ordered);
+
+                @SuppressWarnings("unchecked")
+                List<WriteModel<Document>> requests
+                        = exchange.getIn().getMandatoryBody((Class<List<WriteModel<Document>>>) Class.class.cast(List.class));
+
+                return dbCol.bulkWrite(requests, options);
+            } catch (InvalidPayloadException e) {
+                throw new CamelMongoDbException("Invalid payload for bulk write", e);
+            }
+        };
+    }
 }

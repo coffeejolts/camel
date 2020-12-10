@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,73 +16,76 @@
  */
 package org.apache.camel.spring.handler;
 
-import junit.framework.TestCase;
-import org.apache.camel.LoggingLevel;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.DeadLetterChannelBuilder;
 import org.apache.camel.builder.DefaultErrorHandlerBuilder;
-import org.apache.camel.builder.LoggingErrorHandlerBuilder;
-import org.apache.camel.processor.RedeliveryPolicy;
+import org.apache.camel.processor.errorhandler.RedeliveryPolicy;
 import org.apache.camel.spring.spi.TransactionErrorHandlerBuilder;
 import org.apache.camel.util.IOHelper;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-public class ErrorHandlerDefinitionParserTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class ErrorHandlerDefinitionParserTest {
     protected ClassPathXmlApplicationContext ctx;
-    
+
+    @BeforeEach
     public void setUp() throws Exception {
-        ctx =  new ClassPathXmlApplicationContext("org/apache/camel/spring/handler/ErrorHandlerDefinitionParser.xml");
+        ctx = new ClassPathXmlApplicationContext("org/apache/camel/spring/handler/ErrorHandlerDefinitionParser.xml");
     }
 
+    @AfterEach
     public void tearDown() throws Exception {
         IOHelper.close(ctx);
     }
-    
-    public void testLoggingErrorHandler() {
-        LoggingErrorHandlerBuilder errorHandler = ctx.getBean("loggingErrorHandler", LoggingErrorHandlerBuilder.class);
-        assertNotNull(errorHandler);
-        assertEquals("The log level should be INFO", LoggingLevel.INFO, errorHandler.getLevel());
-        assertEquals("The log name should be foo", "foo", errorHandler.getLogName());
-    }
-    
+
+    @Test
     public void testDefaultErrorHandler() {
         DefaultErrorHandlerBuilder errorHandler = ctx.getBean("defaultErrorHandler", DefaultErrorHandlerBuilder.class);
         assertNotNull(errorHandler);
         RedeliveryPolicy policy = errorHandler.getRedeliveryPolicy();
         assertNotNull(policy);
-        assertEquals("Wrong maximumRedeliveries", 2, policy.getMaximumRedeliveries());
-        assertEquals("Wrong redeliveryDelay", 0, policy.getRedeliveryDelay());
-        assertEquals("Wrong logStackTrace", false, policy.isLogStackTrace());
-        
+        assertEquals(2, policy.getMaximumRedeliveries(), "Wrong maximumRedeliveries");
+        assertEquals(0, policy.getRedeliveryDelay(), "Wrong redeliveryDelay");
+        assertEquals(false, policy.isLogStackTrace(), "Wrong logStackTrace");
+
         errorHandler = ctx.getBean("errorHandler", DefaultErrorHandlerBuilder.class);
         assertNotNull(errorHandler);
     }
-    
+
+    @Test
     public void testTransactionErrorHandler() {
-        TransactionErrorHandlerBuilder errorHandler = ctx.getBean("transactionErrorHandler", TransactionErrorHandlerBuilder.class);
+        TransactionErrorHandlerBuilder errorHandler
+                = ctx.getBean("transactionErrorHandler", TransactionErrorHandlerBuilder.class);
         assertNotNull(errorHandler);
         assertNotNull(errorHandler.getTransactionTemplate());
         Processor processor = errorHandler.getOnRedelivery();
-        assertTrue("It should be MyErrorProcessor", processor instanceof MyErrorProcessor);
+        assertTrue(processor instanceof MyErrorProcessor, "It should be MyErrorProcessor");
     }
-    
+
+    @Test
     public void testTXErrorHandler() {
         TransactionErrorHandlerBuilder errorHandler = ctx.getBean("txEH", TransactionErrorHandlerBuilder.class);
         assertNotNull(errorHandler);
         assertNotNull(errorHandler.getTransactionTemplate());
     }
 
+    @Test
     public void testDeadLetterErrorHandler() {
         DeadLetterChannelBuilder errorHandler = ctx.getBean("deadLetterErrorHandler", DeadLetterChannelBuilder.class);
         assertNotNull(errorHandler);
-        assertEquals("Get wrong deadletteruri", "log:dead", errorHandler.getDeadLetterUri());
+        assertEquals("log:dead", errorHandler.getDeadLetterUri(), "Get wrong deadletteruri");
         RedeliveryPolicy policy = errorHandler.getRedeliveryPolicy();
         assertNotNull(policy);
-        assertEquals("Wrong maximumRedeliveries", 2, policy.getMaximumRedeliveries());
-        assertEquals("Wrong redeliveryDelay", 1000, policy.getRedeliveryDelay());
-        assertEquals("Wrong logStackTrace", true, policy.isLogHandled());
-        assertEquals("Wrong asyncRedeliveryDelayed", true, policy.isAsyncDelayedRedelivery());
+        assertEquals(2, policy.getMaximumRedeliveries(), "Wrong maximumRedeliveries");
+        assertEquals(1000, policy.getRedeliveryDelay(), "Wrong redeliveryDelay");
+        assertEquals(true, policy.isLogHandled(), "Wrong logStackTrace");
+        assertEquals(true, policy.isAsyncDelayedRedelivery(), "Wrong asyncRedeliveryDelayed");
     }
 
 }
-

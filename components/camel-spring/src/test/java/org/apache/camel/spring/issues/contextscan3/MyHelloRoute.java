@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -32,8 +32,8 @@ public class MyHelloRoute extends RouteBuilder {
     @Override
     public void configure() throws Exception {
         from("direct:start")
-            .bean("myHelloBean", "hello")
-            .to("mock:result");
+                .bean("myHelloBean", "hello")
+                .to("mock:result");
     }
 
 }

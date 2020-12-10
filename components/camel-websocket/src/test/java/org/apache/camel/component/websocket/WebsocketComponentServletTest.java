@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,46 +16,56 @@
  */
 package org.apache.camel.component.websocket;
 
-import javax.servlet.http.HttpServletRequest;
+import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.eclipse.jetty.websocket.WebSocket;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 /**
  *
  */
-@RunWith(MockitoJUnitRunner.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class WebsocketComponentServletTest {
 
     private static final String PROTOCOL = "ws";
     private static final String MESSAGE = "message";
     private static final String CONNECTION_KEY = "random-connection-key";
+    private static final InetSocketAddress ADDRESS = InetSocketAddress.createUnresolved("127.0.0.1", 12345);
 
+    @Mock
+    private Session session;
     @Mock
     private WebsocketConsumer consumer;
     @Mock
     private NodeSynchronization sync;
     @Mock
-    private HttpServletRequest request;
+    private ServletUpgradeRequest request;
 
     private WebsocketComponentServlet websocketComponentServlet;
 
-    @Before
+    private Map<String, WebSocketFactory> socketFactory;
+
+    @BeforeEach
     public void setUp() throws Exception {
-        websocketComponentServlet = new WebsocketComponentServlet(sync);
+        socketFactory = new HashMap<>();
+        socketFactory.put("default", new DefaultWebsocketFactory());
+        websocketComponentServlet = new WebsocketComponentServlet(sync, null, socketFactory);
+        when(session.getRemoteAddress()).thenReturn(ADDRESS);
     }
 
     @Test
@@ -73,23 +83,24 @@ public class WebsocketComponentServletTest {
     @Test
     public void testDoWebSocketConnect() {
         websocketComponentServlet.setConsumer(consumer);
-        WebSocket webSocket = websocketComponentServlet.doWebSocketConnect(request, PROTOCOL);
+        DefaultWebsocket webSocket = websocketComponentServlet.doWebSocketConnect(request, PROTOCOL);
         assertNotNull(webSocket);
         assertEquals(DefaultWebsocket.class, webSocket.getClass());
-        DefaultWebsocket defaultWebsocket = (DefaultWebsocket) webSocket;
+        DefaultWebsocket defaultWebsocket = webSocket;
         defaultWebsocket.setConnectionKey(CONNECTION_KEY);
+        defaultWebsocket.setSession(session);
         defaultWebsocket.onMessage(MESSAGE);
         InOrder inOrder = inOrder(consumer, sync, request);
-        inOrder.verify(consumer, times(1)).sendMessage(CONNECTION_KEY, MESSAGE);
+        inOrder.verify(consumer, times(1)).sendMessage(CONNECTION_KEY, MESSAGE, ADDRESS);
         inOrder.verifyNoMoreInteractions();
     }
 
     @Test
     public void testDoWebSocketConnectConsumerIsNull() {
-        WebSocket webSocket = websocketComponentServlet.doWebSocketConnect(request, PROTOCOL);
+        DefaultWebsocket webSocket = websocketComponentServlet.doWebSocketConnect(request, PROTOCOL);
         assertNotNull(webSocket);
         assertEquals(DefaultWebsocket.class, webSocket.getClass());
-        DefaultWebsocket defaultWebsocket = (DefaultWebsocket) webSocket;
+        DefaultWebsocket defaultWebsocket = webSocket;
         defaultWebsocket.setConnectionKey(CONNECTION_KEY);
         defaultWebsocket.onMessage(MESSAGE);
         InOrder inOrder = inOrder(consumer, sync, request);

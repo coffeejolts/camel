@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,24 +17,24 @@
 package org.apache.camel.component.jms.issues;
 
 import org.apache.camel.ProducerTemplate;
-import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class JmsInOutWithSpringRestartIssueTest extends CamelSpringTestSupport {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/component/jms/issues/JmsInOutWithSpringRestartIssueTest.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/component/jms/issues/JmsInOutWithSpringRestartIssueTest.xml");
     }
 
     @Test
     public void testRestartSpringIssue() throws Exception {
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         ProducerTemplate producer = context.createProducerTemplate();
         producer.start();
@@ -44,8 +44,8 @@ public class JmsInOutWithSpringRestartIssueTest extends CamelSpringTestSupport {
 
         // on purpose forget to stop the producer and it should still work
 
-        context.stopRoute("foo");
-        context.startRoute("foo");
+        context.getRouteController().stopRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         out = producer.requestBody("activemq:queue:foo", "Bar");
         assertEquals("Bye Bar", out);

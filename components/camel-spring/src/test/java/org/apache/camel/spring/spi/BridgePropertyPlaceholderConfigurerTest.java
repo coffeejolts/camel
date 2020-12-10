@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,6 +18,7 @@ package org.apache.camel.spring.spi;
 
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -26,14 +27,22 @@ public class BridgePropertyPlaceholderConfigurerTest extends SpringTestSupport {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/spring/spi/bridgePropertyPlaceholderConfigurer.xml");   
+        return new ClassPathXmlApplicationContext("org/apache/camel/spring/spi/bridgePropertyPlaceholderConfigurer.xml");
     }
-    
-    
-    public void testIgnore() throws Exception {
+
+    @Test
+    public void testProperty() throws Exception {
         MockEndpoint result = context.getEndpoint("mock:result", MockEndpoint.class);
         result.expectedBodiesReceived(CONSTANT);
         template.sendBody("direct:start", "Test");
+        result.assertIsSatisfied();
+    }
+
+    @Test
+    public void testPropertyDefault() throws Exception {
+        MockEndpoint result = context.getEndpoint("mock:result", MockEndpoint.class);
+        result.expectedBodiesReceived("myDefaultValue");
+        template.sendBody("direct:start2", "Test");
         result.assertIsSatisfied();
     }
 

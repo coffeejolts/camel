@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,8 @@ import java.util.Map;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
 /**
@@ -35,7 +35,7 @@ public class MailMultipleRecipientsTest extends CamelTestSupport {
         Mailbox.clearAll();
 
         // START SNIPPET: e1
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         // test with both comma and semi colon as Camel supports both kind of separators
         headers.put("to", "claus@localhost, willem@localhost ; hadrian@localhost, \"Snell, Tracy\" <tracy@localhost>");
         headers.put("cc", "james@localhost");
@@ -61,7 +61,7 @@ public class MailMultipleRecipientsTest extends CamelTestSupport {
         // START SNIPPET: e2
         // here we have pre configured the to receivers to claus and willem. Notice we use comma to separate
         // the two recipients. Camel also support using colon as separator char
-        template.sendBody("smtp://localhost?To=claus@localhost,willem@localhost&CC=james@localhost", "Hello World");
+        template.sendBody("smtp://localhost?to=claus@localhost,willem@localhost&cc=james@localhost", "Hello World");
         // END SNIPPET: e2
 
         assertMockEndpointsSatisfied();
@@ -74,16 +74,17 @@ public class MailMultipleRecipientsTest extends CamelTestSupport {
         mock.expectedHeaderReceived("cc", "james@localhost");
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("pop3://claus@localhost?consumer.delay=1000").to("mock:claus");
+                from("pop3://claus@localhost?initialDelay=100&delay=100").to("mock:claus");
 
-                from("pop3://willem@localhost?consumer.delay=1000").to("mock:willem");
+                from("pop3://willem@localhost?initialDelay=100&delay=100").to("mock:willem");
 
-                from("pop3://hadrian@localhost?consumer.delay=1000").to("mock:hadrian");
+                from("pop3://hadrian@localhost?initialDelay=100&delay=100").to("mock:hadrian");
 
-                from("pop3://tracy@localhost?consumer.delay=1000").to("mock:tracy");
+                from("pop3://tracy@localhost?initialDelay=100&delay=100").to("mock:tracy");
             }
         };
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,17 @@
  */
 package org.apache.camel.component.xslt;
 
+import javax.xml.transform.TransformerException;
+
 import org.apache.camel.CamelContext;
-import org.apache.camel.FailedToCreateRouteException;
-import org.apache.camel.ResolveEndpointFailedException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.test.junit4.TestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class SaxonInvalidXsltFileTest extends TestSupport {
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.fail;
+
+public class SaxonInvalidXsltFileTest {
 
     @Test
     public void testInvalidStylesheet() throws Exception {
@@ -35,16 +37,17 @@ public class SaxonInvalidXsltFileTest extends TestSupport {
             context.start();
 
             fail("Should have thrown an exception due XSL compilation error");
-        } catch (FailedToCreateRouteException e) {
+        } catch (Exception e) {
             // expected
-            assertIsInstanceOf(ResolveEndpointFailedException.class, e.getCause());
+            assertIsInstanceOf(TransformerException.class, e.getCause().getCause().getCause());
         }
     }
 
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("seda:a").to("xslt:org/apache/camel/component/xslt/invalid.xsl?transformerFactoryClass=net.sf.saxon.TransformerFactoryImpl");
+                from("seda:a").to(
+                        "xslt-saxon:org/apache/camel/component/xslt/notfound.xsl?transformerFactoryClass=net.sf.saxon.TransformerFactoryImpl");
             }
         };
     }

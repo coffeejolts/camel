@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,22 +18,59 @@ package org.apache.camel.language.spel;
 
 import org.apache.camel.Expression;
 import org.apache.camel.Predicate;
-import org.apache.camel.spi.Language;
+import org.apache.camel.StaticService;
+import org.apache.camel.spi.annotations.Language;
+import org.apache.camel.spring.SpringCamelContext;
+import org.apache.camel.spring.util.RegistryBeanResolver;
 import org.apache.camel.support.LanguageSupport;
+import org.apache.camel.util.ObjectHelper;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.expression.BeanFactoryResolver;
+import org.springframework.expression.BeanResolver;
 
 /**
- * A Spring Expression {@link Language} plugin
+ * A Spring Expression {@link org.apache.camel.spi.Language} plugin
  */
-public class SpelLanguage extends LanguageSupport {
+@Language("spel")
+public class SpelLanguage extends LanguageSupport implements StaticService {
 
+    private BeanResolver beanResolver;
+
+    @Override
     public Predicate createPredicate(String expression) {
         expression = loadResource(expression);
-        return new SpelExpression(expression, Boolean.class);
+        Predicate answer = new SpelExpression(expression, Boolean.class, beanResolver);
+        answer.init(getCamelContext());
+        return answer;
     }
 
+    @Override
     public Expression createExpression(String expression) {
         expression = loadResource(expression);
-        return new SpelExpression(expression, Object.class);
+        Expression answer = new SpelExpression(expression, Object.class, beanResolver);
+        answer.init(getCamelContext());
+        return answer;
     }
 
+    @Override
+    public void init() {
+        ObjectHelper.notNull(getCamelContext(), "CamelContext", this);
+
+        if (getCamelContext() instanceof SpringCamelContext) {
+            ApplicationContext applicationContext = ((SpringCamelContext) getCamelContext()).getApplicationContext();
+            beanResolver = new BeanFactoryResolver(applicationContext);
+        } else {
+            beanResolver = new RegistryBeanResolver(getCamelContext().getRegistry());
+        }
+    }
+
+    @Override
+    public void start() {
+        // noop
+    }
+
+    @Override
+    public void stop() {
+        // noop
+    }
 }

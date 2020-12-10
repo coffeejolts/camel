@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,7 +23,7 @@ import org.apache.camel.component.atmos.core.AtmosAPIFacade;
 import org.apache.camel.component.atmos.dto.AtmosResult;
 
 public class AtmosMoveProducer extends AtmosProducer {
-    
+
     public AtmosMoveProducer(AtmosEndpoint endpoint, AtmosConfiguration configuration) {
         super(endpoint, configuration);
     }
@@ -33,7 +33,6 @@ public class AtmosMoveProducer extends AtmosProducer {
         AtmosResult result = AtmosAPIFacade.getInstance(configuration.getClient())
                 .move(configuration.getRemotePath(), configuration.getNewRemotePath());
         result.populateExchange(exchange);
-        log.info("Moved from " + configuration.getRemotePath() + " to " + configuration.getNewRemotePath());
     }
 
 }

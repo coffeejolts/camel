@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,29 +17,33 @@
 package org.apache.camel.component.mongodb;
 
 public enum MongoDbOperation {
-    
+
     // read operations
     findById,
     findOneByQuery,
     findAll,
-    // group,       // future operation
+    // group,       // future operation see aggregate
     // mapReduce,   // future operation
-    
+    findDistinct,
+
     // create/update operations
     insert,
-    save, 
-    update, 
-    
+    save,
+    update,
+
     // delete operations
-    remove, 
-    
+    remove,
+
+    //Bulk operations
+    bulkWrite,
+
     // aggregate
     aggregate,
-    
+
     // others
-    getDbStats, 
-    getColStats, 
+    getDbStats,
+    getColStats,
     count,
     command
-    
+
 }

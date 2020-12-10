@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,16 +19,19 @@ package org.apache.camel.component.beanstalk;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Beanstalk Camel component.
  * <p/>
  * URI is <code>beanstalk://[host[:port]][/tube]?query</code>
  * <p/>
- * Parameters:<ul>
- * <li><code>command</code> - one of "put", "release", "bury", "touch", "delete", "kick".
- * "put" is the default for Producers.</li>
+ * Parameters:
+ * <ul>
+ * <li><code>command</code> - one of "put", "release", "bury", "touch", "delete", "kick". "put" is the default for
+ * Producers.</li>
  * <li><code>jobPriority</code></li>
  * <li><code>jobDelay</code></li>
  * <li><code>jobTimeToRun</code></li>
@@ -39,7 +42,8 @@ import org.apache.camel.impl.UriEndpointComponent;
  * @see BeanstalkEndpoint
  * @see ConnectionSettingsFactory
  */
-public class BeanstalkComponent extends UriEndpointComponent {
+@Component("beanstalk")
+public class BeanstalkComponent extends DefaultComponent {
     public static final String DEFAULT_TUBE = "default";
 
     public static final String COMMAND_BURY = "bury";
@@ -56,7 +60,6 @@ public class BeanstalkComponent extends UriEndpointComponent {
     private static ConnectionSettingsFactory connectionSettingsFactory = ConnectionSettingsFactory.DEFAULT;
 
     public BeanstalkComponent() {
-        super(BeanstalkEndpoint.class);
     }
 
     @Override
@@ -65,19 +68,21 @@ public class BeanstalkComponent extends UriEndpointComponent {
     }
 
     @Override
-    protected Endpoint createEndpoint(final String uri, final String remaining, final Map<String, Object> parameters) throws Exception {
+    protected Endpoint createEndpoint(final String uri, final String remaining, final Map<String, Object> parameters)
+            throws Exception {
         return new BeanstalkEndpoint(uri, this, connectionSettingsFactory.parseUri(remaining), remaining);
     }
 
     /**
      * Custom {@link ConnectionSettingsFactory}.
      * <p/>
-     * Specify which {@link ConnectionSettingsFactory} to use to make connections to Beanstalkd. Especially
-     * useful for unit testing without beanstalkd daemon (you can mock {@link ConnectionSettings})
+     * Specify which {@link ConnectionSettingsFactory} to use to make connections to Beanstalkd. Especially useful for
+     * unit testing without beanstalkd daemon (you can mock {@link ConnectionSettings})
      *
      * @param connFactory the connection factory
-     * @see ConnectionSettingsFactory
+     * @see               ConnectionSettingsFactory
      */
+    @Metadata(label = "advanced")
     public static void setConnectionSettingsFactory(ConnectionSettingsFactory connFactory) {
         BeanstalkComponent.connectionSettingsFactory = connFactory;
     }

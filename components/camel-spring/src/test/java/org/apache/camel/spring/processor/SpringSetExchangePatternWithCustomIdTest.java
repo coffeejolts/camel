@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.spring.processor;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.processor.SetExchangePatternTest;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SpringSetExchangePatternWithCustomIdTest extends SetExchangePatternTest {
 
     @Override
+    @Test
     public void testToWithInOnlyParam() throws Exception {
         super.testToWithInOnlyParam();
 
@@ -32,6 +34,7 @@ public class SpringSetExchangePatternWithCustomIdTest extends SetExchangePattern
         assertEquals("q", context.getRouteDefinitions().get(6).getOutputs().get(0).getId());
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/setExchangePatternWithCustomId.xml");
     }

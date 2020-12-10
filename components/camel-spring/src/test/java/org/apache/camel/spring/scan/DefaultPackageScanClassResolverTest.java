@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,31 +22,31 @@ import java.net.URLClassLoader;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.camel.impl.DefaultPackageScanClassResolver;
+import org.apache.camel.impl.engine.DefaultPackageScanClassResolver;
 import org.apache.camel.spring.scan.a.ScanTargetOne;
 import org.apache.camel.spring.scan.b.ScanTargetTwo;
 import org.apache.camel.spring.scan.c.ScanTargetThree;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring.scan.ScanTestSupport {
 
     private DefaultPackageScanClassResolver resolver;
-    private Set<Class<? extends Annotation>> annotations = new HashSet<Class<? extends Annotation>>();
+    private Set<Class<? extends Annotation>> annotations = new HashSet<>();
     private String scanPackage = "org.apache.camel.spring.scan";
 
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         resolver = new DefaultPackageScanClassResolver();
         annotations.add(org.apache.camel.spring.scan.ScannableOne.class);
         annotations.add(org.apache.camel.spring.scan.ScannableTwo.class);
     }
-    
-    public void testAccepableSchema() {
-        assertFalse("We should not accept the test by default!", resolver.isAcceptableScheme("test://test"));
-        resolver.setAcceptableSchemes("test:;test2:");
-        assertTrue("We should accept the test:!", resolver.isAcceptableScheme("test://test"));
-        assertTrue("We should accept the test2:!", resolver.isAcceptableScheme("test2://test"));
-    }
 
+    @Test
     public void testFindByAnnotationWithoutExtraFilters() {
         Set<Class<?>> scanned = resolver.findAnnotated(org.apache.camel.spring.scan.ScannableOne.class, scanPackage);
         validateMatchingSetContains(scanned, ScanTargetOne.class, ScanTargetTwo.class);
@@ -55,16 +55,19 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         validateMatchingSetContains(scanned, ScanTargetThree.class);
     }
 
+    @Test
     public void testFindByAnnotationsWithoutExtraFilters() {
         Set<Class<?>> scanned = resolver.findAnnotated(annotations, scanPackage);
         validateMatchingSetContains(scanned, ScanTargetOne.class, ScanTargetTwo.class, ScanTargetThree.class);
     }
 
+    @Test
     public void testFindImplementationsWithoutExtraFilters() {
         Set<Class<?>> scanned = resolver.findImplementations(ScanTargetOne.class, scanPackage);
         validateMatchingSetContains(scanned, ScanTargetOne.class, ScanTargetTwo.class);
     }
-    
+
+    @Test
     public void testFindByAnnotationWithIncludePackageFilter() {
         filter.addIncludePattern(scanPackage + ".b.*");
         resolver.addFilter(filter);
@@ -76,6 +79,7 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         validateMatchingSetContains(scanned);
     }
 
+    @Test
     public void testFindByAnnotationsWithIncludePackageFilter() {
         filter.addIncludePattern(scanPackage + ".b.*");
         filter.addIncludePattern(scanPackage + ".c.*");
@@ -85,6 +89,7 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         validateMatchingSetContains(scanned, ScanTargetTwo.class, ScanTargetThree.class);
     }
 
+    @Test
     public void testFindByAnnotationWithExcludePackageFilter() {
         filter.addExcludePattern(scanPackage + ".b.*");
         filter.addExcludePattern(scanPackage + ".c.*");
@@ -97,6 +102,7 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         validateMatchingSetContains(scanned);
     }
 
+    @Test
     public void testFindByAnnotationsWithExcludePackageFilter() {
         filter.addExcludePattern(scanPackage + ".a.*");
 
@@ -104,6 +110,7 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         validateMatchingSetContains(scanned, ScanTargetTwo.class, ScanTargetThree.class);
     }
 
+    @Test
     public void testFindByFilterWithIncludePackageFilter() {
         filter.addIncludePattern(scanPackage + ".**.ScanTarget*");
         resolver.addFilter(filter);
@@ -111,56 +118,34 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
         Set<Class<?>> scanned = resolver.findByFilter(filter, "org.apache.camel.spring.scan");
         validateMatchingSetContains(scanned, ScanTargetOne.class, ScanTargetTwo.class, ScanTargetThree.class);
     }
-    
+
+    @Test
     public void testFindImplementationsWithIncludePackageFilter() {
         filter.addIncludePattern(scanPackage + ".b.*");
         resolver.addFilter(filter);
-        
+
         Set<Class<?>> scanned = resolver.findImplementations(ScanTargetOne.class, scanPackage);
-        validateMatchingSetContains(scanned,  ScanTargetTwo.class);
+        validateMatchingSetContains(scanned, ScanTargetTwo.class);
     }
-    
+
+    @Test
     public void testFindImplementationsWithExcludePackageFilter() {
         filter.addExcludePattern(scanPackage + ".a.*");
         resolver.addFilter(filter);
-        
+
         Set<Class<?>> scanned = resolver.findImplementations(ScanTargetOne.class, scanPackage);
-        validateMatchingSetContains(scanned,  ScanTargetTwo.class);
+        validateMatchingSetContains(scanned, ScanTargetTwo.class);
     }
-    
+
+    @Test
+    // Need to run the mvn clean install to create the jar file when running it from IDE
     public void testFindByFilterPackageInJarUrl() throws Exception {
         ClassLoader savedClassLoader = null;
         try {
             savedClassLoader = Thread.currentThread().getContextClassLoader();
+            // build a mock URLClassLoader
             URL url = getClass().getResource("/package_scan_test.jar");
-            
-            URL urls[] = {new URL("jar:" + url.toString() + "!/")};
-            URLClassLoader classLoader = new URLClassLoader(urls, savedClassLoader);
-
-            Thread.currentThread().setContextClassLoader(classLoader);
-
-            // recreate resolver since we mess with context class loader
-            resolver = new DefaultPackageScanClassResolver();
-
-            filter.addIncludePattern("a.*.c.*");
-            resolver.addFilter(filter);
-            Set<Class<?>> scanned = resolver.findByFilter(filter, "a.b.c");
-            assertEquals(1, scanned.size());
-            assertEquals("class a.b.c.Test", scanned.iterator().next().toString());            
-        } finally {
-            if (savedClassLoader != null) {
-                Thread.currentThread().setContextClassLoader(savedClassLoader);
-            } 
-        }
-    }
-    
-    public void testFindByFilterPackageInJarUrlWithPlusChars() throws Exception {
-        ClassLoader savedClassLoader = null;
-        try {
-            savedClassLoader = Thread.currentThread().getContextClassLoader();
-            URL url = getClass().getResource("/package+scan+test.jar");
-
-            URL urls[] = {new URL("jar:" + url.toString() + "!/")};
+            URL urls[] = { new URL("jar:" + url.toString() + "!/") };
             URLClassLoader classLoader = new URLClassLoader(urls, savedClassLoader);
 
             Thread.currentThread().setContextClassLoader(classLoader);
@@ -174,9 +159,34 @@ public class DefaultPackageScanClassResolverTest extends org.apache.camel.spring
             assertEquals(1, scanned.size());
             assertEquals("class a.b.c.Test", scanned.iterator().next().toString());
         } finally {
-            if (savedClassLoader != null) {
-                Thread.currentThread().setContextClassLoader(savedClassLoader);
-            }
+            Thread.currentThread().setContextClassLoader(savedClassLoader);
         }
     }
+
+    @Test
+    // Need to run the mvn clean install to create the test jar file when running it from IDE
+    public void testFindByFilterPackageInJarUrlWithPlusChars() throws Exception {
+        ClassLoader savedClassLoader = null;
+        try {
+            savedClassLoader = Thread.currentThread().getContextClassLoader();
+            URL url = getClass().getResource("/package+scan+test.jar");
+
+            URL urls[] = { new URL("jar:" + url.toString() + "!/") };
+            URLClassLoader classLoader = new URLClassLoader(urls, savedClassLoader);
+
+            Thread.currentThread().setContextClassLoader(classLoader);
+
+            // recreate resolver since we mess with context class loader
+            resolver = new DefaultPackageScanClassResolver();
+
+            filter.addIncludePattern("a.*.c.*");
+            resolver.addFilter(filter);
+            Set<Class<?>> scanned = resolver.findByFilter(filter, "a.b.c");
+            assertEquals(1, scanned.size());
+            assertEquals("class a.b.c.Test", scanned.iterator().next().toString());
+        } finally {
+            Thread.currentThread().setContextClassLoader(savedClassLoader);
+        }
+    }
+
 }

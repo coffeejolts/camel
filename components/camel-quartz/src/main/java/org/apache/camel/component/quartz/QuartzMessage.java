@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,18 +19,18 @@ package org.apache.camel.component.quartz;
 import java.util.Map;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultMessage;
-
+import org.apache.camel.support.DefaultMessage;
 import org.quartz.JobExecutionContext;
 import org.quartz.Trigger;
 
 /**
- * @version 
+ * A Camel message to be created upon each scheduled job execution.
  */
 public class QuartzMessage extends DefaultMessage {
     private final JobExecutionContext jobExecutionContext;
 
     public QuartzMessage(Exchange exchange, JobExecutionContext jobExecutionContext) {
+        super(exchange.getContext());
         this.jobExecutionContext = jobExecutionContext;
         setExchange(exchange);
         // do not set body as it should be null
@@ -58,8 +58,13 @@ public class QuartzMessage extends DefaultMessage {
             map.put("scheduler", jobExecutionContext.getScheduler());
             Trigger trigger = jobExecutionContext.getTrigger();
             map.put("trigger", trigger);
-            map.put("triggerName", trigger.getName());
-            map.put("triggerGroup", trigger.getGroup());
+            map.put("triggerName", trigger.getKey().getName());
+            map.put("triggerGroup", trigger.getKey().getGroup());
         }
+    }
+
+    @Override
+    public DefaultMessage newInstance() {
+        return new QuartzMessage(getExchange(), jobExecutionContext);
     }
 }

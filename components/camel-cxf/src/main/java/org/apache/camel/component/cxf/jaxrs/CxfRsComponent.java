@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,30 +22,55 @@ import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.component.cxf.blueprint.BlueprintSupport;
+import org.apache.camel.SSLContextParametersAware;
 import org.apache.camel.component.cxf.common.message.CxfConstants;
-import org.apache.camel.impl.HeaderFilterStrategyComponent;
-import org.apache.camel.util.CamelContextHelper;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.HeaderFilterStrategyComponent;
+import org.apache.camel.support.ObjectHelper;
 import org.apache.camel.util.CastUtils;
-import org.apache.camel.util.ObjectHelper;
 import org.apache.cxf.jaxrs.AbstractJAXRSFactoryBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Defines the <a href="http://camel.apache.org/cxfrs.html">CXF RS Component</a> 
+ * Defines the <a href="http://camel.apache.org/cxfrs.html">CXF RS Component</a>
  */
-public class CxfRsComponent extends HeaderFilterStrategyComponent {
+@Component("cxfrs")
+public class CxfRsComponent extends HeaderFilterStrategyComponent implements SSLContextParametersAware {
+
+    private static final Logger LOG = LoggerFactory.getLogger(CxfRsComponent.class);
+
+    @Metadata(label = "security", defaultValue = "false")
+    private boolean useGlobalSslContextParameters;
 
     public CxfRsComponent() {
-        super(CxfRsEndpoint.class);
     }
-    
+
     public CxfRsComponent(CamelContext context) {
-        super(context, CxfRsEndpoint.class);
+        super(context);
+    }
+
+    @Override
+    protected void doStart() throws Exception {
+        super.doStart();
+
+        // lookup
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        CxfRsEndpoint answer = null;
+        CxfRsEndpoint answer;
+
+        Object value = parameters.remove("setDefaultBus");
+        if (value != null) {
+            LOG.warn("The option setDefaultBus is @deprecated, use name defaultBus instead");
+            if (!parameters.containsKey("defaultBus")) {
+                parameters.put("defaultBus", value);
+            }
+        }
+
         if (remaining.startsWith(CxfConstants.SPRING_CONTEXT_ENDPOINT)) {
             // Get the bean from the Spring context
             String beanId = remaining.substring(CxfConstants.SPRING_CONTEXT_ENDPOINT.length());
@@ -53,21 +78,29 @@ public class CxfRsComponent extends HeaderFilterStrategyComponent {
                 beanId = beanId.substring(2);
             }
 
-            AbstractJAXRSFactoryBean bean = CamelContextHelper.mandatoryLookup(getCamelContext(), beanId, 
-                AbstractJAXRSFactoryBean.class);
-            if (bean instanceof BlueprintSupport) {
-                answer = new CxfRsBlueprintEndpoint(this, remaining, bean);
+            AbstractJAXRSFactoryBean bean = CamelContextHelper.mandatoryLookup(getCamelContext(), beanId,
+                    AbstractJAXRSFactoryBean.class);
+
+            CxfRsEndpointFactoryBean factory = null;
+            if (bean.getClass().getName().contains("blueprint")) {
+                // use blueprint
+                Class<CxfRsEndpointFactoryBean> clazz = getCamelContext().getClassResolver().resolveMandatoryClass(
+                        "org.apache.camel.component.cxf.jaxrs.blueprint.CxfRsBlueprintEndpointFactoryBean",
+                        CxfRsEndpointFactoryBean.class);
+                factory = getCamelContext().getInjector().newInstance(clazz);
             } else {
-                answer = new CxfRsSpringEndpoint(this, remaining, bean);
+                factory = new DefaultCxfRsEndpointFactoryBean();
             }
+            answer = factory.createEndpoint(this, remaining, bean);
+
             // Apply Spring bean properties (including # notation referenced bean).  Note that the
             // Spring bean properties values can be overridden by property defined in URI query.
             // The super class (DefaultComponent) will invoke "setProperties" after this method 
             // with to apply properties defined by URI query. 
             if (bean.getProperties() != null) {
-                Map<String, Object> copy = new HashMap<String, Object>();
-                copy.putAll(bean.getProperties());     
-                setProperties(answer, copy);      
+                Map<String, Object> copy = new HashMap<>();
+                copy.putAll(bean.getProperties());
+                setProperties(answer, copy);
             }
             // setup the skipFaultLogging
 
@@ -96,12 +129,32 @@ public class CxfRsComponent extends HeaderFilterStrategyComponent {
         Map<String, String> params = CastUtils.cast(parameters);
         answer.setParameters(params);
         setEndpointHeaderFilterStrategy(answer);
+
+        // use global ssl config if set
+        if (answer.getSslContextParameters() == null) {
+            answer.setSslContextParameters(retrieveGlobalSslContextParameters());
+        }
+
         return answer;
     }
-    
+
     @Override
-    protected void afterConfiguration(String uri, String remaining, Endpoint endpoint, Map<String, Object> parameters) throws Exception {
+    protected void afterConfiguration(String uri, String remaining, Endpoint endpoint, Map<String, Object> parameters)
+            throws Exception {
         CxfRsEndpoint cxfRsEndpoint = (CxfRsEndpoint) endpoint;
         cxfRsEndpoint.updateEndpointUri(uri);
+    }
+
+    @Override
+    public boolean isUseGlobalSslContextParameters() {
+        return this.useGlobalSslContextParameters;
+    }
+
+    /**
+     * Enable usage of global SSL context parameters.
+     */
+    @Override
+    public void setUseGlobalSslContextParameters(boolean useGlobalSslContextParameters) {
+        this.useGlobalSslContextParameters = useGlobalSslContextParameters;
     }
 }

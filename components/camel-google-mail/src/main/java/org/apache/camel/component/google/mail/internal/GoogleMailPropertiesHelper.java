@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,8 +16,9 @@
  */
 package org.apache.camel.component.google.mail.internal;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.component.google.mail.GoogleMailConfiguration;
-import org.apache.camel.util.component.ApiMethodPropertiesHelper;
+import org.apache.camel.support.component.ApiMethodPropertiesHelper;
 
 /**
  * Singleton {@link ApiMethodPropertiesHelper} for GoogleMail component.
@@ -26,13 +27,13 @@ public final class GoogleMailPropertiesHelper extends ApiMethodPropertiesHelper<
 
     private static GoogleMailPropertiesHelper helper;
 
-    private GoogleMailPropertiesHelper() {
-        super(GoogleMailConfiguration.class, GoogleMailConstants.PROPERTY_PREFIX);
+    private GoogleMailPropertiesHelper(CamelContext context) {
+        super(context, GoogleMailConfiguration.class, GoogleMailConstants.PROPERTY_PREFIX);
     }
 
-    public static synchronized GoogleMailPropertiesHelper getHelper() {
+    public static synchronized GoogleMailPropertiesHelper getHelper(CamelContext context) {
         if (helper == null) {
-            helper = new GoogleMailPropertiesHelper();
+            helper = new GoogleMailPropertiesHelper(context);
         }
         return helper;
     }

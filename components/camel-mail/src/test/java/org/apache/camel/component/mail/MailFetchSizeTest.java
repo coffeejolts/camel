@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,9 +23,12 @@ import javax.mail.internet.MimeMessage;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for fetch size.
@@ -33,6 +36,7 @@ import org.jvnet.mock_javamail.Mailbox;
 public class MailFetchSizeTest extends CamelTestSupport {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         prepareMailbox();
         super.setUp();
@@ -57,8 +61,8 @@ public class MailFetchSizeTest extends CamelTestSupport {
         mock.reset();
         mock.expectedMessageCount(2);
         mock.expectedBodiesReceived("Message 2", "Message 3");
-        // should be done within 5 (delay) + 1 seconds (polling)
-        mock.setResultWaitTime(7000L);
+        // should be done within 2 (delay) + 1 seconds (polling)
+        mock.setResultWaitTime(3000L);
         mock.assertIsSatisfied();
 
         Thread.sleep(500);
@@ -85,17 +89,19 @@ public class MailFetchSizeTest extends CamelTestSupport {
         Message[] messages = new Message[5];
         for (int i = 0; i < 5; i++) {
             messages[i] = new MimeMessage(sender.getSession());
+            messages[i].setHeader("Message-ID", "" + i);
             messages[i].setText("Message " + i);
         }
         folder.appendMessages(messages);
         folder.close(true);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("pop3://jones@localhost?password=secret&fetchSize=2&consumer.delay=5000"
-                    + "&delete=true").to("mock:result");
+                from("pop3://jones@localhost?password=secret&fetchSize=2&delay=2000"
+                     + "&delete=true").to("mock:result");
             }
         };
     }

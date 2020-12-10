@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,13 @@
  */
 package org.apache.camel.component.quartz;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerFactory;
 import org.quartz.impl.StdSchedulerFactory;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 public class QuartzComponentTest extends BaseQuartzTest {
 
     @Test
@@ -32,8 +31,8 @@ public class QuartzComponentTest extends BaseQuartzTest {
         comp.setCamelContext(context);
 
         SchedulerFactory fac = new StdSchedulerFactory();
-        comp.setFactory(fac);
-        assertSame(fac, comp.getFactory());
+        comp.setSchedulerFactory(fac);
+        assertSame(fac, comp.getSchedulerFactory());
 
         Scheduler sch = fac.getScheduler();
         comp.setScheduler(sch);

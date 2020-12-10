@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,21 +16,23 @@
  */
 package org.apache.camel.spring.interceptor;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class TransactionalClientDataSourceWithSpringRouteBuilderTest extends TransactionalClientDataSourceTest {
-    
+
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         setUseRouteBuilder(false);
-        super.setUp();        
+        super.setUp();
     }
-    
+
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext(
-            "/org/apache/camel/spring/interceptor/transactionalClientDataSourceWithSpringRouteBuilder.xml");
+                "/org/apache/camel/spring/interceptor/transactionalClientDataSourceWithSpringRouteBuilder.xml");
     }
-   
+
 }

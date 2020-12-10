@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,39 +20,57 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import javax.enterprise.util.AnnotationLiteral;
 import javax.enterprise.util.Nonbinding;
 import javax.inject.Qualifier;
 
 /**
- * An injection annotation to define the <a href="http://camel.apache.org/uris.html">Camel URI</a> used
- * to reference the underlying <a href="http://camel.apache.org/endpoint.html">Camel Endpoint</a>.
- *
- * This annotation can be used to annotate an @Inject injection point for values of type
- * {@link org.apache.camel.Endpoint} or {@link org.apache.camel.ProducerTemplate} with a String URI.
- *
- * For example:
+ * A CDI qualifier to define the <a href="http://camel.apache.org/uris.html">Camel URI</a> associated to the annotated
+ * resource. This annotation can be used to annotate an {@code @Inject} injection point for values of type
+ * {@link org.apache.camel.Endpoint} or {@link org.apache.camel.ProducerTemplate}. For example:
+ * 
+ * <pre>
  * <code>
- *     public class Foo {
- *         @Inject @Uri("mock:foo") Endpoint endpoint;
+ * {@literal @}Inject
+ * {@literal @}Uri("mock:foo")
+ * Endpoint endpoint;
  *
- *         @Inject @Uri("seda:bar") ProducerTemplate producer;
- *     }
+ * {@literal @}Inject
+ * {@literal @}Uri("seda:bar")
+ * ProducerTemplate producer;
  * </code>
+ * </pre>
  */
 @Qualifier
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
+@Target({ ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER })
 public @interface Uri {
 
     /**
-     * Returns the <a href="http://camel.apache.org/uris.html">Camel URI</a> of the endpoint
+     * Returns the <a href="http://camel.apache.org/uris.html">Camel URI</a> of the resource.
      */
     @Nonbinding
     String value();
 
-    /**
-     * Returns the name of the CamelContext to use to resolve the endpoint for this URI
-     */
-    @Nonbinding
-    String context() default "";
+    final class Literal extends AnnotationLiteral<Uri> implements Uri {
+
+        private static final long serialVersionUID = 1L;
+
+        private final String uri;
+
+        private Literal(String uri) {
+            this.uri = uri;
+        }
+
+        public static Literal of(String uri) {
+            return new Literal(uri);
+        }
+
+        @Override
+        public String value() {
+            return uri;
+        }
+
+    }
 }

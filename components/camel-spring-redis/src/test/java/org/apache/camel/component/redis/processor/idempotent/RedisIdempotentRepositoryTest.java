@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,28 +16,42 @@
  */
 package org.apache.camel.component.redis.processor.idempotent;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class RedisIdempotentRepositoryTest {
+
     private static final String REPOSITORY = "testRepository";
     private static final String KEY = "KEY";
-    private RedisTemplate redisTemplate;
-    private SetOperations setOperations;
+
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+    @Mock
+    private RedisConnectionFactory redisConnectionFactory;
+    @Mock
+    private RedisConnection redisConnection;
+    @Mock
+    private SetOperations<String, String> setOperations;
+
     private RedisIdempotentRepository idempotentRepository;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        redisTemplate = mock(RedisTemplate.class);
-        setOperations = mock(SetOperations.class);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        when(redisTemplate.getConnectionFactory()).thenReturn(redisConnectionFactory);
+        when(redisTemplate.getConnectionFactory().getConnection()).thenReturn(redisConnection);
         idempotentRepository = RedisIdempotentRepository.redisIdempotentRepository(redisTemplate, REPOSITORY);
     }
 
@@ -57,6 +71,12 @@ public class RedisIdempotentRepositoryTest {
     public void shouldRemoveKey() {
         idempotentRepository.remove(KEY);
         verify(setOperations).remove(REPOSITORY, KEY);
+    }
+
+    @Test
+    public void shouldClearRepository() {
+        idempotentRepository.clear();
+        verify(redisConnection).flushDb();
     }
 
     @Test

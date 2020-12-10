@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,8 +22,6 @@ import org.apache.camel.util.StringHelper;
  * Default strategy that handles dots and hyphens.
  * <p/>
  * This can be used for sending keys containing package names that is common by Java frameworks.
- *
- * @version 
  */
 public class DefaultJmsKeyFormatStrategy implements JmsKeyFormatStrategy {
 
@@ -32,12 +30,14 @@ public class DefaultJmsKeyFormatStrategy implements JmsKeyFormatStrategy {
     private static final String HYPHEN = "-";
     private static final String HYPHEN_REPLACEMENT = "_HYPHEN_";
 
+    @Override
     public String encodeKey(String key) {
         String answer = StringHelper.replaceAll(key, DOT, DOT_REPLACEMENT);
         answer = StringHelper.replaceAll(answer, HYPHEN, HYPHEN_REPLACEMENT);
         return answer;
     }
 
+    @Override
     public String decodeKey(String key) {
         String answer = StringHelper.replaceAll(key, DOT_REPLACEMENT, DOT);
         answer = StringHelper.replaceAll(answer, HYPHEN_REPLACEMENT, HYPHEN);

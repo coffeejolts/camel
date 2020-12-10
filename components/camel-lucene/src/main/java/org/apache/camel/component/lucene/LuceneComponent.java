@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,27 +21,31 @@ import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
-public class LuceneComponent extends UriEndpointComponent {
+@Component("lucene")
+public class LuceneComponent extends DefaultComponent {
+
+    @Metadata(label = "advanced")
     private LuceneConfiguration config;
-    
+
     public LuceneComponent() {
-        super(LuceneEndpoint.class);
         config = new LuceneConfiguration();
     }
 
     public LuceneComponent(CamelContext context) {
-        super(context, LuceneEndpoint.class);
+        super(context);
         config = new LuceneConfiguration();
     }
-    
+
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters)
-        throws Exception {
+            throws Exception {
         config.parseURI(new URI(uri), parameters, this);
         LuceneEndpoint luceneEndpoint = new LuceneEndpoint(uri, this, config);
-        setProperties(luceneEndpoint.getConfig(), parameters);
+        setProperties(luceneEndpoint, parameters);
         return luceneEndpoint;
     }
 

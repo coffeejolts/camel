@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,7 +17,9 @@
 package org.apache.camel.component.file.remote;
 
 import org.apache.camel.Exchange;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  *
@@ -25,7 +27,7 @@ import org.junit.Test;
 public class ConsumerTemplateFtpShutdownTest extends FtpServerTestSupport {
 
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/template?password=admin";
+        return "ftp://admin@localhost:{{ftp.server.port}}/template?password=admin";
     }
 
     @Test
@@ -34,14 +36,9 @@ public class ConsumerTemplateFtpShutdownTest extends FtpServerTestSupport {
 
         Exchange exchange = consumer.receive(getFtpUrl() + "&fileName=hello.txt", 5000);
         assertNotNull(exchange);
-        
+
         consumer.doneUoW(exchange);
         consumer.stop();
-    }
-
-    @Override
-    public boolean isUseRouteBuilder() {
-        return false;
     }
 
 }

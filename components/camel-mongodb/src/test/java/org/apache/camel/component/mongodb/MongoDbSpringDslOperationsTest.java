@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,25 @@ package org.apache.camel.component.mongodb;
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringCamelContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.io.ClassPathResource;
 
 public class MongoDbSpringDslOperationsTest extends MongoDbOperationsTest {
-    
+
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        applicationContext = new AnnotationConfigApplicationContext(MongoBasicOperationsConfiguration.class);
-        CamelContext ctx = SpringCamelContext.springCamelContext(applicationContext);
+        GenericApplicationContext applicationContext = new GenericApplicationContext();
+        applicationContext.getBeanFactory().registerSingleton("myDb", mongo);
+
+        XmlBeanDefinitionReader xmlReader = new XmlBeanDefinitionReader(applicationContext);
+        xmlReader.loadBeanDefinitions(new ClassPathResource("org/apache/camel/component/mongodb/mongoBasicOperationsTest.xml"));
+
+        applicationContext.refresh();
+
+        @SuppressWarnings("deprecation")
+        CamelContext ctx = SpringCamelContext.springCamelContext(applicationContext, true);
+
         return ctx;
     }
 
@@ -35,9 +46,9 @@ public class MongoDbSpringDslOperationsTest extends MongoDbOperationsTest {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                // Nothing, all routes are initialized by the Spring DSL context file
+                // Nothing, all routes are initialized by the Spring DSL context
+                // file
             }
         };
     }
-    
 }

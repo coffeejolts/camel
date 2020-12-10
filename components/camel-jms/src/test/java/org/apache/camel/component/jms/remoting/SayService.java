@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,18 @@ package org.apache.camel.component.jms.remoting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- *
- */
 public class SayService implements ISay {
 
     private static final Logger LOG = LoggerFactory.getLogger(SayService.class);
-
-    String message = "Hello";
+    private String message = "Hello";
 
     public SayService() {
     }
 
-    public SayService(String message) {
-        this.message = message;
-    }
-
-    public String say() {
-        LOG.info("Invoking say() method with message: " + message);
-
-        return message;
+    @Override
+    public String say(String name) {
+        LOG.info("Invoking say() method with {}", name);
+        return message + " " + name;
     }
 
     public String getMessage() {

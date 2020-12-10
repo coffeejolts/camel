@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,14 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.ExecCreateCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Exec Create Request headers are parsed properly
@@ -36,16 +36,14 @@ public class ExecCreateCmdHeaderTest extends BaseDockerHeaderTest<ExecCreateCmd>
     @Mock
     private ExecCreateCmd mockObject;
 
-    @Ignore
     @Test
-    public void execCreateHeaderTest() {
+    void execCreateHeaderTest() {
 
         String containerId = "9c09acd48a25";
         boolean tty = true;
         boolean stdErr = false;
         boolean stdOut = true;
         boolean stdIn = true;
-
 
         Map<String, Object> headers = getDefaultParameters();
         headers.put(DockerConstants.DOCKER_CONTAINER_ID, containerId);
@@ -55,22 +53,20 @@ public class ExecCreateCmdHeaderTest extends BaseDockerHeaderTest<ExecCreateCmd>
         headers.put(DockerConstants.DOCKER_ATTACH_STD_IN, stdIn);
         headers.put(DockerConstants.DOCKER_CMD, "date;whoami");
 
-
         template.sendBodyAndHeaders("direct:in", "", headers);
 
-        Mockito.verify(dockerClient, Mockito.times(1)).execCreateCmd(Matchers.eq(containerId));
-        Mockito.verify(mockObject, Mockito.times(1)).withTty(Matchers.eq(tty));
-        Mockito.verify(mockObject, Mockito.times(1)).withAttachStderr(Matchers.eq(stdErr));
-        Mockito.verify(mockObject, Mockito.times(1)).withAttachStdout(Matchers.eq(stdOut));
-        Mockito.verify(mockObject, Mockito.times(1)).withAttachStdin(Matchers.eq(stdIn));
-        Mockito.verify(mockObject, Mockito.times(1)).withCmd(new String[]{"date", "whoami"});
-
+        Mockito.verify(dockerClient, Mockito.times(1)).execCreateCmd(eq(containerId));
+        Mockito.verify(mockObject, Mockito.times(1)).withTty(eq(tty));
+        Mockito.verify(mockObject, Mockito.times(1)).withAttachStderr(eq(stdErr));
+        Mockito.verify(mockObject, Mockito.times(1)).withAttachStdout(eq(stdOut));
+        Mockito.verify(mockObject, Mockito.times(1)).withAttachStdin(eq(stdIn));
+        Mockito.verify(mockObject, Mockito.times(1)).withCmd(new String[] { "date", "whoami" });
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.execCreateCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.execCreateCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,10 +19,10 @@ package org.apache.camel.component.netty.http;
 import java.net.URI;
 import java.util.Map;
 
+import io.netty.handler.codec.http.HttpRequest;
 import org.apache.camel.Exchange;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.spi.HeaderFilterStrategy;
-import org.jboss.netty.handler.codec.http.HttpRequest;
 
 /**
  * A {@link org.apache.camel.component.netty.http.NettyHttpBinding} that supports the Rest DSL.
@@ -36,19 +36,22 @@ public class RestNettyHttpBinding extends DefaultNettyHttpBinding {
         super(headerFilterStrategy);
     }
 
+    @Override
     public RestNettyHttpBinding copy() {
         try {
-            return (RestNettyHttpBinding)this.clone();
+            return (RestNettyHttpBinding) this.clone();
         } catch (CloneNotSupportedException e) {
             throw new RuntimeCamelException(e);
         }
     }
 
     @Override
-    public void populateCamelHeaders(HttpRequest request, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration) throws Exception {
+    public void populateCamelHeaders(
+            HttpRequest request, Map<String, Object> headers, Exchange exchange, NettyHttpConfiguration configuration)
+            throws Exception {
         super.populateCamelHeaders(request, headers, exchange, configuration);
 
-        String path = request.getUri();
+        String path = request.uri();
         if (path == null) {
             return;
         }

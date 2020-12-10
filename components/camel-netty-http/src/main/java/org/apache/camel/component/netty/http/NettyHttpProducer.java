@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,20 +17,30 @@
 package org.apache.camel.component.netty.http;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpUtil;
+import io.netty.util.ReferenceCountUtil;
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.Exchange;
+import org.apache.camel.ExtendedExchange;
 import org.apache.camel.component.netty.NettyConfiguration;
 import org.apache.camel.component.netty.NettyConstants;
 import org.apache.camel.component.netty.NettyProducer;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.apache.camel.http.base.cookie.CookieHandler;
+import org.apache.camel.support.SynchronizationAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * HTTP based {@link NettyProducer}.
  */
 public class NettyHttpProducer extends NettyProducer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NettyHttpProducer.class);
 
     public NettyHttpProducer(NettyHttpEndpoint nettyEndpoint, NettyConfiguration configuration) {
         super(nettyEndpoint, configuration);
@@ -48,26 +58,38 @@ public class NettyHttpProducer extends NettyProducer {
 
     @Override
     public boolean process(Exchange exchange, AsyncCallback callback) {
-        return super.process(exchange, new NettyHttpProducerCallback(exchange, callback));
+        return super.process(exchange, new NettyHttpProducerCallback(exchange, callback, getConfiguration()));
     }
 
     @Override
     protected Object getRequestBody(Exchange exchange) throws Exception {
         // creating the url to use takes 2-steps
-        String uri = NettyHttpHelper.createURL(exchange, getEndpoint());
-        URI u = NettyHttpHelper.createURI(exchange, uri, getEndpoint());
+        final NettyHttpEndpoint endpoint = getEndpoint();
+        final String uri = NettyHttpHelper.createURL(exchange, endpoint);
+        final URI u = NettyHttpHelper.createURI(exchange, uri, endpoint);
 
-        HttpRequest request = getEndpoint().getNettyHttpBinding().toNettyRequest(exchange.getIn(), u.toString(), getConfiguration());
-        String actualUri = request.getUri();
-        exchange.getIn().setHeader(Exchange.HTTP_URL, actualUri);
+        final NettyHttpBinding nettyHttpBinding = endpoint.getNettyHttpBinding();
+        final HttpRequest request = nettyHttpBinding.toNettyRequest(exchange.getIn(), u.toString(), getConfiguration());
+        exchange.getIn().setHeader(Exchange.HTTP_URL, uri);
         // Need to check if we need to close the connection or not
-        if (!HttpHeaders.isKeepAlive(request)) {
+        if (!HttpUtil.isKeepAlive(request)) {
             // just want to make sure we close the channel if the keepAlive is not true
             exchange.setProperty(NettyConstants.NETTY_CLOSE_CHANNEL_WHEN_COMPLETE, true);
         }
         if (getConfiguration().isBridgeEndpoint()) {
             // Need to remove the Host key as it should be not used when bridging/proxying
             exchange.getIn().removeHeader("host");
+        }
+
+        final CookieHandler cookieHandler = endpoint.getCookieHandler();
+        if (cookieHandler != null) {
+            Map<String, List<String>> cookieHeaders = cookieHandler.loadCookies(exchange, u);
+            for (Map.Entry<String, List<String>> entry : cookieHeaders.entrySet()) {
+                String key = entry.getKey();
+                if (!entry.getValue().isEmpty()) {
+                    request.headers().add(key, entry.getValue());
+                }
+            }
         }
 
         return request;
@@ -80,29 +102,50 @@ public class NettyHttpProducer extends NettyProducer {
 
         private final Exchange exchange;
         private final AsyncCallback callback;
+        private final NettyHttpConfiguration configuration;
 
-        private NettyHttpProducerCallback(Exchange exchange, AsyncCallback callback) {
+        private NettyHttpProducerCallback(Exchange exchange, AsyncCallback callback, NettyHttpConfiguration configuration) {
             this.exchange = exchange;
             this.callback = callback;
+            this.configuration = configuration;
         }
 
         @Override
         public void done(boolean doneSync) {
             try {
-                NettyHttpMessage nettyMessage = exchange.hasOut() ? exchange.getOut(NettyHttpMessage.class) : exchange.getIn(NettyHttpMessage.class);
-                if (nettyMessage != null) {
-                    HttpResponse response = nettyMessage.getHttpResponse();
-                    if (response != null) {
-                        // the actual url is stored on the IN message in the getRequestBody method as its accessed on-demand
-                        String actualUrl = exchange.getIn().getHeader(Exchange.HTTP_URL, String.class);
-                        int code = response.getStatus() != null ? response.getStatus().getCode() : -1;
-                        log.debug("Http responseCode: {}", code);
+                // only handle when we are done asynchronous as then the netty producer is done sending, and we have a response
+                if (!doneSync) {
+                    NettyHttpMessage nettyMessage = exchange.getMessage(NettyHttpMessage.class);
+                    if (nettyMessage != null) {
+                        final FullHttpResponse response = nettyMessage.getHttpResponse();
+                        // Need to retain the ByteBuffer for producer to consumer
+                        if (response != null) {
+                            response.content().retain();
 
-                        // if there was a http error code (300 or higher) then check if we should throw an exception
-                        if (code >= 300 && getConfiguration().isThrowExceptionOnFailure()) {
-                            // operation failed so populate exception to throw
-                            Exception cause = NettyHttpHelper.populateNettyHttpOperationFailedException(exchange, actualUrl, response, code, getConfiguration().isTransferException());
-                            exchange.setException(cause);
+                            // need to release the response when we are done
+                            exchange.adapt(ExtendedExchange.class).addOnCompletion(new SynchronizationAdapter() {
+                                @Override
+                                public void onDone(Exchange exchange) {
+                                    if (response.refCnt() > 0) {
+                                        LOG.debug("Releasing Netty HttpResonse ByteBuf");
+                                        ReferenceCountUtil.release(response);
+                                    }
+                                }
+                            });
+
+                            // the actual url is stored on the IN message in the getRequestBody method as its accessed on-demand
+                            String actualUrl = exchange.getIn().getHeader(Exchange.HTTP_URL, String.class);
+                            int code = response.status() != null ? response.status().code() : -1;
+                            LOG.debug("Http responseCode: {}", code);
+
+                            // if there was a http error code then check if we should throw an exception
+                            boolean ok = NettyHttpHelper.isStatusCodeOk(code, configuration.getOkStatusCodeRange());
+                            if (!ok && getConfiguration().isThrowExceptionOnFailure()) {
+                                // operation failed so populate exception to throw
+                                Exception cause = NettyHttpHelper.populateNettyHttpOperationFailedException(exchange, actualUrl,
+                                        response, code, getConfiguration().isTransferException());
+                                exchange.setException(cause);
+                            }
                         }
                     }
                 }
@@ -112,5 +155,4 @@ public class NettyHttpProducer extends NettyProducer {
             }
         }
     }
-
 }

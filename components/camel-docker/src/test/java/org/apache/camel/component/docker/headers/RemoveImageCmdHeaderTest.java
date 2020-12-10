@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,13 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.RemoveImageCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Remove Image Request headers are applied properly
@@ -36,9 +35,8 @@ public class RemoveImageCmdHeaderTest extends BaseDockerHeaderTest<RemoveImageCm
     @Mock
     private RemoveImageCmd mockObject;
 
-    @Ignore
     @Test
-    public void removeImageHeaderTest() {
+    void removeImageHeaderTest() {
 
         String imageId = "be29975e0098";
         Boolean noPrune = false;
@@ -49,19 +47,14 @@ public class RemoveImageCmdHeaderTest extends BaseDockerHeaderTest<RemoveImageCm
         headers.put(DockerConstants.DOCKER_NO_PRUNE, noPrune);
         headers.put(DockerConstants.DOCKER_FORCE, force);
 
-
         template.sendBodyAndHeaders("direct:in", "", headers);
 
         Mockito.verify(dockerClient, Mockito.times(1)).removeImageCmd(imageId);
-        Mockito.verify(mockObject, Mockito.times(0)).withNoPrune();
-        Mockito.verify(mockObject, Mockito.times(1)).withForce();
-
-
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.removeImageCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.removeImageCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

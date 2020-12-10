@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.component.github.producer;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.component.github.GitHubConstants;
 import org.apache.camel.component.github.GitHubEndpoint;
 import org.apache.camel.spi.Registry;
 import org.eclipse.egit.github.core.CommitFile;
@@ -38,9 +39,9 @@ public class PullRequestFilesProducer extends AbstractGitHubProducer {
         super(endpoint);
 
         Registry registry = endpoint.getCamelContext().getRegistry();
-        Object service = registry.lookupByName("githubPullRequestService");
+        Object service = registry.lookupByName(GitHubConstants.GITHUB_PULL_REQUEST_SERVICE);
         if (service != null) {
-            LOG.debug("Using PullRequestService found in registry " + service.getClass().getCanonicalName());
+            LOG.debug("Using PullRequestService found in registry {}", service.getClass().getCanonicalName());
             pullRequestService = (PullRequestService) service;
         } else {
             pullRequestService = new PullRequestService();
@@ -48,8 +49,9 @@ public class PullRequestFilesProducer extends AbstractGitHubProducer {
         initService(pullRequestService);
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
-        Integer pullRequestNumber = exchange.getIn().getHeader("GitHubPullRequest", Integer.class);
+        Integer pullRequestNumber = exchange.getIn().getHeader(GitHubConstants.GITHUB_PULLREQUEST, Integer.class);
 
         java.util.List<CommitFile> response = pullRequestService.getFiles(getRepository(), pullRequestNumber);
 

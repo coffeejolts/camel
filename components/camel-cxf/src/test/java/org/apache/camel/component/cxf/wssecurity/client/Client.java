@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,7 +24,6 @@ import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
 
-
 public final class Client {
 
     //private static final String WSU_NS
@@ -38,15 +37,14 @@ public final class Client {
         bean.getOutInterceptors().add(getWSS4JOutInterceptor());
         bean.setServiceClass(Greeter.class);
     }
-    
+
     public Greeter getClient() {
         return bean.create(Greeter.class);
     }
-    
 
     public static WSS4JOutInterceptor getWSS4JOutInterceptor() throws Exception {
 
-        Map<String, Object> outProps = new HashMap<String, Object>();
+        Map<String, Object> outProps = new HashMap<>();
         outProps.put("action", "Signature");
         // outProps.put("action", "UsernameToken Timestamp Signature Encrypt");
 
@@ -59,7 +57,7 @@ public final class Client {
         // outProps.put("signatureUser", "clientx509v1");
 
         outProps.put("passwordCallbackClass",
-                     "org.apache.camel.component.cxf.wssecurity.client.UTPasswordCallback");
+                "org.apache.camel.component.cxf.wssecurity.client.UTPasswordCallback");
 
         // outProps.put("encryptionUser", "serverx509v1");
         // outProps.put("encryptionPropFile",
@@ -72,15 +70,15 @@ public final class Client {
         outProps.put("signaturePropFile", "wssecurity/etc/Client_Sign.properties");
         outProps.put("signatureKeyIdentifier", "DirectReference");
         outProps.put("signatureParts",
-        // "{Element}{" + WSU_NS + "}Timestamp;"
-                     "{Element}{http://schemas.xmlsoap.org/soap/envelope/}Body");
+                // "{Element}{" + WSU_NS + "}Timestamp;"
+                "{Element}{http://schemas.xmlsoap.org/soap/envelope/}Body");
 
         return new WSS4JOutInterceptor(outProps);
     }
 
     public static WSS4JInInterceptor getWSS4JInInterceptor() throws Exception {
 
-        Map<String, Object> inProps = new HashMap<String, Object>();
+        Map<String, Object> inProps = new HashMap<>();
 
         inProps.put("action", "Signature");
         // inProps.put("action", "UsernameToken Timestamp Signature Encrypt");

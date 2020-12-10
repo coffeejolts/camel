@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,11 @@ package org.apache.camel.test.junit4;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultExchange;
+import org.apache.camel.support.DefaultExchange;
 import org.junit.Before;
 
 /**
- * A base class for a test which requires a {@link org.apache.camel.CamelContext} and
- * a populated {@link Exchange}
- *
- * @version 
+ * A base class for a test which requires a {@link org.apache.camel.CamelContext} and a populated {@link Exchange}
  */
 public abstract class ExchangeTestSupport extends CamelTestSupport {
     protected Exchange exchange;
@@ -38,8 +35,7 @@ public abstract class ExchangeTestSupport extends CamelTestSupport {
     }
 
     /**
-     * A strategy method to populate an exchange with some example values for use
-     * by language plugins
+     * A strategy method to populate an exchange with some example values for use by language plugins
      */
     protected void populateExchange(Exchange exchange) {
         Message in = exchange.getIn();

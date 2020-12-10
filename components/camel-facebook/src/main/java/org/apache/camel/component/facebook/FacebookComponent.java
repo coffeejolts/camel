@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,16 +21,22 @@ import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
+import org.apache.camel.ExtendedCamelContext;
 import org.apache.camel.component.facebook.config.FacebookConfiguration;
 import org.apache.camel.component.facebook.config.FacebookEndpointConfiguration;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.IntrospectionSupport;
+import org.apache.camel.spi.BeanIntrospection;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.PropertyBindingSupport;
 
 /**
  * Represents the component that manages {@link FacebookEndpoint}.
  */
-public class FacebookComponent extends UriEndpointComponent {
+@Component("facebook")
+public class FacebookComponent extends DefaultComponent {
 
+    @Metadata(label = "advanced")
     private FacebookConfiguration configuration;
 
     public FacebookComponent() {
@@ -46,25 +52,35 @@ public class FacebookComponent extends UriEndpointComponent {
     }
 
     public FacebookComponent(CamelContext context, FacebookConfiguration configuration) {
-        super(context, FacebookEndpoint.class);
+        super(context);
         this.configuration = configuration;
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         FacebookEndpointConfiguration config = copyComponentProperties();
         final FacebookEndpoint endpoint = new FacebookEndpoint(uri, this, remaining, config);
+
         // set endpoint property inBody so that it's available in initState()
         setProperties(endpoint, parameters);
+
+        // configure endpoint properties
+        setProperties(endpoint, parameters);
+
+        // validate parameters
+        validateParameters(uri, parameters, null);
+
         return endpoint;
     }
 
     private FacebookEndpointConfiguration copyComponentProperties() throws Exception {
-        Map<String, Object> componentProperties = new HashMap<String, Object>();
-        IntrospectionSupport.getProperties(configuration, componentProperties, null, false);
+        Map<String, Object> componentProperties = new HashMap<>();
+        BeanIntrospection beanIntrospection = getCamelContext().adapt(ExtendedCamelContext.class).getBeanIntrospection();
+        beanIntrospection.getProperties(configuration, componentProperties, null, false);
 
         // create endpoint configuration with component properties
         FacebookEndpointConfiguration config = new FacebookEndpointConfiguration();
-        IntrospectionSupport.setProperties(config, componentProperties);
+        PropertyBindingSupport.bindProperties(getCamelContext(), config, componentProperties);
         return config;
     }
 

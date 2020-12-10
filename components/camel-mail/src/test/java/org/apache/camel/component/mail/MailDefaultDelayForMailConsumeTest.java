@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,10 +18,12 @@ package org.apache.camel.component.mail;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.util.StopWatch;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for testing mail polling is happening according to the default poll interval.
@@ -44,25 +46,25 @@ public class MailDefaultDelayForMailConsumeTest extends CamelTestSupport {
 
         mock.reset();
         mock.expectedBodiesReceived("Hello Paris");
-        mock.setResultWaitTime(5000L + 2000L);
+        mock.setResultWaitTime(1000L + 2000L);
 
         StopWatch watch = new StopWatch();
 
         template.sendBody("smtp://bond@localhost", "Hello Paris");
 
-        // poll next mail and that is should be done within the default delay (overrule to 5 sec) + 2 sec slack
+        // poll next mail and that is should be done within the default delay (overrule to 1 sec) + 2 sec slack
         mock.assertIsSatisfied();
 
-        long delta = watch.stop();
-        assertTrue("Camel should not default poll the mailbox to often", delta > 5000 - 1000L);
+        long delta = watch.taken();
+        assertTrue(delta > 1000 - 1000L, "Camel should not default poll the mailbox to often");
     }
 
-
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                // we overrule the default of 60 sec to 5 so the unit test is faster
-                from("pop3://bond@localhost?delay=5000").to("mock:result");
+                // we overrule the default of 60 sec to 1 so the unit test is faster
+                from("pop3://bond@localhost?delay=1000").to("mock:result");
             }
         };
     }

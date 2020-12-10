@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,8 +26,10 @@ import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCam
  */
 public class SpringAdviceWithTwoRoutesOnExceptionIssueTest extends AdviceWithTwoRoutesOnExceptionIssueTest {
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
-        return createSpringCamelContext(this, "org/apache/camel/spring/issues/SpringAdviceWithTwoRoutesOnExceptionIssueTest.xml");
+        return createSpringCamelContext(this,
+                "org/apache/camel/spring/issues/SpringAdviceWithTwoRoutesOnExceptionIssueTest.xml");
     }
 
 }

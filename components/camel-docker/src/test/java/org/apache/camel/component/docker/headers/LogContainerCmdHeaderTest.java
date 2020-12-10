@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,33 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.LogContainerCmd;
-
+import com.github.dockerjava.core.command.LogContainerResultCallback;
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Log Container Request headers are applied properly
  */
 public class LogContainerCmdHeaderTest extends BaseDockerHeaderTest<LogContainerCmd> {
+    private static final Logger LOG = LoggerFactory.getLogger(LogContainerCmdHeaderTest.class);
 
     @Mock
     private LogContainerCmd mockObject;
 
-    @Ignore
+    @Mock
+    private LogContainerResultCallback callback;
+
     @Test
-    public void logContainerHeaderTest() {
+    void logContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
         boolean stdOut = true;
@@ -60,18 +67,24 @@ public class LogContainerCmdHeaderTest extends BaseDockerHeaderTest<LogContainer
         template.sendBodyAndHeaders("direct:in", "", headers);
 
         Mockito.verify(dockerClient, Mockito.times(1)).logContainerCmd(containerId);
-        Mockito.verify(mockObject, Mockito.times(1)).withFollowStream(Matchers.eq(followStream));
-        Mockito.verify(mockObject, Mockito.times(1)).withTail(Matchers.eq(tail));
+        Mockito.verify(mockObject, Mockito.times(1)).withFollowStream(eq(followStream));
+        Mockito.verify(mockObject, Mockito.times(1)).withTail(eq(tail));
         Mockito.verify(mockObject, Mockito.times(1)).withTailAll();
-        Mockito.verify(mockObject, Mockito.times(1)).withStdErr(Matchers.eq(stdErr));
-        Mockito.verify(mockObject, Mockito.times(1)).withStdOut(Matchers.eq(stdOut));
-        Mockito.verify(mockObject, Mockito.times(1)).withTimestamps(Matchers.eq(timestamps));
+        Mockito.verify(mockObject, Mockito.times(1)).withStdErr(eq(stdErr));
+        Mockito.verify(mockObject, Mockito.times(1)).withStdOut(eq(stdOut));
+        Mockito.verify(mockObject, Mockito.times(1)).withTimestamps(eq(timestamps));
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.logContainerCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.logContainerCmd(anyString())).thenReturn(mockObject);
+        Mockito.when(mockObject.exec(any())).thenReturn(callback);
+        try {
+            Mockito.when(callback.awaitCompletion()).thenReturn(callback);
+        } catch (InterruptedException e) {
+            LOG.warn("Interrupted while setting up mocks", e);
+        }
     }
 
     @Override

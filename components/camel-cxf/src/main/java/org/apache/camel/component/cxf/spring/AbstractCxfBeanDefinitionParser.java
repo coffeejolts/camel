@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,9 @@ package org.apache.camel.component.cxf.spring;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.w3c.dom.Element;
+
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.cxf.configuration.spring.AbstractBeanDefinitionParser;
 import org.springframework.beans.PropertyValue;
@@ -28,13 +30,11 @@ import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.xml.ParserContext;
 
-
 public abstract class AbstractCxfBeanDefinitionParser extends AbstractBeanDefinitionParser {
-    
+
     /**
-     * Override mapToProperty() to handle the '#' reference notation ourselves.  We put those 
-     * properties with '#' in property map and let component to invoke setProperties() on the
-     * endpoint. 
+     * Override mapToProperty() to handle the '#' reference notation ourselves. We put those properties with '#' in
+     * property map and let component to invoke setProperties() on the endpoint.
      */
     @Override
     protected void mapToProperty(BeanDefinitionBuilder bean, String propertyName, String val) {
@@ -64,15 +64,16 @@ public abstract class AbstractCxfBeanDefinitionParser extends AbstractBeanDefini
     }
 
     @Override
-    protected String resolveId(Element elem,
-                               AbstractBeanDefinition definition,
-                               ParserContext ctx)
-        throws BeanDefinitionStoreException {
-        String id = super.resolveId(elem, definition, ctx);        
-        
+    protected String resolveId(
+            Element elem,
+            AbstractBeanDefinition definition,
+            ParserContext ctx)
+            throws BeanDefinitionStoreException {
+        String id = super.resolveId(elem, definition, ctx);
+
         if (StringUtils.isEmpty(id)) {
             throw new BeanDefinitionStoreException("The bean id is needed.");
-        }       
+        }
         return id;
     }
 
@@ -84,15 +85,15 @@ public abstract class AbstractCxfBeanDefinitionParser extends AbstractBeanDefini
     @SuppressWarnings("unchecked")
     protected Map<String, Object> getPropertyMap(BeanDefinitionBuilder bean, boolean lazyInstantiation) {
         PropertyValue propertyValue = bean.getBeanDefinition().getPropertyValues().getPropertyValue("properties");
-        
+
         Map<String, Object> map = null;
         if (propertyValue == null) {
             if (lazyInstantiation) {
-                map = new HashMap<String, Object>();
+                map = new HashMap<>();
                 bean.addPropertyValue("properties", map);
             }
         } else {
-            map = (Map<String, Object>)propertyValue.getValue();
+            map = (Map<String, Object>) propertyValue.getValue();
         }
         return map;
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,12 +19,17 @@ package org.apache.camel.component.spring.batch;
 import java.util.Date;
 import java.util.Map;
 
+import org.apache.camel.CamelExchangeException;
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.DefaultProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.launch.JobLauncher;
 
 /**
@@ -32,20 +37,47 @@ import org.springframework.batch.core.launch.JobLauncher;
  */
 public class SpringBatchProducer extends DefaultProducer {
 
+    private static final Logger LOG = LoggerFactory.getLogger(SpringBatchProducer.class);
+
     private final JobLauncher jobLauncher;
 
     private final Job job;
 
-    public SpringBatchProducer(SpringBatchEndpoint endpoint, JobLauncher jobLauncher, Job job) {
+    private final JobRegistry jobRegistry;
+
+    public SpringBatchProducer(SpringBatchEndpoint endpoint, JobLauncher jobLauncher, Job job, JobRegistry jobRegistry) {
         super(endpoint);
         this.job = job;
         this.jobLauncher = jobLauncher;
+        this.jobRegistry = jobRegistry;
     }
 
     @Override
     public void process(Exchange exchange) throws Exception {
+
         JobParameters jobParameters = prepareJobParameters(exchange.getIn().getHeaders());
-        JobExecution jobExecution = jobLauncher.run(job, jobParameters);
+        String messageJobName = jobParameters.getString(SpringBatchConstants.JOB_NAME);
+
+        Job job2run = this.job;
+
+        if (messageJobName != null) {
+            if (jobRegistry != null) {
+                job2run = jobRegistry.getJob(messageJobName);
+            } else {
+                job2run = CamelContextHelper.mandatoryLookup(getEndpoint().getCamelContext(), messageJobName, Job.class);
+            }
+        }
+
+        if (job2run == null) {
+            exchange.setException(new CamelExchangeException(
+                    "jobName was not specified in the endpoint construction "
+                                                             + " and header " + SpringBatchConstants.JOB_NAME
+                                                             + " could not be found",
+                    exchange));
+            return;
+        }
+
+        JobExecution jobExecution = jobLauncher.run(job2run, jobParameters);
         exchange.getOut().getHeaders().putAll(exchange.getIn().getHeaders());
         exchange.getOut().setBody(jobExecution);
     }
@@ -55,8 +87,8 @@ public class SpringBatchProducer extends DefaultProducer {
      * header values are converted to the appropriate types. All the other header values are converted to string
      * representation.
      *
-     * @param headers Camel message header to be converted
-     * @return Camel message headers converted into the Spring Batch parameters map
+     * @param  headers Camel message header to be converted
+     * @return         Camel message headers converted into the Spring Batch parameters map
      */
     protected JobParameters prepareJobParameters(Map<String, Object> headers) {
         JobParametersBuilder parametersBuilder = new JobParametersBuilder();
@@ -77,7 +109,7 @@ public class SpringBatchProducer extends DefaultProducer {
             }
         }
         JobParameters jobParameters = parametersBuilder.toJobParameters();
-        log.debug("Prepared parameters for Spring Batch job: {}", jobParameters);
+        LOG.debug("Prepared parameters for Spring Batch job: {}", jobParameters);
         return jobParameters;
     }
 

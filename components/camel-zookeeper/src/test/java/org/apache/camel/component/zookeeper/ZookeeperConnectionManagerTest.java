@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,14 +18,16 @@ package org.apache.camel.component.zookeeper;
 
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.ZooKeeper.States;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ZookeeperConnectionManagerTest extends ZooKeeperTestSupport {
 
     @Test
     public void shouldWaitForConnection() {
         ZooKeeperConfiguration config = new ZooKeeperConfiguration();
-        config.addZookeeperServer("localhost:" + getServerPort());
+        config.addZookeeperServer(getConnectionString());
 
         ZooKeeperComponent component = new ZooKeeperComponent(config);
         component.setConfiguration(config);

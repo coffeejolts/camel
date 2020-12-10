@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,36 +16,38 @@
  */
 package org.apache.camel.component.netty.http;
 
-import org.apache.camel.impl.DefaultMessage;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import org.apache.camel.CamelContext;
+import org.apache.camel.support.DefaultMessage;
 
 /**
  * Netty HTTP based {@link org.apache.camel.Message}.
  * <p/>
- * This implementation allows direct access to the Netty {@link HttpRequest} using
- * the {@link #getHttpRequest()} method.
+ * This implementation allows direct access to the Netty {@link FullHttpRequest} using the {@link #getHttpRequest()}
+ * method.
  */
 public class NettyHttpMessage extends DefaultMessage {
 
-    private final transient HttpRequest httpRequest;
-    private final transient HttpResponse httpResponse;
+    private final transient FullHttpRequest httpRequest;
+    private final transient FullHttpResponse httpResponse;
 
-    public NettyHttpMessage(HttpRequest httpRequest, HttpResponse httpResponse) {
+    public NettyHttpMessage(CamelContext camelContext, FullHttpRequest httpRequest, FullHttpResponse httpResponse) {
+        super(camelContext);
         this.httpRequest = httpRequest;
         this.httpResponse = httpResponse;
     }
 
-    public HttpRequest getHttpRequest() {
+    public FullHttpRequest getHttpRequest() {
         return httpRequest;
     }
 
-    public HttpResponse getHttpResponse() {
+    public FullHttpResponse getHttpResponse() {
         return httpResponse;
     }
 
     @Override
     public DefaultMessage newInstance() {
-        return new NettyHttpMessage(httpRequest, httpResponse);
+        return new NettyHttpMessage(getCamelContext(), httpRequest, httpResponse);
     }
 }

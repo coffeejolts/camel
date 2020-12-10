@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,141 +16,149 @@
  */
 package org.apache.camel.component.netty;
 
-
-import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
-import java.util.concurrent.Executors;
-
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.DelimiterBasedFrameDecoder;
+import io.netty.handler.codec.Delimiters;
+import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.SimpleChannelHandler;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.codec.frame.Delimiters;
-import org.jboss.netty.util.CharsetUtil;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NettyConsumerClientModeTest extends BaseNettyTest {
-    private static final ChannelBuffer DATA = ChannelBuffers.copiedBuffer("Willem".getBytes(CharsetUtil.UTF_8));
+    private static final Logger LOG = LoggerFactory.getLogger(NettyConsumerClientModeTest.class);
     private MyServer server;
-    
-   
-    public void startNettyServer() {
+
+    public void startNettyServer() throws Exception {
         server = new MyServer(getPort());
         server.start();
     }
-   
+
     public void shutdownServer() {
         if (server != null) {
             server.shutdown();
         }
     }
+
     @Test
     public void testNettyRoute() throws Exception {
         try {
             startNettyServer();
             MockEndpoint receive = context.getEndpoint("mock:receive", MockEndpoint.class);
             receive.expectedBodiesReceived("Bye Willem");
-            context.startRoute("client");
+            context.getRouteController().startRoute("client");
             receive.assertIsSatisfied();
         } finally {
             shutdownServer();
         }
-        
+
     }
-      
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
                 from("netty:tcp://localhost:{{port}}?textline=true&clientMode=true").id("client")
-                .process(new Processor() {
-                    public void process(final Exchange exchange) {
-                        String body = exchange.getIn().getBody(String.class);
-                        exchange.getOut().setBody("Bye " + body);
-                    }
-                }).to("mock:receive").noAutoStartup();
+                        .process(new Processor() {
+                            public void process(final Exchange exchange) {
+                                String body = exchange.getIn().getBody(String.class);
+                                exchange.getOut().setBody("Bye " + body);
+                            }
+                        }).to("mock:receive").noAutoStartup();
             }
         };
     }
-    
+
     private static class MyServer {
         private int port;
         private ServerBootstrap bootstrap;
-        public MyServer(int port) {
+        private Channel channel;
+        private EventLoopGroup bossGroup;
+        private EventLoopGroup workerGroup;
+
+        MyServer(int port) {
             this.port = port;
         }
-        public void start() {
-            // Configure the server.
-            bootstrap = new ServerBootstrap(
-                new NioServerSocketChannelFactory(
-                    Executors.newCachedThreadPool(), 
-                    Executors.newCachedThreadPool()));
-            // Set up the event pipeline factory.
-            bootstrap.setPipelineFactory(new ServerPipelineFactory());
-            // Bind and start to accept incoming connections.
-            bootstrap.bind(new InetSocketAddress(port));
+
+        public void start() throws Exception {
+            bossGroup = new NioEventLoopGroup(1);
+            workerGroup = new NioEventLoopGroup();
+
+            bootstrap = new ServerBootstrap();
+            bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
+                    .childHandler(new ServerInitializer());
+
+            ChannelFuture cf = bootstrap.bind(port).sync();
+            channel = cf.channel();
+
         }
-        
+
         public void shutdown() {
-            bootstrap.shutdown();
+            channel.disconnect();
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
         }
-        
+
     }
-    
-    private static class ServerHandler extends SimpleChannelHandler {
+
+    private static class ServerHandler extends SimpleChannelInboundHandler<String> {
 
         @Override
-        public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) {
-            Channel ch = e.getChannel();
-            ch.write(DATA);
-            ChannelFuture f = ch.write(Delimiters.lineDelimiter()[0]);
-            
-            f.addListener(new ChannelFutureListener() {
-                public void operationComplete(ChannelFuture future) {
-                    Channel ch = future.getChannel();
-                    ch.close();
-                }
-            });
+        public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            ctx.write("Willem\r\n");
+            ctx.flush();
         }
 
         @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
-            e.getCause().printStackTrace();
-            e.getChannel().close();
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+            LOG.warn("Unhandled exception caught: {}", cause.getMessage(), cause);
+            ctx.close();
+        }
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+            // Do nothing here
+        }
+
+        @Override
+        public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+            ctx.flush();
         }
     }
-    
-    private static class ServerPipelineFactory implements ChannelPipelineFactory {
 
-        public ChannelPipeline getPipeline() {
-            ChannelPipeline p = Channels.pipeline();
-            Charset charset = CharsetUtil.UTF_8;
-           
-            ChannelBuffer[] delimiters = Delimiters.nulDelimiter();
-           
-            // setup the textline encoding and decoding
-            p.addLast("decoder1", ChannelHandlerFactories.newDelimiterBasedFrameDecoder(1024 * 8, delimiters).newChannelHandler());
-            p.addLast("decoder2", ChannelHandlerFactories.newStringDecoder(charset).newChannelHandler());
-            
-            p.addLast("encoder", ChannelHandlerFactories.newStringEncoder(charset).newChannelHandler());
-            
-            p.addLast("handler", new ServerHandler());
-            return p;
+    private static class ServerInitializer extends ChannelInitializer<SocketChannel> {
+        private static final StringDecoder DECODER = new StringDecoder();
+        private static final StringEncoder ENCODER = new StringEncoder();
+        private static final ServerHandler SERVERHANDLER = new ServerHandler();
+
+        @Override
+        public void initChannel(SocketChannel ch) throws Exception {
+            ChannelPipeline pipeline = ch.pipeline();
+
+            // Add the text line codec combination first,
+            pipeline.addLast("framer", new DelimiterBasedFrameDecoder(
+                    8192, Delimiters.lineDelimiter()));
+            // the encoder and decoder are static as these are sharable
+            pipeline.addLast("decoder", DECODER);
+            pipeline.addLast("encoder", ENCODER);
+
+            // and then business logic.
+            pipeline.addLast("handler", SERVERHANDLER);
         }
     }
 

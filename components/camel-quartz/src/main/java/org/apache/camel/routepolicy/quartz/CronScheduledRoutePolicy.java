@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,81 +16,110 @@
  */
 package org.apache.camel.routepolicy.quartz;
 
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.Route;
+import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.component.quartz.QuartzComponent;
-import org.apache.camel.util.ObjectHelper;
-import org.quartz.CronTrigger;
+import org.quartz.CronScheduleBuilder;
 import org.quartz.Trigger;
+import org.quartz.TriggerBuilder;
+import org.quartz.TriggerKey;
 
 public class CronScheduledRoutePolicy extends ScheduledRoutePolicy implements ScheduledRoutePolicyConstants {
     private String routeStartTime;
     private String routeStopTime;
     private String routeSuspendTime;
     private String routeResumeTime;
-    
+    private String timeZoneString;
+    private TimeZone timeZone;
+
+    @Override
     public void onInit(Route route) {
         try {
             doOnInit(route);
         } catch (Exception e) {
-            throw ObjectHelper.wrapRuntimeCamelException(e);
+            throw RuntimeCamelException.wrapRuntimeCamelException(e);
         }
     }
 
     protected void doOnInit(Route route) throws Exception {
-        QuartzComponent quartz = route.getRouteContext().getCamelContext().getComponent("quartz", QuartzComponent.class);
-        setScheduler(quartz.getScheduler());
+        QuartzComponent quartz = route.getCamelContext().getComponent("quartz", QuartzComponent.class);
+        quartz.addScheduleInitTask(scheduler -> {
+            setScheduler(scheduler);
 
-        // Important: do not start scheduler as QuartzComponent does that automatic
-        // when CamelContext has been fully initialized and started
+            // Important: do not start scheduler as QuartzComponent does that automatic
+            // when CamelContext has been fully initialized and started
 
-        if (getRouteStopGracePeriod() == 0) {
-            setRouteStopGracePeriod(10000);
-        }
+            if (getRouteStopGracePeriod() == 0) {
+                setRouteStopGracePeriod(10000);
+            }
 
-        if (getTimeUnit() == null) {
-            setTimeUnit(TimeUnit.MILLISECONDS);
-        }
+            if (getTimeUnit() == null) {
+                setTimeUnit(TimeUnit.MILLISECONDS);
+            }
 
-        // validate time options has been configured
-        if ((getRouteStartTime() == null) && (getRouteStopTime() == null) && (getRouteSuspendTime() == null) && (getRouteResumeTime() == null)) {
-            throw new IllegalArgumentException("Scheduled Route Policy for route {} has no start/stop/suspend/resume times specified");
-        }
+            // validate time options has been configured
+            if ((getRouteStartTime() == null) && (getRouteStopTime() == null) && (getRouteSuspendTime() == null)
+                    && (getRouteResumeTime() == null)) {
+                throw new IllegalArgumentException(
+                        "Scheduled Route Policy for route " + route.getId()
+                                                   + " has no start/stop/suspend/resume times specified");
+            }
 
-        registerRouteToScheduledRouteDetails(route);
-        if (getRouteStartTime() != null) {
-            scheduleRoute(Action.START, route);
-        }
-        if (getRouteStopTime() != null) {
-            scheduleRoute(Action.STOP, route);
-        }
+            registerRouteToScheduledRouteDetails(route);
+            if (getRouteStartTime() != null) {
+                scheduleRoute(Action.START, route);
+            }
+            if (getRouteStopTime() != null) {
+                scheduleRoute(Action.STOP, route);
+            }
 
-        if (getRouteSuspendTime() != null) {
-            scheduleRoute(Action.SUSPEND, route);
-        }
-        if (getRouteResumeTime() != null) {
-            scheduleRoute(Action.RESUME, route);
-        }
+            if (getRouteSuspendTime() != null) {
+                scheduleRoute(Action.SUSPEND, route);
+            }
+            if (getRouteResumeTime() != null) {
+                scheduleRoute(Action.RESUME, route);
+            }
+        });
     }
-    
+
     @Override
     protected Trigger createTrigger(Action action, Route route) throws Exception {
-        CronTrigger trigger = null;
+        Trigger trigger = null;
 
+        CronScheduleBuilder scheduleBuilder = null;
+        String triggerPrefix = null;
         if (action == Action.START) {
-            trigger = new CronTrigger(TRIGGER_START + route.getId(), TRIGGER_GROUP + route.getId(), getRouteStartTime());
+            scheduleBuilder = CronScheduleBuilder.cronSchedule(getRouteStartTime());
+            triggerPrefix = TRIGGER_START;
         } else if (action == Action.STOP) {
-            trigger = new CronTrigger(TRIGGER_STOP + route.getId(), TRIGGER_GROUP + route.getId(), getRouteStopTime());
+            scheduleBuilder = CronScheduleBuilder.cronSchedule(getRouteStopTime());
+            triggerPrefix = TRIGGER_STOP;
         } else if (action == Action.SUSPEND) {
-            trigger = new CronTrigger(TRIGGER_SUSPEND + route.getId(), TRIGGER_GROUP + route.getId(), getRouteSuspendTime());
+            scheduleBuilder = CronScheduleBuilder.cronSchedule(getRouteSuspendTime());
+            triggerPrefix = TRIGGER_SUSPEND;
         } else if (action == Action.RESUME) {
-            trigger = new CronTrigger(TRIGGER_RESUME + route.getId(), TRIGGER_GROUP + route.getId(), getRouteResumeTime());
+            scheduleBuilder = CronScheduleBuilder.cronSchedule(getRouteResumeTime());
+            triggerPrefix = TRIGGER_RESUME;
         }
-        
+
+        if (scheduleBuilder != null) {
+            if (timeZone != null) {
+                scheduleBuilder.inTimeZone(timeZone);
+            }
+
+            TriggerKey triggerKey = new TriggerKey(triggerPrefix + route.getId(), TRIGGER_GROUP + route.getId());
+            trigger = TriggerBuilder.newTrigger()
+                    .withIdentity(triggerKey)
+                    .withSchedule(scheduleBuilder)
+                    .build();
+        }
+
         return trigger;
     }
-    
+
     public void setRouteStartTime(String routeStartTime) {
         this.routeStartTime = routeStartTime;
     }
@@ -121,6 +150,15 @@ public class CronScheduledRoutePolicy extends ScheduledRoutePolicy implements Sc
 
     public String getRouteResumeTime() {
         return routeResumeTime;
-    }    
+    }
+
+    public String getTimeZone() {
+        return timeZoneString;
+    }
+
+    public void setTimeZone(String timeZone) {
+        this.timeZoneString = timeZone;
+        this.timeZone = TimeZone.getTimeZone(timeZone);
+    }
 
 }

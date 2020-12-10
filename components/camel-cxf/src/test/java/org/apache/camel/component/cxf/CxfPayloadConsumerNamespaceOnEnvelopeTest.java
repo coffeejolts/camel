@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.cxf;
 
 import org.w3c.dom.Document;
@@ -22,12 +21,16 @@ import org.w3c.dom.Document;
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.spring.SpringCamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.camel.util.IOHelper;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CxfPayloadConsumerNamespaceOnEnvelopeTest extends CamelTestSupport {
     /*
@@ -40,12 +43,12 @@ public class CxfPayloadConsumerNamespaceOnEnvelopeTest extends CamelTestSupport 
      * If some CXF proxy is used to send the message the namespaces will be
      * defined within the payload (and everything works fine).
      */
-    protected static final String RESPONSE_PAYLOAD = 
-        "<ns2:getTokenResponse xmlns:ns2=\"http://camel.apache.org/cxf/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">"
-        + "<return xsi:type=\"xs:string\">Return Value</return></ns2:getTokenResponse>";
-    protected static final String REQUEST_MESSAGE =
-        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">"
-        + "<soap:Body><ns2:getToken xmlns:ns2=\"http://camel.apache.org/cxf/namespace\"><arg0 xsi:type=\"xs:string\">Send</arg0></ns2:getToken></soap:Body></soap:Envelope>";
+    protected static final String RESPONSE_PAYLOAD
+            = "<ns2:getTokenResponse xmlns:ns2=\"http://camel.apache.org/cxf/namespace\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">"
+              + "<return xsi:type=\"xs:string\">Return Value</return></ns2:getTokenResponse>";
+    protected static final String REQUEST_MESSAGE
+            = "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">"
+              + "<soap:Body><ns2:getToken xmlns:ns2=\"http://camel.apache.org/cxf/namespace\"><arg0 xsi:type=\"xs:string\">Send</arg0></ns2:getToken></soap:Body></soap:Envelope>";
 
     private AbstractXmlApplicationContext applicationContext;
 
@@ -58,17 +61,19 @@ public class CxfPayloadConsumerNamespaceOnEnvelopeTest extends CamelTestSupport 
 
     @Override
     protected CamelContext createCamelContext() throws Exception {
-        return SpringCamelContext.springCamelContext(applicationContext);
+        return SpringCamelContext.springCamelContext(applicationContext, true);
     }
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         applicationContext = new ClassPathXmlApplicationContext("org/apache/camel/component/cxf/GetTokenBeans.xml");
         super.setUp();
-        assertNotNull("Should have created a valid spring context", applicationContext);
+        assertNotNull(applicationContext, "Should have created a valid spring context");
     }
 
-    @After
+    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         IOHelper.close(applicationContext);
         super.tearDown();
@@ -80,11 +85,11 @@ public class CxfPayloadConsumerNamespaceOnEnvelopeTest extends CamelTestSupport 
             public void configure() {
                 from("direct:router")
                         // Use message mode to send the raw message
-                        .to("cxf:bean:serviceEndpoint?dataFormat=MESSAGE")
+                        .to("cxf:bean:serviceEndpoint?dataFormat=RAW")
                         // Convert to String to make testing the result easier
                         .convertBodyTo(String.class);
                 // The consumer is running in payload mode
-                from("cxf:bean:serviceEndpoint?DataFormat=PAYLOAD")
+                from("cxf:bean:serviceEndpoint?dataFormat=PAYLOAD")
                         // Convert the CxfPayload to a String to trigger the issue
                         .convertBodyTo(String.class)
                         // Parse to DOM to make sure it's still valid XML
@@ -93,8 +98,7 @@ public class CxfPayloadConsumerNamespaceOnEnvelopeTest extends CamelTestSupport 
         };
     }
 
-// need cxf-3.0.6
-//    @Test
+    @Test
     public void testInvokeRouter() {
         Object returnValue = template.requestBody("direct:router", REQUEST_MESSAGE);
         assertNotNull(returnValue);

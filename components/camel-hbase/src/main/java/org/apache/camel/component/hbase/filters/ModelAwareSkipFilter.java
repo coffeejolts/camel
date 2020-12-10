@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,12 +19,10 @@ package org.apache.camel.component.hbase.filters;
 import org.apache.camel.CamelContext;
 import org.apache.camel.component.hbase.model.HBaseRow;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.SkipFilter;
 
 public class ModelAwareSkipFilter extends SkipFilter implements ModelAwareFilter<SkipFilter> {
-
-    public ModelAwareSkipFilter() {
-    }
 
     public ModelAwareSkipFilter(Filter filter) {
         super(filter);
@@ -43,7 +41,12 @@ public class ModelAwareSkipFilter extends SkipFilter implements ModelAwareFilter
     /**
      * Wraps an existing {@link SkipFilter} filter into a {@link ModelAwareSkipFilter}.
      */
-    public ModelAwareSkipFilter wrap(SkipFilter filter) {
+    public static ModelAwareSkipFilter wrap(SkipFilter filter) {
         return new ModelAwareSkipFilter(filter.getFilter());
+    }
+
+    @Override
+    public FilterList getFilteredList() {
+        return null;
     }
 }

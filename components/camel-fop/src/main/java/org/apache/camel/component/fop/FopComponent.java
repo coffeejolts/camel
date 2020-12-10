@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,17 +19,19 @@ package org.apache.camel.component.fop;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Represents the component that manages {@link FopEndpoint}.
  */
-public class FopComponent extends UriEndpointComponent {
+@Component("fop")
+public class FopComponent extends DefaultComponent {
 
     public FopComponent() {
-        super(FopEndpoint.class);
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         FopOutputType type = FopOutputType.asFooOutputType(remaining);
         if (type == null) {

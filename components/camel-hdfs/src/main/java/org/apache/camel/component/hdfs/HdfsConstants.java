@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -45,6 +45,8 @@ public final class HdfsConstants {
     public static final int DEFAULT_CHECK_IDLE_INTERVAL = 500;
 
     public static final String HDFS_CLOSE = "CamelHdfsClose";
+
+    public static final int DEFAULT_MAX_MESSAGES_PER_POLL = 100;
 
     private HdfsConstants() {
     }

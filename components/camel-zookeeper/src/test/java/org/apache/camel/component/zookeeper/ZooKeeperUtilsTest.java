@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,17 +16,20 @@
  */
 package org.apache.camel.component.zookeeper;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultMessage;
+import org.apache.camel.impl.DefaultCamelContext;
+import org.apache.camel.support.DefaultMessage;
 import org.apache.zookeeper.CreateMode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.zookeeper.ZooKeeperUtils.getCreateMode;
 import static org.apache.camel.component.zookeeper.ZooKeeperUtils.getCreateModeFromString;
-
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ZooKeeperUtilsTest {
+
+    private CamelContext camelContext = new DefaultCamelContext();
 
     @Test
     public void testCreateModeExtraction() {
@@ -36,7 +39,7 @@ public class ZooKeeperUtilsTest {
         assertEquals(CreateMode.PERSISTENT_SEQUENTIAL, getCreateModeFromString("PERSISTENT_SEQUENTIAL", CreateMode.EPHEMERAL));
         assertEquals(CreateMode.EPHEMERAL, getCreateModeFromString("DOESNOTEXIST", CreateMode.EPHEMERAL));
     }
-    
+
     @Test
     public void testCreateModeExtractionFromMessageHeader() {
         assertEquals(CreateMode.EPHEMERAL, testModeInMessage("EPHEMERAL", CreateMode.EPHEMERAL));
@@ -47,7 +50,7 @@ public class ZooKeeperUtilsTest {
     }
 
     private CreateMode testModeInMessage(String mode, CreateMode defaultMode) {
-        Message m = new DefaultMessage();
+        Message m = new DefaultMessage(camelContext);
         m.setHeader(ZooKeeperMessage.ZOOKEEPER_CREATE_MODE, mode);
         return getCreateMode(m, defaultMode);
     }

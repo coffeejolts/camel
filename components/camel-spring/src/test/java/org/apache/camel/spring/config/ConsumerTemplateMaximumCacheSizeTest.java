@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,14 @@ package org.apache.camel.spring.config;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.ConsumerTemplate;
-import org.apache.camel.Endpoint;
 import org.apache.camel.spring.SpringRunWithTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 @ContextConfiguration
 public class ConsumerTemplateMaximumCacheSizeTest extends SpringRunWithTestSupport {
 
@@ -38,25 +37,12 @@ public class ConsumerTemplateMaximumCacheSizeTest extends SpringRunWithTestSuppo
 
     @Test
     public void testTemplateMaximumCache() throws Exception {
-        assertNotNull("Should have injected a consumer template", template);
+        assertNotNull(template, "Should have injected a consumer template");
 
         ConsumerTemplate lookup = context.getRegistry().lookupByNameAndType("template", ConsumerTemplate.class);
-        assertNotNull("Should lookup consumer template", lookup);
+        assertNotNull(lookup, "Should lookup consumer template");
 
         assertEquals(50, template.getMaximumCacheSize());
-        assertEquals("Size should be 0", 0, template.getCurrentCacheSize());
-
-        // test that we cache at most 50 producers to avoid it eating to much memory
-        for (int i = 0; i < 53; i++) {
-            Endpoint e = context.getEndpoint("direct:queue:" + i);
-            template.receiveNoWait(e);
-        }
-
-        assertEquals("Size should be 50", 50, template.getCurrentCacheSize());
-        template.stop();
-
-        // should be 0
-        assertEquals("Size should be 0", 0, template.getCurrentCacheSize());
     }
 
 }

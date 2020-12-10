@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,9 +17,10 @@
 package org.apache.camel.component.quartz;
 
 /**
- * Quartz constants.
+ * Provide some constants used in this component package.
  */
 public final class QuartzConstants {
+    public static final String QUARTZ_CAMEL_JOBS_COUNT = "CamelQuartzJobsCount";
 
     public static final String QUARTZ_ENDPOINT_URI = "CamelQuartzEndpoint";
 
@@ -33,6 +34,8 @@ public final class QuartzConstants {
     public static final String QUARTZ_TRIGGER_CRON_TIMEZONE = "CamelQuartzTriggerCronTimeZone";
     public static final String QUARTZ_TRIGGER_SIMPLE_REPEAT_COUNTER = "CamelQuartzTriggerSimpleRepeatCounter";
     public static final String QUARTZ_TRIGGER_SIMPLE_REPEAT_INTERVAL = "CamelQuartzTriggerSimpleRepeatInterval";
+
+    public static final String QUARTZ_CAMEL_CUSTOM_CALENDAR = "CamelQuartzCustomCalendar";
 
     private QuartzConstants() {
         // Utility class

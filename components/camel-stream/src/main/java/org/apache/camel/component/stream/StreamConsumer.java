@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,8 +22,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,10 +31,11 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.DefaultConsumer;
+import org.apache.camel.support.DefaultConsumer;
+import org.apache.camel.support.service.ServiceHelper;
+import org.apache.camel.util.FileUtil;
 import org.apache.camel.util.IOHelper;
-import org.apache.camel.util.ObjectHelper;
-
+import org.apache.camel.util.StringHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,16 +45,20 @@ import org.slf4j.LoggerFactory;
 public class StreamConsumer extends DefaultConsumer implements Runnable {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreamConsumer.class);
+
     private static final String TYPES = "in,file,url";
     private static final String INVALID_URI = "Invalid uri, valid form: 'stream:{" + TYPES + "}'";
     private static final List<String> TYPES_LIST = Arrays.asList(TYPES.split(","));
     private ExecutorService executor;
+    private FileWatcherStrategy fileWatcher;
+    private volatile boolean watchFileChanged;
     private volatile InputStream inputStream = System.in;
     private volatile InputStream inputStreamToClose;
+    private volatile File file;
     private StreamEndpoint endpoint;
     private String uri;
-    private boolean initialPromptDone;
-    private final List<String> lines = new CopyOnWriteArrayList<String>();
+    private volatile boolean initialPromptDone;
+    private final List<String> lines = new CopyOnWriteArrayList<>();
 
     public StreamConsumer(StreamEndpoint endpoint, Processor processor, String uri) throws Exception {
         super(endpoint, processor);
@@ -68,13 +71,34 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
     protected void doStart() throws Exception {
         super.doStart();
 
-        initializeStream();
+        // use file watch service if we read from file
+        if (endpoint.isFileWatcher()) {
+            String dir = new File(endpoint.getFileName()).getParent();
+            fileWatcher = new FileWatcherStrategy(dir, file -> {
+                String onlyName = file.getName();
+                String target = FileUtil.stripPath(endpoint.getFileName());
+                LOG.trace("File changed: {}", onlyName);
+                if (onlyName.equals(target)) {
+                    // file is changed
+                    watchFileChanged = true;
+                }
+            });
+            fileWatcher.setCamelContext(getEndpoint().getCamelContext());
+        }
+        ServiceHelper.startService(fileWatcher);
 
-        executor = endpoint.getCamelContext().getExecutorServiceManager().newSingleThreadExecutor(this, endpoint.getEndpointUri());
+        // if we scan the stream we are lenient and can wait for the stream to be available later
+        if (!endpoint.isScanStream()) {
+            initializeStream();
+        }
+
+        executor = endpoint.getCamelContext().getExecutorServiceManager().newSingleThreadExecutor(this,
+                endpoint.getEndpointUri());
         executor.execute(this);
 
         if (endpoint.getGroupLines() < 0) {
-            throw new IllegalArgumentException("Option groupLines must be 0 or positive number, was " + endpoint.getGroupLines());
+            throw new IllegalArgumentException(
+                    "Option groupLines must be 0 or positive number, was " + endpoint.getGroupLines());
         }
     }
 
@@ -84,6 +108,7 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
             endpoint.getCamelContext().getExecutorServiceManager().shutdownNow(executor);
             executor = null;
         }
+        ServiceHelper.stopAndShutdownService(fileWatcher);
         lines.clear();
 
         // do not close regular inputStream as it may be System.in etc.
@@ -91,6 +116,7 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
         super.doStop();
     }
 
+    @Override
     public void run() {
         try {
             readFromStream();
@@ -111,12 +137,14 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
         } else if ("file".equals(uri)) {
             inputStream = resolveStreamFromFile();
             inputStreamToClose = inputStream;
-        } else if ("url".equals(uri)) {
-            inputStream = resolveStreamFromUrl();
-            inputStreamToClose = inputStream;
         }
-        Charset charset = endpoint.getCharset();
-        return IOHelper.buffered(new InputStreamReader(inputStream, charset));
+
+        if (inputStream != null) {
+            Charset charset = endpoint.getCharset();
+            return IOHelper.buffered(new InputStreamReader(inputStream, charset));
+        } else {
+            return null;
+        }
     }
 
     private void readFromStream() throws Exception {
@@ -127,15 +155,32 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
         if (endpoint.isScanStream()) {
             // repeat scanning from stream
             while (isRunAllowed()) {
-                line = br.readLine();
-                LOG.trace("Read line: {}", line);
+                if (br != null) {
+                    line = br.readLine();
+                    LOG.trace("Read line: {}", line);
+                } else {
+                    line = null;
+                }
                 boolean eos = line == null;
                 if (!eos && isRunAllowed()) {
                     index = processLine(line, false, index);
                 } else if (eos && isRunAllowed() && endpoint.isRetry()) {
-                    //try and re-open stream
-                    br = initializeStream();
+                    boolean reOpen = true;
+                    if (endpoint.isFileWatcher()) {
+                        reOpen = watchFileChanged;
+                    }
+                    if (reOpen) {
+                        LOG.debug("File: {} changed/rollover, re-reading file from beginning", file);
+                        br = initializeStream();
+                        // we have re-initialized the stream so lower changed flag
+                        if (endpoint.isFileWatcher()) {
+                            watchFileChanged = false;
+                        }
+                    } else {
+                        LOG.trace("File: {} not changed since last read", file);
+                    }
                 }
+
                 // sleep only if there is no input
                 if (eos) {
                     try {
@@ -189,7 +234,7 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
             // should we flush lines?
             if (!lines.isEmpty() && (lines.size() >= endpoint.getGroupLines() || last)) {
                 // spit out lines as we hit the size, or it was the last
-                List<String> copy = new ArrayList<String>(lines);
+                List<String> copy = new ArrayList<>(lines);
                 Object body = endpoint.getGroupStrategy().groupLines(copy);
                 // remember to inc index when we create an exchange
                 Exchange exchange = endpoint.createExchange(body, index++, last);
@@ -243,30 +288,23 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
         }
     }
 
-    private InputStream resolveStreamFromUrl() throws IOException {
-        String u = endpoint.getUrl();
-        ObjectHelper.notEmpty(u, "url");
-        LOG.debug("About to read from url: {}", u);
-
-        URL url = new URL(u);
-        URLConnection c = url.openConnection();
-        return c.getInputStream();
-    }
-
     private InputStream resolveStreamFromFile() throws IOException {
         String fileName = endpoint.getFileName();
-        ObjectHelper.notEmpty(fileName, "fileName");
-        
+        StringHelper.notEmpty(fileName, "fileName");
+
         FileInputStream fileStream;
 
-        File file = new File(fileName);
+        file = new File(fileName);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("File to be scanned : {}, path : {}", file.getName(), file.getAbsolutePath());
+            LOG.debug("File to be scanned: {}, path: {}", file.getName(), file.getAbsolutePath());
         }
 
         if (file.canRead()) {
             fileStream = new FileInputStream(file);
+        } else if (endpoint.isScanStream()) {
+            // if we scan the stream then it may not be available and we should return null
+            fileStream = null;
         } else {
             throw new IllegalArgumentException(INVALID_URI);
         }
@@ -289,7 +327,7 @@ public class StreamConsumer extends DefaultConsumer implements Runnable {
         if (this.uri.startsWith("//")) {
             this.uri = this.uri.substring(2);
         }
-        
+
         if (!TYPES_LIST.contains(this.uri)) {
             throw new IllegalArgumentException(INVALID_URI);
         }

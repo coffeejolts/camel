@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,33 +16,32 @@
  */
 package org.apache.camel.component.google.calendar;
 
-
 import com.google.api.services.calendar.model.Calendar;
 import com.google.api.services.calendar.model.CalendarList;
 import com.google.api.services.calendar.model.CalendarListEntry;
-
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.calendar.internal.CalendarCalendarListApiMethod;
 import org.apache.camel.component.google.calendar.internal.GoogleCalendarApiCollection;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test class for {@link com.google.api.services.calendar.Calendar$CalendarList} APIs.
  */
 public class CalendarCalendarListIntegrationTest extends AbstractGoogleCalendarTestSupport {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CalendarCalendarListIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleCalendarApiCollection.getCollection().getApiName(CalendarCalendarListApiMethod.class).getName();
+    private static final String PATH_PREFIX
+            = GoogleCalendarApiCollection.getCollection().getApiName(CalendarCalendarListApiMethod.class).getName();
 
     @Test
     public void testCalendarList() throws Exception {
         Calendar calendar = getCalendar();
-        assertTrue("Test calendar should be in the list", isCalendarInList(calendar));
+        assertTrue(isCalendarInList(calendar), "Test calendar should be in the list");
 
         CalendarListEntry calendarFromGet = requestBody("direct://GET", calendar.getId());
-        assertTrue(calendar.getId().equals(calendarFromGet.getId()));
+        assertEquals(calendar.getId(), calendarFromGet.getId());
     }
 
     protected boolean isCalendarInList(Calendar calendar) {

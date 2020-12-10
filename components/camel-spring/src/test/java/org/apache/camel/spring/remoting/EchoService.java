@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,9 @@
  */
 package org.apache.camel.spring.remoting;
 
-/**
- * @version 
- */
 public class EchoService implements Echo {
 
+    @Override
     public String echo(String name) {
         if (name.startsWith("Kabom")) {
             throw new MyEchoRuntimeException("Damn something went wrong");

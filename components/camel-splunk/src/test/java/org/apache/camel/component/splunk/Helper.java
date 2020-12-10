@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,24 +16,11 @@
  */
 package org.apache.camel.component.splunk;
 
-import java.io.IOException;
 import java.net.Socket;
 import java.util.Map;
 
-import com.splunk.Args;
-import com.splunk.Index;
-import com.splunk.IndexCollection;
-import com.splunk.Input;
-import com.splunk.InputCollection;
 import com.splunk.Service;
-
 import org.apache.camel.CamelContext;
-
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.isA;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public final class Helper {
 
@@ -52,38 +39,15 @@ public final class Helper {
 }
 
 final class MockConnectionSettings extends SplunkConfiguration {
-    private Service service;
-    private Socket socket;
 
-    public MockConnectionSettings(Service service, Socket socket) {
-        this.service = service;
-        this.socket = socket;
-        mockSplunkWriterApi();
+    MockConnectionSettings(Service service, Socket socket) {
         setConnectionFactory(new MockConnectionFactory(service));
-    }
-
-    private void mockSplunkWriterApi() {
-        try {
-            Index index = mock(Index.class);
-            IndexCollection indexColl = mock(IndexCollection.class);
-            when(service.getIndexes()).thenReturn(indexColl);
-            InputCollection inputCollection = mock(InputCollection.class);
-            when(service.getInputs()).thenReturn(inputCollection);
-            Input input = mock(Input.class);
-            when(service.open(anyInt())).thenReturn(socket);
-            when(inputCollection.get(anyString())).thenReturn(input);
-            when(indexColl.get(anyString())).thenReturn(index);
-            when(index.attach(isA(Args.class))).thenReturn(socket);
-            when(socket.getOutputStream()).thenReturn(System.out);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     class MockConnectionFactory extends SplunkConnectionFactory {
         private Service service;
 
-        public MockConnectionFactory(Service service) {
+        MockConnectionFactory(Service service) {
             super("foo", "bar");
             this.service = service;
         }

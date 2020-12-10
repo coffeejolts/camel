@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,10 @@ package org.apache.camel.component.file.remote;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.createDirectory;
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
 
 /**
  * Unit test to verify polling a server with no files to poll.
@@ -26,13 +29,13 @@ import org.junit.Test;
 public class FromFtpNoFilesTest extends FtpServerTestSupport {
 
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/slowfile?password=admin&binary=false&readLock=rename&consumer.delay=2000";
+        return "ftp://admin@localhost:{{ftp.server.port}}/slowfile?password=admin&binary=false&readLock=rename&delay=2000";
     }
 
     @Test
     public void testPoolIn3SecondsButNoFiles() throws Exception {
-        deleteDirectory(FTP_ROOT_DIR);
-        createDirectory(FTP_ROOT_DIR + "slowfile");
+        deleteDirectory(service.getFtpRootDir());
+        createDirectory(service.getFtpRootDir() + "slowfile");
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(0);
 
@@ -41,6 +44,7 @@ public class FromFtpNoFilesTest extends FtpServerTestSupport {
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {

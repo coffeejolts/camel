@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -49,18 +49,18 @@ public abstract class SmppSmCommand extends AbstractSmppCommand {
             // Message body is split into multiple parts,
             // check if this is permitted
             SmppSplittingPolicy policy = getSplittingPolicy(message);
-            switch(policy) {
-            case ALLOW:
-                return segments;
-            case TRUNCATE:
-                return new byte[][] {java.util.Arrays.copyOfRange(shortMessage, 0, segments[0].length)};
-            case REJECT:
-                // FIXME - JSMPP needs to have an enum of the negative response
-                // codes instead of just using them like this
-                NegativeResponseException nre = new NegativeResponseException(SMPP_NEG_RESPONSE_MSG_TOO_LONG);
-                throw new SmppException(nre);
-            default:
-                throw new SmppException("Unknown splitting policy: " + policy);
+            switch (policy) {
+                case ALLOW:
+                    return segments;
+                case TRUNCATE:
+                    return new byte[][] { java.util.Arrays.copyOfRange(shortMessage, 0, segments[0].length) };
+                case REJECT:
+                    // FIXME - JSMPP needs to have an enum of the negative response
+                    // codes instead of just using them like this
+                    NegativeResponseException nre = new NegativeResponseException(SMPP_NEG_RESPONSE_MSG_TOO_LONG);
+                    throw new SmppException(nre);
+                default:
+                    throw new SmppException("Unknown splitting policy: " + policy);
             }
         } else {
             return segments;
@@ -75,25 +75,27 @@ public abstract class SmppSmCommand extends AbstractSmppCommand {
         return config.getSplittingPolicy();
     }
 
-    protected SmppSplitter createSplitter(Message message) {
-        Alphabet alphabet = determineAlphabet(message);
-
-        String body = message.getBody(String.class);
+    protected SmppSplitter createSplitter(Message message) throws SmppException {
 
         SmppSplitter splitter;
-        switch (alphabet) {
-        case ALPHA_8_BIT:
-            splitter = new Smpp8BitSplitter(body.length());
-            break;
-        case ALPHA_UCS2:
-            splitter = new SmppUcs2Splitter(body.length());
-            break;
-        case ALPHA_DEFAULT:
-        default:
-            splitter = new SmppDefaultSplitter(body.length());
-            break;
+        // use the splitter if provided via header
+        if (message.getHeaders().containsKey(SmppConstants.DATA_SPLITTER)) {
+            splitter = message.getHeader(SmppConstants.DATA_SPLITTER, SmppSplitter.class);
+            if (null != splitter) {
+                return splitter;
+            }
+            throw new SmppException("Invalid splitter given. Must be instance of SmppSplitter");
         }
+        Alphabet alphabet = determineAlphabet(message);
+        String body = message.getBody(String.class);
 
+        if (SmppUtils.is8Bit(alphabet)) {
+            splitter = new Smpp8BitSplitter(body.length());
+        } else if (alphabet == Alphabet.ALPHA_UCS2) {
+            splitter = new SmppUcs2Splitter(body.length());
+        } else {
+            splitter = new SmppDefaultSplitter(body.length());
+        }
         return splitter;
     }
 
@@ -112,10 +114,10 @@ public abstract class SmppSmCommand extends AbstractSmppCommand {
     private static boolean has8bitDataCoding(Message message) {
         Byte dcs = message.getHeader(SmppConstants.DATA_CODING, Byte.class);
         if (dcs != null) {
-            return SmppUtils.parseAlphabetFromDataCoding(dcs.byteValue()) == Alphabet.ALPHA_8_BIT;
+            return SmppUtils.is8Bit(Alphabet.parseDataCoding(dcs.byteValue()));
         } else {
             Byte alphabet = message.getHeader(SmppConstants.ALPHABET, Byte.class);
-            return alphabet != null && alphabet.equals(Alphabet.ALPHA_8_BIT.value());
+            return alphabet != null && SmppUtils.is8Bit(Alphabet.valueOf(alphabet));
         }
     }
 
@@ -146,12 +148,12 @@ public abstract class SmppSmCommand extends AbstractSmppCommand {
             return result;
         }
 
-        if (providedAlphabet == Alphabet.ALPHA_UCS2.value() 
-            || (providedAlphabet == SmppConstants.UNKNOWN_ALPHABET && determinedAlphabet == Alphabet.ALPHA_UCS2.value())) {
+        if (providedAlphabet == Alphabet.ALPHA_UCS2.value()
+                || (providedAlphabet == SmppConstants.UNKNOWN_ALPHABET && determinedAlphabet == Alphabet.ALPHA_UCS2.value())) {
             // change charset to use multilang messages
-            return Charset.forName(SmppConstants.UCS2_ENCODING); 
+            return Charset.forName(SmppConstants.UCS2_ENCODING);
         }
-        
+
         return defaultCharset;
     }
 

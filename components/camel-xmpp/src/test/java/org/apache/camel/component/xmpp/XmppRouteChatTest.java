@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,13 +18,9 @@ package org.apache.camel.component.xmpp;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
-public class XmppRouteChatTest extends CamelTestSupport {
+public class XmppRouteChatTest extends XmppBaseTest {
 
     protected MockEndpoint consumerEndpoint;
     protected MockEndpoint producerEndpoint;
@@ -43,42 +39,44 @@ public class XmppRouteChatTest extends CamelTestSupport {
         template.sendBody("direct:toConsumer", body1);
         Thread.sleep(50);
         template.sendBody("direct:toConsumer", body2);
-        
+
         template.sendBody("direct:toProducer", body1);
         Thread.sleep(50);
         template.sendBody("direct:toProducer", body2);
-
+        //    Th
         consumerEndpoint.assertIsSatisfied();
         producerEndpoint.assertIsSatisfied();
 
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
 
                 from("direct:toConsumer")
-                    .to(getConsumerUri());
+                        .to(getConsumerUri());
 
                 from("direct:toProducer")
-                    .to(getProducerUri());
+                        .to(getProducerUri());
 
                 from(getConsumerUri())
-                    .to("mock:out1");
+                        .to("mock:out1");
 
                 from(getProducerUri())
-                    .to("mock:out2");
+                        .to("mock:out2");
             }
         };
     }
 
     protected String getProducerUri() {
-        return "xmpp://localhost:" + EmbeddedXmppTestServer.instance().getXmppPort()
-            + "/camel_consumer@apache.camel?user=camel_producer&password=secret&serviceName=apache.camel";
+        return "xmpp://" + getUrl()
+               + "/camel_producer@apache.camel?connectionConfig=#customConnectionConfig&room=camel-test-producer@conference.apache.camel&user=camel_producer&password=secret&serviceName=apache.camel";
     }
-    
+
     protected String getConsumerUri() {
-        return "xmpp://localhost:" + EmbeddedXmppTestServer.instance().getXmppPort()
-            + "/camel_producer@apache.camel?user=camel_consumer&password=secret&serviceName=apache.camel";
+        return "xmpp://" + getUrl()
+               + "/camel_consumer@apache.camel?connectionConfig=#customConnectionConfig&room=camel-test-consumer@conference.apache.camel&user=camel_consumer&password=secret&serviceName=apache.camel";
     }
+
 }

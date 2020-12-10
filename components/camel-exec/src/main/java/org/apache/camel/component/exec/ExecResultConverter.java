@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -30,13 +30,13 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.camel.TypeConverter.MISS_VALUE;
+
 /**
- * Default converters for {@link ExecResult}. For details how to extend the
- * converters check out <a
- * href="http://camel.apache.org/type-converter.html">the Camel docs for type
- * converters.</a>
+ * Default converters for {@link ExecResult}. For details how to extend the converters check out
+ * <a href="http://camel.apache.org/type-converter.html">the Camel docs for type converters.</a>
  */
-@Converter
+@Converter(generateLoader = true)
 public final class ExecResultConverter {
 
     private static final Logger LOG = LoggerFactory.getLogger(ExecResultConverter.class);
@@ -51,11 +51,8 @@ public final class ExecResultConverter {
 
     @Converter
     public static byte[] convertToByteArray(ExecResult result, Exchange exchange) throws FileNotFoundException, IOException {
-        InputStream stream = toInputStream(result);
-        try {
+        try (InputStream stream = toInputStream(result)) {
             return IOUtils.toByteArray(stream);
-        } finally {
-            IOUtils.closeQuietly(stream);
         }
     }
 
@@ -78,15 +75,13 @@ public final class ExecResultConverter {
 
     /**
      * Converts <code>ExecResult</code> to the type <code>T</code>.
-     * 
-     * @param <T> The type to convert to
-     * @param type Class instance of the type to which to convert
-     * @param exchange a Camel exchange. If exchange is <code>null</code>, no
-     *            conversion will be made
-     * @param result the exec result
-     * @return the converted {@link ExecResult}
-     * @throws FileNotFoundException if there is a file in the execResult, and
-     *             the file can not be found
+     *
+     * @param  <T>                   The type to convert to
+     * @param  type                  Class instance of the type to which to convert
+     * @param  exchange              a Camel exchange. If exchange is <code>null</code>, no conversion will be made
+     * @param  result                the exec result
+     * @return                       the converted {@link ExecResult}
+     * @throws FileNotFoundException if there is a file in the execResult, and the file can not be found
      */
     @SuppressWarnings("unchecked")
     private static <T> T convertTo(Class<T> type, Exchange exchange, ExecResult result) throws FileNotFoundException {
@@ -96,27 +91,23 @@ public final class ExecResultConverter {
         } else {
             // use Void to indicate we cannot convert it
             // (prevents Camel from using a fallback converter which may convert a String from the instance name)  
-            return (T) Void.TYPE;
+            return (T) MISS_VALUE;
         }
     }
 
     /**
-     * Returns <code>InputStream</code> object with the <i>output</i> of the
-     * executable. If there is {@link ExecCommand#getOutFile()}, its content is
-     * preferred to {@link ExecResult#getStdout()}. If no out file is set, and
-     * the stdout of the exec result is <code>null</code> returns the stderr of
-     * the exec result. <br>
-     * If the output stream is of type <code>ByteArrayInputStream</code>, its
-     * <code>reset()</code> method is called.
-     * 
-     * @param execResult ExecResult object to convert to InputStream.
-     * @return InputStream object with the <i>output</i> of the executable.
-     *         Returns <code>null</code> if both {@link ExecResult#getStdout()}
-     *         and {@link ExecResult#getStderr()} are <code>null</code> , or if
-     *         the <code>execResult</code> is <code>null</code>.
-     * @throws FileNotFoundException if the {@link ExecCommand#getOutFile()} can
-     *             not be opened. In this case the out file must have had a not
-     *             <code>null</code> value
+     * Returns <code>InputStream</code> object with the <i>output</i> of the executable. If there is
+     * {@link ExecCommand#getOutFile()}, its content is preferred to {@link ExecResult#getStdout()}. If no out file is
+     * set, and the stdout of the exec result is <code>null</code> returns the stderr of the exec result. <br>
+     * If the output stream is of type <code>ByteArrayInputStream</code>, its <code>reset()</code> method is called.
+     *
+     * @param  execResult            ExecResult object to convert to InputStream.
+     * @return                       InputStream object with the <i>output</i> of the executable. Returns
+     *                               <code>null</code> if both {@link ExecResult#getStdout()} and
+     *                               {@link ExecResult#getStderr()} are <code>null</code> , or if the
+     *                               <code>execResult</code> is <code>null</code>.
+     * @throws FileNotFoundException if the {@link ExecCommand#getOutFile()} can not be opened. In this case the out
+     *                               file must have had a not <code>null</code> value
      */
     private static InputStream toInputStream(ExecResult execResult) throws FileNotFoundException {
         if (execResult == null) {
@@ -133,7 +124,7 @@ public final class ExecResultConverter {
                 LOG.warn("ExecResult has no stdout, will fallback to use stderr.");
                 result = execResult.getStderr();
             } else {
-                result = execResult.getStdout() != null ? execResult.getStdout() : null;
+                result = execResult.getStdout();
             }
         }
         // reset the stream if it was already read.
@@ -145,7 +136,7 @@ public final class ExecResultConverter {
      * Resets the stream, only if it's a ByteArrayInputStream.
      */
     private static void resetIfByteArrayInputStream(InputStream stream) {
-        if (stream != null && stream instanceof ByteArrayInputStream) {
+        if (stream instanceof ByteArrayInputStream) {
             try {
                 stream.reset();
             } catch (IOException ioe) {

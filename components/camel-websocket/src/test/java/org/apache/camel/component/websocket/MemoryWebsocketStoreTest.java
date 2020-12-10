@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,26 +17,22 @@
 package org.apache.camel.component.websocket;
 
 import java.util.Collection;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InOrder;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.when;
 
-/**
- *
- */
-@RunWith(MockitoJUnitRunner.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class MemoryWebsocketStoreTest {
 
     private static final String KEY_1 = "one";
@@ -47,13 +43,13 @@ public class MemoryWebsocketStoreTest {
     @Mock
     private NodeSynchronization sync;
     @Mock
-    private DefaultWebsocket websocket1 = new DefaultWebsocket(sync, consumer);;
+    private DefaultWebsocket websocket1 = new DefaultWebsocket(sync, null, consumer);
     @Mock
-    private DefaultWebsocket websocket2 = new DefaultWebsocket(sync, consumer);;
+    private DefaultWebsocket websocket2 = new DefaultWebsocket(sync, null, consumer);
 
     private MemoryWebsocketStore store;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         store = new MemoryWebsocketStore();
         when(websocket1.getConnectionKey()).thenReturn(KEY_1);
@@ -71,9 +67,11 @@ public class MemoryWebsocketStoreTest {
         assertEquals(websocket2, store.get(KEY_2));
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void testAddNullValue() {
-        store.add(null);
+        assertThrows(NullPointerException.class, () -> {
+            store.add(null);
+        });
     }
 
     @Test
@@ -84,10 +82,6 @@ public class MemoryWebsocketStoreTest {
         // second call of websocket1.getConnectionKey()
         store.remove(websocket1);
         assertNull(store.get(KEY_1));
-
-        InOrder inOrder = inOrder(websocket1, websocket2);
-        inOrder.verify(websocket1, times(2)).getConnectionKey();
-        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
@@ -106,10 +100,6 @@ public class MemoryWebsocketStoreTest {
         } catch (Exception e) {
             assertEquals(NullPointerException.class, e.getClass());
         }
-
-        InOrder inOrder = inOrder(websocket1, websocket2);
-        inOrder.verify(websocket1, times(2)).getConnectionKey();
-        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
@@ -121,10 +111,6 @@ public class MemoryWebsocketStoreTest {
         store.remove(websocket2);
         assertEquals(websocket1, store.get(KEY_1));
         assertNull(store.get(KEY_2));
-
-        InOrder inOrder = inOrder(websocket1, websocket2);
-        inOrder.verify(websocket2, times(1)).getConnectionKey();
-        inOrder.verifyNoMoreInteractions();
     }
 
     @Test

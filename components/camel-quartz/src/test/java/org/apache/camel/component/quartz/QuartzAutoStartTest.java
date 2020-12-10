@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,10 @@ package org.apache.camel.component.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 public class QuartzAutoStartTest extends BaseQuartzTest {
 
     @Test
@@ -31,7 +30,7 @@ public class QuartzAutoStartTest extends BaseQuartzTest {
         mock.expectedMessageCount(0);
 
         QuartzComponent quartz = context.getComponent("quartz", QuartzComponent.class);
-        assertFalse("Should not have started scheduler", quartz.getScheduler().isStarted());
+        assertFalse(quartz.getScheduler().isStarted(), "Should not have started scheduler");
 
         Thread.sleep(2000);
 
@@ -42,21 +41,17 @@ public class QuartzAutoStartTest extends BaseQuartzTest {
 
         // start scheduler
 
-        quartz.startScheduler();
+        quartz.getScheduler().start();
 
         assertMockEndpointsSatisfied();
     }
-
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                QuartzComponent quartz = context.getComponent("quartz", QuartzComponent.class);
-                quartz.setAutoStartScheduler(false);
-
-                from("quartz://myGroup/myTimerName?cron=0/1+*+*+*+*+?").to("mock:one");
+                from("quartz://myGroup/myTimerName?cron=0/1+*+*+*+*+?&autoStartScheduler=false").to("mock:one");
             }
         };
     }

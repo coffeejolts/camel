@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,14 +20,12 @@ import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * @version
- */
 public class JmsRequestReplyExclusiveReplyToRemoveAddRouteTest extends CamelTestSupport {
 
     @Test
@@ -35,7 +33,7 @@ public class JmsRequestReplyExclusiveReplyToRemoveAddRouteTest extends CamelTest
         assertEquals("Hello A", template.requestBody("direct:start", "A"));
 
         // stop and remove route
-        context.stopRoute("start");
+        context.getRouteController().stopRoute("start");
         context.removeRoute("start");
 
         // add new route using same jms endpoint uri
@@ -55,6 +53,7 @@ public class JmsRequestReplyExclusiveReplyToRemoveAddRouteTest extends CamelTest
         assertEquals("Hello E", template.requestBody("direct:start2", "E"));
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
         ConnectionFactory connectionFactory = CamelJmsTestHelper.createConnectionFactory();
@@ -68,11 +67,11 @@ public class JmsRequestReplyExclusiveReplyToRemoveAddRouteTest extends CamelTest
             @Override
             public void configure() throws Exception {
                 from("direct:start").routeId("start")
-                    .to("activemq:queue:foo?replyTo=bar&replyToType=Exclusive")
-                    .to("log:start");
+                        .to("activemq:queue:foo?replyTo=bar&replyToType=Exclusive")
+                        .to("log:start");
 
                 from("activemq:queue:foo").routeId("foo")
-                    .transform(body().prepend("Hello "));
+                        .transform(body().prepend("Hello "));
             }
         };
     }

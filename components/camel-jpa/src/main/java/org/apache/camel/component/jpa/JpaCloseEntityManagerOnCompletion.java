@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -32,7 +32,13 @@ public class JpaCloseEntityManagerOnCompletion extends SynchronizationAdapter {
 
     @Override
     public void onDone(Exchange exchange) {
-        entityManager.close();
+        try {
+            if (entityManager.isOpen()) {
+                entityManager.close();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     @Override

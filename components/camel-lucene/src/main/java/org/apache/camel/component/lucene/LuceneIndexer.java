@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,16 @@
  */
 package org.apache.camel.component.lucene;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.converter.IOConverter;
+import org.apache.camel.util.IOHelper;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -31,7 +34,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.NIOFSDirectory;
-import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,18 +48,18 @@ public class LuceneIndexer {
     private IndexWriter indexWriter;
     private boolean sourceDirectoryIndexed;
 
-    public LuceneIndexer(File sourceDirectory, File indexDirectory, Analyzer analyzer)  throws Exception {
+    public LuceneIndexer(File sourceDirectory, File indexDirectory, Analyzer analyzer) throws Exception {
         if (indexDirectory != null) {
             if (!indexDirectory.exists()) {
                 indexDirectory.mkdir();
-            }   
-            this.setNiofsDirectory(new NIOFSDirectory(indexDirectory));
+            }
+            this.setNiofsDirectory(new NIOFSDirectory(indexDirectory.toPath()));
         } else {
-            this.setNiofsDirectory(new NIOFSDirectory(new File("./indexDirectory")));
+            this.setNiofsDirectory(new NIOFSDirectory(new File("./indexDirectory").toPath()));
         }
 
         this.setAnalyzer(analyzer);
-        
+
         if ((sourceDirectory != null) && (!sourceDirectoryIndexed)) {
             this.setSourceDirectory(sourceDirectory);
             add(getSourceDirectory());
@@ -128,23 +130,30 @@ public class LuceneIndexer {
             } else {
                 LOG.trace("Adding {}", file);
 
+                String contents;
+                try (InputStream is = new FileInputStream(file)) {
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    IOHelper.copy(IOHelper.buffered(is), bos);
+                    contents = bos.toString();
+                }
                 openIndexWriter();
                 add("path", file.getPath(), false);
-                add("contents", new String(IOConverter.toByteArray(file)), true);
+                add("contents", contents, true);
                 closeIndexWriter();
 
                 LOG.trace("Added {} successfully", file);
             }
         } else {
-            LOG.warn("Directory/File " + file.getAbsolutePath() + " could not be read."
-                + " This directory will not be indexed. Please check permissions and rebuild indexes.");
+            LOG.warn("Directory/File {} could not be read."
+                     + " This directory will not be indexed. Please check permissions and rebuild indexes.",
+                    file.getAbsolutePath());
         }
     }
 
     private void openIndexWriter() throws IOException {
         IndexWriterConfig indexWriterConfig;
         // use create or append so we can reuse existing index if already exists
-        indexWriterConfig = new IndexWriterConfig(Version.LUCENE_4_10_3, getAnalyzer()).setOpenMode(OpenMode.CREATE_OR_APPEND);
+        indexWriterConfig = new IndexWriterConfig(getAnalyzer()).setOpenMode(OpenMode.CREATE_OR_APPEND);
         indexWriter = new IndexWriter(niofsDirectory, indexWriterConfig);
     }
 
@@ -155,7 +164,7 @@ public class LuceneIndexer {
 
     private static FieldType createFieldType(boolean tokenized) {
         FieldType answer = new FieldType();
-        answer.setIndexed(true);
+        //answer.setIndexed(true);
         answer.setStored(true);
         answer.setTokenized(tokenized);
 

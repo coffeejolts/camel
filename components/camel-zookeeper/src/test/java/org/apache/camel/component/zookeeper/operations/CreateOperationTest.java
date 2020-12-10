@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,7 +16,7 @@
  */
 package org.apache.camel.component.zookeeper.operations;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.camel.component.zookeeper.ZooKeeperTestSupport;
@@ -25,14 +25,17 @@ import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooDefs.Perms;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateOperationTest extends ZooKeeperTestSupport {
 
     private ZooKeeper connection;
 
-    @Before
+    @BeforeEach
     public void setupConnection() {
         connection = getConnection();
     }
@@ -45,6 +48,27 @@ public class CreateOperationTest extends ZooKeeperTestSupport {
         assertEquals("/one", result.getResult());
 
         verifyNodeContainsData("/one", null);
+    }
+
+    @Test
+    public void createBasicSubPath() throws Exception {
+        CreateOperation create = new CreateOperation(connection, "/sub/sub2");
+
+        OperationResult<String> result = create.get();
+        assertEquals("/sub/sub2", result.getResult());
+
+        verifyNodeContainsData("/sub/sub2", null);
+    }
+
+    @Test
+    public void createBasicSubPathWithData() throws Exception {
+        CreateOperation create = new CreateOperation(connection, "/sub/sub3");
+        create.setData(testPayload.getBytes());
+
+        OperationResult<String> result = create.get();
+        assertEquals("/sub/sub3", result.getResult());
+
+        verifyNodeContainsData("/sub/sub3", testPayloadBytes);
     }
 
     @Test
@@ -75,7 +99,9 @@ public class CreateOperationTest extends ZooKeeperTestSupport {
     public void createNodeWithSpecificAccess() throws Exception {
         CreateOperation create = new CreateOperation(connection, "/four");
         create.setData(testPayload.getBytes());
-        List<ACL> perms = Collections.singletonList(new ACL(Perms.CREATE, Ids.ANYONE_ID_UNSAFE));
+        List<ACL> perms = new ArrayList<>();
+        perms.add(new ACL(Perms.CREATE, Ids.ANYONE_ID_UNSAFE));
+        perms.add(new ACL(Perms.READ, Ids.ANYONE_ID_UNSAFE));
         create.setPermissions(perms);
 
         OperationResult<String> result = create.get();

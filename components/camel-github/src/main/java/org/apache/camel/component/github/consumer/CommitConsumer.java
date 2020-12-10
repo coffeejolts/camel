@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,6 +22,7 @@ import java.util.Stack;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.apache.camel.component.github.GitHubConstants;
 import org.apache.camel.component.github.GitHubEndpoint;
 import org.apache.camel.spi.Registry;
 import org.eclipse.egit.github.core.RepositoryCommit;
@@ -31,24 +32,24 @@ import org.slf4j.LoggerFactory;
 
 public class CommitConsumer extends AbstractGitHubConsumer {
     private static final transient Logger LOG = LoggerFactory.getLogger(CommitConsumer.class);
-    
+
     private CommitService commitService;
-    
-    private List<String> commitHashes = new ArrayList<String>();
-    
+
+    private List<String> commitHashes = new ArrayList<>();
+
     public CommitConsumer(GitHubEndpoint endpoint, Processor processor, String branchName) throws Exception {
         super(endpoint, processor);
 
         Registry registry = endpoint.getCamelContext().getRegistry();
-        Object service = registry.lookupByName("githubCommitService");
+        Object service = registry.lookupByName(GitHubConstants.GITHUB_COMMIT_SERVICE);
         if (service != null) {
-            LOG.debug("Using CommitService found in registry " + service.getClass().getCanonicalName());
+            LOG.debug("Using CommitService found in registry {}", service.getClass().getCanonicalName());
             commitService = (CommitService) service;
         } else {
             commitService = new CommitService();
         }
         initService(commitService);
-        
+
         LOG.info("GitHub CommitConsumer: Indexing current commits...");
         List<RepositoryCommit> commits = commitService.getCommits(getRepository(), branchName, null);
         for (RepositoryCommit commit : commits) {
@@ -60,14 +61,14 @@ public class CommitConsumer extends AbstractGitHubConsumer {
     protected int poll() throws Exception {
         List<RepositoryCommit> commits = commitService.getCommits(getRepository());
         // In the end, we want tags oldest to newest.
-        Stack<RepositoryCommit> newCommits = new Stack<RepositoryCommit>();
+        Stack<RepositoryCommit> newCommits = new Stack<>();
         for (RepositoryCommit commit : commits) {
             if (!commitHashes.contains(commit.getSha())) {
                 newCommits.push(commit);
                 commitHashes.add(commit.getSha());
             }
         }
-        
+
         while (!newCommits.empty()) {
             RepositoryCommit newCommit = newCommits.pop();
             Exchange e = getEndpoint().createExchange();

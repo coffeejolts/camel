@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +16,10 @@
  */
 package org.apache.camel.component.google.drive;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.UnknownHostException;
 import java.util.Collection;
 
 import com.google.api.client.auth.oauth2.Credential;
@@ -23,7 +27,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.drive.Drive;
-
+import org.apache.camel.RuntimeCamelException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,32 +41,47 @@ public class BatchGoogleDriveClientFactory implements GoogleDriveClientFactory {
         this.jsonFactory = new JacksonFactory();
     }
 
-    @Override
-    public Drive makeClient(String clientId, String clientSecret, Collection<String> scopes, String applicationName, String refreshToken, String accessToken) {
-        Credential credential;
+    public BatchGoogleDriveClientFactory(String proxyHost, int proxyPort) {
         try {
-            credential = authorize(clientId, clientSecret, scopes);
+            Proxy proxy = new Proxy(
+                    Proxy.Type.HTTP,
+                    new InetSocketAddress(InetAddress.getByName(proxyHost), proxyPort));
+            this.transport = new NetHttpTransport.Builder().setProxy(proxy).build();
+            this.jsonFactory = new JacksonFactory();
+        } catch (UnknownHostException e) {
+            LOG.error("Unknow proxy host", e);
+        }
+    }
+
+    @Override
+    public Drive makeClient(
+            String clientId, String clientSecret, Collection<String> scopes, String applicationName, String refreshToken,
+            String accessToken) {
+        if (clientId == null || clientSecret == null) {
+            throw new IllegalArgumentException("clientId and clientSecret are required to create Google Drive client.");
+        }
+        try {
+            Credential credential = authorize(clientId, clientSecret, scopes);
 
             if (refreshToken != null && !"".equals(refreshToken)) {
                 credential.setRefreshToken(refreshToken);
-            } 
+            }
             if (accessToken != null && !"".equals(accessToken)) {
                 credential.setAccessToken(accessToken);
             }
             return new Drive.Builder(transport, jsonFactory, credential).setApplicationName(applicationName).build();
         } catch (Exception e) {
-            LOG.error("Could not create Google Drive client.", e);            
+            throw new RuntimeCamelException("Could not create Google Drive client.", e);
         }
-        return null;
     }
-    
+
     // Authorizes the installed application to access user's protected data.
     private Credential authorize(String clientId, String clientSecret, Collection<String> scopes) throws Exception {
         // authorize
         return new GoogleCredential.Builder()
-            .setJsonFactory(jsonFactory)
-            .setTransport(transport)
-            .setClientSecrets(clientId, clientSecret)
-            .build();
+                .setJsonFactory(jsonFactory)
+                .setTransport(transport)
+                .setClientSecrets(clientId, clientSecret)
+                .build();
     }
 }

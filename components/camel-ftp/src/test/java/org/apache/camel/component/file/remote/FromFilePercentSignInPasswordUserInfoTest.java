@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,14 @@
  */
 package org.apache.camel.component.file.remote;
 
-/**
- * @version 
- */
 public class FromFilePercentSignInPasswordUserInfoTest extends FromFilePercentSignInPasswordTest {
 
+    @Override
     protected String getFtpUrl() {
-        // the user info is not encoded, but we should be forgiving and allow the user to use
+        // the user info is not encoded, but we should be forgiving and allow
+        // the user to use
         // the user name and password out of the box as is
-        return "ftp://us@r:t%st@localhost:" + getPort() + "/tmp3/camel?consumer.initialDelay=3000";
+        return "ftp://us@r:t%st@localhost:{{ftp.server.port}}/tmp3/camel?initialDelay=3000";
     }
 
 }

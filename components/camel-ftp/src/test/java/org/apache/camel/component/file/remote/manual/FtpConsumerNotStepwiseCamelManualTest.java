@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,14 +17,18 @@
 package org.apache.camel.component.file.remote.manual;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-@Ignore("Run this test manually")
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
+
+@Disabled("Run this test manually")
 public class FtpConsumerNotStepwiseCamelManualTest extends CamelTestSupport {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         deleteDirectory("target/ftptest");
         super.setUp();
@@ -41,9 +45,8 @@ public class FtpConsumerNotStepwiseCamelManualTest extends CamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("ftp:localhost/one/two?username=camel&password=camel&noop=true&stepwise=false")
-                    .to("file:target/ftptest")
-                    .to("mock:result");
+                from("ftp:localhost/one/two?username=camel&password=camel&noop=true&stepwise=false").to("file:target/ftptest")
+                        .to("mock:result");
             }
         };
     }

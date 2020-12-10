@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,15 +19,20 @@ package org.apache.camel.component.leveldb;
 import java.io.File;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultExchange;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.support.DefaultExchange;
+import org.apache.camel.test.junit5.params.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-public class LevelDBAggregationRepositoryLoadExistingTest extends CamelTestSupport {
+import static org.apache.camel.test.junit5.TestSupport.deleteDirectory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class LevelDBAggregationRepositoryLoadExistingTest extends LevelDBTestSupport {
 
     private LevelDBFile levelDBFile;
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         super.setUp();
         deleteDirectory("target/data");
@@ -38,6 +43,7 @@ public class LevelDBAggregationRepositoryLoadExistingTest extends CamelTestSuppo
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         levelDBFile.stop();
         super.tearDown();
@@ -45,7 +51,7 @@ public class LevelDBAggregationRepositoryLoadExistingTest extends CamelTestSuppo
 
     @Test
     public void testExisting() throws Exception {
-        LevelDBAggregationRepository repo = new LevelDBAggregationRepository();
+        LevelDBAggregationRepository repo = getRepo();
         repo.setLevelDBFile(levelDBFile);
         repo.setRepositoryName("repo1");
         repo.setReturnOldExchange(true);

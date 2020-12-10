@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,38 +18,40 @@ package org.apache.camel.component.infinispan.processor.idempotent;
 
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.manager.DefaultCacheManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.jgroups.util.Util.assertFalse;
 import static org.jgroups.util.Util.assertTrue;
 
 public class InfinispanIdempotentRepositoryTest {
 
-    public static final GlobalConfiguration GLOBAL_CONFIGURATION = new GlobalConfigurationBuilder().globalJmxStatistics().allowDuplicateDomains(true).build();
-
     protected BasicCacheContainer basicCacheContainer;
     protected InfinispanIdempotentRepository idempotentRepository;
-    protected String cacheName = "test";
+    protected String cacheName = "default";
 
-    @Before
-    public void setUp() throws Exception {
-        basicCacheContainer = new DefaultCacheManager(GLOBAL_CONFIGURATION);
+    @BeforeEach
+    public void setUp() {
+        GlobalConfiguration global = new GlobalConfigurationBuilder().defaultCacheName("default").jmx().domain("test").build();
+        Configuration conf = new ConfigurationBuilder().build();
+        basicCacheContainer = new DefaultCacheManager(global, conf);
         basicCacheContainer.start();
         idempotentRepository = InfinispanIdempotentRepository.infinispanIdempotentRepository(basicCacheContainer, cacheName);
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    public void tearDown() {
         basicCacheContainer.stop();
     }
 
     @Test
-    public void addsNewKeysToCache() throws Exception {
+    public void addsNewKeysToCache() {
         assertTrue(idempotentRepository.add("One"));
         assertTrue(idempotentRepository.add("Two"));
 
@@ -58,13 +60,13 @@ public class InfinispanIdempotentRepositoryTest {
     }
 
     @Test
-    public void skipsAddingSecondTimeTheSameKey() throws Exception {
+    public void skipsAddingSecondTimeTheSameKey() {
         assertTrue(idempotentRepository.add("One"));
         assertFalse(idempotentRepository.add("One"));
     }
 
     @Test
-    public void containsPreviouslyAddedKey() throws Exception {
+    public void containsPreviouslyAddedKey() {
         assertFalse(idempotentRepository.contains("One"));
 
         idempotentRepository.add("One");
@@ -73,7 +75,7 @@ public class InfinispanIdempotentRepositoryTest {
     }
 
     @Test
-    public void removesAnExistingKey() throws Exception {
+    public void removesAnExistingKey() {
         idempotentRepository.add("One");
 
         assertTrue(idempotentRepository.remove("One"));
@@ -82,8 +84,22 @@ public class InfinispanIdempotentRepositoryTest {
     }
 
     @Test
-    public void doesntRemoveMissingKey() throws Exception {
+    public void doesntRemoveMissingKey() {
         assertFalse(idempotentRepository.remove("One"));
+    }
+
+    @Test
+    public void clearCache() {
+        assertTrue(idempotentRepository.add("One"));
+        assertTrue(idempotentRepository.add("Two"));
+
+        assertTrue(getCache().containsKey("One"));
+        assertTrue(getCache().containsKey("Two"));
+
+        idempotentRepository.clear();
+
+        assertFalse(getCache().containsKey("One"));
+        assertFalse(getCache().containsKey("Two"));
     }
 
     private BasicCache<Object, Object> getCache() {

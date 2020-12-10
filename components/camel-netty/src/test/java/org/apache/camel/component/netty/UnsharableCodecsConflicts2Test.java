@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,33 +22,29 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Arrays;
 
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  */
 public class UnsharableCodecsConflicts2Test extends BaseNettyTest {
 
-    static final byte[] LENGTH_HEADER = {0x00, 0x00, 0x40, 0x00}; // 16384 bytes
+    private static final Logger LOG = LoggerFactory.getLogger(NettyConsumerClientModeReconnectTest.class);
+
+    private static final byte[] LENGTH_HEADER = { 0x00, 0x00, 0x40, 0x00 }; // 16384 bytes
 
     private Processor processor = new P();
     private int port;
 
-    @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = super.createRegistry();
-
-        // create a single decoder
-        ChannelHandlerFactory decoder = ChannelHandlerFactories.newLengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4);
-        registry.bind("length-decoder", decoder);
-
-        return registry;
-    }
+    @BindToRegistry("length-decoder")
+    private ChannelHandlerFactory decoder = ChannelHandlerFactories.newLengthFieldBasedFrameDecoder(1048576, 0, 4, 0, 4);
 
     @Test
     public void unsharableCodecsConflictsTest() throws Exception {
@@ -71,7 +67,7 @@ public class UnsharableCodecsConflicts2Test extends BaseNettyTest {
             sendBuffer(body1, client1);
             sendBuffer(new String("9").getBytes(), client2);
         } catch (Exception e) {
-            log.error("", e);
+            LOG.error("", e);
         } finally {
             client1.close();
             client2.close();
@@ -80,14 +76,13 @@ public class UnsharableCodecsConflicts2Test extends BaseNettyTest {
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 port = getPort();
 
-                from("netty:tcp://localhost:{{port}}?decoder=#length-decoder&sync=false")
-                        .process(processor)
-                        .to("mock:result");
+                from("netty:tcp://localhost:{{port}}?decoders=#length-decoder&sync=false").process(processor).to("mock:result");
             }
         };
     }

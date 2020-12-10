@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,16 +18,23 @@ package org.apache.camel.component.jetty;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.camel.component.http.DefaultHttpBinding;
-import org.apache.camel.component.http.HttpEndpoint;
-import org.apache.camel.component.http.HttpMessage;
+import org.apache.camel.http.common.DefaultHttpBinding;
+import org.apache.camel.http.common.HttpCommonEndpoint;
+import org.apache.camel.http.common.HttpMessage;
 
 public class JettyRestHttpBinding extends DefaultHttpBinding {
+
     @Deprecated
     public JettyRestHttpBinding() {
     }
-    public JettyRestHttpBinding(HttpEndpoint ep) {
+
+    public JettyRestHttpBinding(HttpCommonEndpoint ep) {
         super(ep);
+        setHeaderFilterStrategy(ep.getHeaderFilterStrategy());
+        setTransferException(ep.isTransferException());
+        setEagerCheckContentAvailable(ep.isEagerCheckContentAvailable());
+        setMapHttpMessageBody(ep.isMapHttpMessageBody());
+        setMapHttpMessageHeaders(ep.isMapHttpMessageHeaders());
     }
 
     @Override

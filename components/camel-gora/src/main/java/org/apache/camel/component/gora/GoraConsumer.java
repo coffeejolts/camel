@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,35 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.gora;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.ExecutorService;
 
 import org.apache.camel.Consumer;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.gora.utils.GoraUtils;
-import org.apache.camel.impl.ScheduledPollConsumer;
+import org.apache.camel.support.ScheduledPollConsumer;
 import org.apache.gora.persistency.Persistent;
 import org.apache.gora.query.Query;
 import org.apache.gora.query.Result;
 import org.apache.gora.store.DataStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of Camel-Gora {@link Consumer}.
- *
  */
 public class GoraConsumer extends ScheduledPollConsumer {
-
-    /**
-     * logger
-     */
-    private static final Logger LOG = LoggerFactory.getLogger(GoraConsumer.class);
 
     /**
      * GORA datastore
@@ -60,15 +50,9 @@ public class GoraConsumer extends ScheduledPollConsumer {
     private Query query;
 
     /**
-     * executor service
-     */
-    private ExecutorService executor;
-
-    /**
      * Poll run
      */
     private boolean firstRun;
-
 
     /**
      * Consumer Constructor
@@ -81,25 +65,20 @@ public class GoraConsumer extends ScheduledPollConsumer {
     public GoraConsumer(final Endpoint endpoint,
                         final Processor processor,
                         final GoraConfiguration configuration,
-                        final DataStore<Object, Persistent> dataStore) throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+                        final DataStore<Object, Persistent> dataStore) throws ClassNotFoundException, NoSuchMethodException,
+                                                                       InvocationTargetException, IllegalAccessException {
 
         super(endpoint, processor);
-
         this.configuration = configuration;
         this.dataStore = dataStore;
-
         this.query = GoraUtils.constractQueryFromConfiguration(this.dataStore, this.configuration);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     protected int poll() throws Exception {
-
         final Exchange exchange = this.getEndpoint().createExchange();
 
-        // compute time (aprox) since last update
+        // compute time (approx) since last update
         if (firstRun) {
             this.query.setStartTime(System.currentTimeMillis());
         } else {
@@ -109,15 +88,10 @@ public class GoraConsumer extends ScheduledPollConsumer {
         //proceed with query
         final Result result = query.execute();
 
-        LOG.trace("Processing exchange [{}]...", exchange);
-
         try {
-
             getProcessor().process(exchange);
         } finally {
-
             if (exchange.getException() != null) {
-
                 getExceptionHandler().handleException("Error processing exchange", exchange, exchange.getException());
             }
         }
@@ -125,4 +99,3 @@ public class GoraConsumer extends ScheduledPollConsumer {
         return Long.valueOf(result.getOffset()).intValue();
     }
 }
-

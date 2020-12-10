@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,17 +18,25 @@ package org.apache.camel.component.netty.http;
 
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class NettyHttpSimpleBasicAuthTest extends BaseNettyTest {
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         System.setProperty("java.security.auth.login.config", "src/test/resources/myjaas.config");
         super.setUp();
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         System.clearProperty("java.security.auth.login.config");
         super.tearDown();
@@ -36,6 +44,7 @@ public class NettyHttpSimpleBasicAuthTest extends BaseNettyTest {
 
     @Test
     public void testBasicAuth() throws Exception {
+
         try {
             template.requestBody("netty-http:http://localhost:{{port}}/foo", "Hello World", String.class);
             fail("Should send back 401");
@@ -48,10 +57,20 @@ public class NettyHttpSimpleBasicAuthTest extends BaseNettyTest {
 
         // username:password is scott:secret
         String auth = "Basic c2NvdHQ6c2VjcmV0";
-        String out = template.requestBodyAndHeader("netty-http:http://localhost:{{port}}/foo", "Hello World", "Authorization", auth, String.class);
+        String out = template.requestBodyAndHeader("netty-http:http://localhost:{{port}}/foo", "Hello World", "Authorization",
+                auth, String.class);
         assertEquals("Bye World", out);
 
         assertMockEndpointsSatisfied();
+
+        try {
+            template.requestBody("netty-http:http://localhost:{{port}}/foo", "Hello World", String.class);
+            fail("Should send back 401");
+        } catch (CamelExecutionException e) {
+            NettyHttpOperationFailedException cause = assertIsInstanceOf(NettyHttpOperationFailedException.class, e.getCause());
+            assertEquals(401, cause.getStatusCode());
+        }
+
     }
 
     @Override
@@ -60,8 +79,8 @@ public class NettyHttpSimpleBasicAuthTest extends BaseNettyTest {
             @Override
             public void configure() throws Exception {
                 from("netty-http:http://0.0.0.0:{{port}}/foo?securityConfiguration.realm=karaf")
-                    .to("mock:input")
-                    .transform().constant("Bye World");
+                        .to("mock:input")
+                        .transform().constant("Bye World");
             }
         };
     }

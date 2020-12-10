@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,23 +20,20 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.camel.util.EndpointHelper;
+import org.apache.camel.support.PatternHelper;
 
 /**
- * A default {@link SecurityConstraint} which can be used to define a set of mappings to
- * as constraints.
+ * A default {@link SecurityConstraint} which can be used to define a set of mappings to as constraints.
  * <p/>
- * This constraint will match as <tt>true</tt> if no inclusions has been defined.
- * First all the inclusions is check for matching. If a inclusion matches,
- * then the exclusion is checked, and if any of them matches, then the exclusion
- * will override the match and force returning <tt>false</tt>.
+ * This constraint will match as <tt>true</tt> if no inclusions has been defined. First all the inclusions is check for
+ * matching. If a inclusion matches, then the exclusion is checked, and if any of them matches, then the exclusion will
+ * override the match and force returning <tt>false</tt>.
  * <p/>
  * Wildcards and regular expressions is supported as this implementation uses
- * {@link EndpointHelper#matchPattern(String, String)} method for matching.
+ * {@link PatternHelper#matchPattern(String, String)} method for matching.
  * <p/>
- * This restricted constraint allows you to setup context path rules that will restrict
- * access to paths, and then override and have exclusions that may allow access to
- * public paths.
+ * This restricted constraint allows you to setup context path rules that will restrict access to paths, and then
+ * override and have exclusions that may allow access to public paths.
  */
 public class SecurityConstraintMapping implements SecurityConstraint {
 
@@ -72,7 +69,7 @@ public class SecurityConstraintMapping implements SecurityConstraint {
         String candidate = null;
         if (inclusions != null && !inclusions.isEmpty()) {
             for (String constraint : inclusions.keySet()) {
-                if (EndpointHelper.matchPattern(url, constraint)) {
+                if (PatternHelper.matchPattern(url, constraint)) {
                     if (candidate == null) {
                         candidate = constraint;
                     } else if (constraint.length() > candidate.length()) {
@@ -92,7 +89,7 @@ public class SecurityConstraintMapping implements SecurityConstraint {
     private boolean excludedUrl(String url) {
         if (exclusions != null && !exclusions.isEmpty()) {
             for (String constraint : exclusions) {
-                if (EndpointHelper.matchPattern(url, constraint)) {
+                if (PatternHelper.matchPattern(url, constraint)) {
                     // force not matches if this was an exclusion
                     return true;
                 }
@@ -104,21 +101,21 @@ public class SecurityConstraintMapping implements SecurityConstraint {
 
     public void addInclusion(String constraint) {
         if (inclusions == null) {
-            inclusions = new java.util.LinkedHashMap<String, String>();
+            inclusions = new java.util.LinkedHashMap<>();
         }
         inclusions.put(constraint, null);
     }
 
     public void addInclusion(String constraint, String roles) {
         if (inclusions == null) {
-            inclusions = new java.util.LinkedHashMap<String, String>();
+            inclusions = new java.util.LinkedHashMap<>();
         }
         inclusions.put(constraint, roles);
     }
 
     public void addExclusion(String constraint) {
         if (exclusions == null) {
-            exclusions = new LinkedHashSet<String>();
+            exclusions = new LinkedHashSet<>();
         }
         exclusions.add(constraint);
     }

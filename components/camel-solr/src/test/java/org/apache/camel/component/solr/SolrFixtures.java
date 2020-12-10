@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,26 +19,29 @@ package org.apache.camel.component.solr;
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
-import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.embedded.JettySolrRunner;
-import org.apache.solr.client.solrj.impl.HttpSolrServer;
-
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.request.AbstractUpdateRequest.ACTION;
+import org.apache.solr.client.solrj.request.UpdateRequest;
 
 public class SolrFixtures {
     static Logger log = Logger.getLogger(SolrFixtures.class);
 
     private static JettySolrRunner solrRunner;
     private static JettySolrRunner solrHttpsRunner;
-    private static HttpSolrServer solrServer;
-    private static HttpSolrServer solrHttpsServer;
+    private static HttpSolrClient solrServer;
+    private static HttpSolrClient solrHttpsServer;
     private static SolrCloudFixture cloudFixture;
 
     private static int port;
     private static int httpsPort;
 
     public enum TestServerType {
-        USE_HTTP, USE_HTTPS, USE_CLOUD
+        USE_HTTP,
+        USE_HTTPS,
+        USE_CLOUD
     }
 
     TestServerType serverType;
@@ -49,17 +52,19 @@ public class SolrFixtures {
 
     String solrRouteUri() {
         if (serverType == TestServerType.USE_HTTPS) {
-            return "solrs://localhost:" + httpsPort + "/solr";
+            return "solrs://127.0.0.1:" + httpsPort + "/solr/collection1"
+                   + "?username=solr&password=SolrRocks";
         } else if (serverType == TestServerType.USE_CLOUD) {
             String zkAddrStr = cloudFixture.miniCluster.getZkServer().getZkAddress();
             return "solrCloud://localhost:" + httpsPort + "/solr?zkHost=" + zkAddrStr
-                   + "&collection=collection1";
+                   + "&collection=collection1&username=solr&password=SolrRocks";
         } else {
-            return "solr://localhost:" + port + "/solr";
+            return "solr://localhost:" + port + "/solr/collection1"
+                   + "?username=solr&password=SolrRocks";
         }
     }
 
-    SolrServer getServer() {
+    SolrClient getServer() {
         if (serverType == TestServerType.USE_HTTPS) {
             return solrHttpsServer;
         } else if (serverType == TestServerType.USE_CLOUD) {
@@ -73,13 +78,14 @@ public class SolrFixtures {
         solrHttpsRunner = JettySolrFactory.createJettyTestFixture(true);
         httpsPort = solrHttpsRunner.getLocalPort();
         log.info("Started Https Test Server: " + solrHttpsRunner.getBaseUrl());
-        solrHttpsServer = new HttpSolrServer("https://localhost:" + httpsPort + "/solr");
-        solrHttpsServer.setConnectionTimeout(60000);
+        solrHttpsServer = new HttpSolrClient.Builder("https://127.0.0.1:" + httpsPort + "/solr")
+                .withConnectionTimeout(60000)
+                .build();
 
         solrRunner = JettySolrFactory.createJettyTestFixture(false);
         port = solrRunner.getLocalPort();
 
-        solrServer = new HttpSolrServer("http://localhost:" + port + "/solr");
+        solrServer = new HttpSolrClient.Builder("http://localhost:" + port + "/solr").build();
 
         log.info("Started Test Server: " + solrRunner.getBaseUrl());
         cloudFixture = new SolrCloudFixture("src/test/resources/solr");
@@ -98,18 +104,19 @@ public class SolrFixtures {
     }
 
     public static void clearIndex() throws SolrServerException, IOException {
+        UpdateRequest updateRequest = new UpdateRequest();
+        updateRequest.setBasicAuthCredentials("solr", "SolrRocks");
+        updateRequest.deleteByQuery("*:*");
+        updateRequest.setAction(ACTION.COMMIT, true, true);
         if (solrServer != null) {
             // Clear the Solr index.
-            solrServer.deleteByQuery("*:*");
-            solrServer.commit();
+            updateRequest.process(solrServer, "collection1");
         }
         if (solrHttpsServer != null) {
-            solrHttpsServer.deleteByQuery("*:*");
-            solrHttpsServer.commit();
+            updateRequest.process(solrHttpsServer, "collection1");
         }
         if (cloudFixture != null) {
-            cloudFixture.solrClient.deleteByQuery("*:*");
-            cloudFixture.solrClient.commit();
+            updateRequest.process(cloudFixture.solrClient);
         }
     }
 }

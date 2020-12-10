@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,20 +21,22 @@ import javax.xml.bind.annotation.XmlType;
 
 import org.apache.camel.builder.DeadLetterChannelBuilder;
 import org.apache.camel.builder.DefaultErrorHandlerBuilder;
-import org.apache.camel.builder.LoggingErrorHandlerBuilder;
 import org.apache.camel.builder.NoErrorHandlerBuilder;
+import org.apache.camel.spi.Metadata;
 import org.apache.camel.spring.spi.TransactionErrorHandlerBuilder;
 
 /**
- * Used to configure the errorHandler type
- *
- * @version 
+ * Used to configure the error handler type
  */
+@Metadata(label = "spring,configuration,error")
 @XmlType
 @XmlEnum(String.class)
 public enum ErrorHandlerType {
 
-    DefaultErrorHandler, DeadLetterChannel, LoggingErrorHandler, NoErrorHandler, TransactionErrorHandler;
+    DefaultErrorHandler,
+    DeadLetterChannel,
+    NoErrorHandler,
+    TransactionErrorHandler;
 
     /**
      * Get the type as class.
@@ -43,18 +45,16 @@ public enum ErrorHandlerType {
      */
     public Class<?> getTypeAsClass() {
         switch (this) {
-        case DefaultErrorHandler:
-            return DefaultErrorHandlerBuilder.class;
-        case DeadLetterChannel:
-            return DeadLetterChannelBuilder.class;
-        case LoggingErrorHandler:
-            return LoggingErrorHandlerBuilder.class;
-        case NoErrorHandler:
-            return NoErrorHandlerBuilder.class;
-        case TransactionErrorHandler:
-            return TransactionErrorHandlerBuilder.class;
-        default:
-            throw new IllegalArgumentException("Unknown error handler: " + this);
+            case DefaultErrorHandler:
+                return DefaultErrorHandlerBuilder.class;
+            case DeadLetterChannel:
+                return DeadLetterChannelBuilder.class;
+            case NoErrorHandler:
+                return NoErrorHandlerBuilder.class;
+            case TransactionErrorHandler:
+                return TransactionErrorHandlerBuilder.class;
+            default:
+                throw new IllegalArgumentException("Unknown error handler: " + this);
         }
     }
 

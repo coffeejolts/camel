@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,39 +16,42 @@
  */
 package org.apache.camel.component.atmos;
 
+import java.util.Base64;
+
 import org.apache.camel.Consumer;
-import org.apache.camel.Endpoint;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.atmos.integration.consumer.AtmosScheduledPollGetConsumer;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-import static org.apache.camel.component.atmos.util.AtmosOperation.get;
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class AtmosConsumerTest extends CamelTestSupport {
+
+    private String fake = Base64.getEncoder().encodeToString("fakeSecret".getBytes());
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("atmos:foo/" + get + "?remotePath=/path").to("mock:test");
+                fromF("atmos:foo/get?remotePath=/path&fullTokenId=fakeToken&secretKey=%s&uri=https://fake/uri", fake)
+                        .to("mock:test");
             }
         };
     }
 
     @Test
     public void shouldCreateGetConsumer() throws Exception {
-        // Given
-        AtmosEndpoint atmosEndpoint = context.getEndpoint("atmos:foo/" + get + "?remotePath=/path", AtmosEndpoint.class);
+        AtmosEndpoint endpoint = (AtmosEndpoint) context.getEndpoints().stream().filter(e -> e instanceof AtmosEndpoint)
+                .findFirst().orElse(null);
+        assertNotNull(endpoint);
 
-        // When
-        Consumer consumer = atmosEndpoint.createConsumer(null);
-
-        // Then
-        Assert.assertTrue(consumer instanceof AtmosScheduledPollGetConsumer);
-        assertEquals("foo", atmosEndpoint.getConfiguration().getName());
+        Consumer consumer = endpoint.createConsumer(null);
+        assertIsInstanceOf(AtmosScheduledPollGetConsumer.class, consumer);
+        assertEquals("foo", endpoint.getConfiguration().getName());
     }
 
 }

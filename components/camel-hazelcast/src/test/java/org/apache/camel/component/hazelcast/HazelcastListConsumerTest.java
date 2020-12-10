@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,34 +17,40 @@
 package org.apache.camel.component.hazelcast;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import com.hazelcast.collection.IList;
+import com.hazelcast.collection.ItemEvent;
+import com.hazelcast.collection.ItemListener;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.IList;
-import com.hazelcast.core.ItemEvent;
 import com.hazelcast.core.ItemEventType;
-import com.hazelcast.core.ItemListener;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class HazelcastListConsumerTest extends HazelcastCamelTestSupport {
 
     @Mock
     private IList<String> list;
 
-    private ArgumentCaptor<ItemListener> argument;
+    @Captor
+    private ArgumentCaptor<ItemListener<String>> argument;
 
     @Override
-    @SuppressWarnings("unchecked")
     protected void trainHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        when(hazelcastInstance.<String>getList("foo")).thenReturn(list);
-        argument = ArgumentCaptor.forClass(ItemListener.class);
-        when(list.addItemListener(argument.capture(), eq(true))).thenReturn("foo");
+        when(hazelcastInstance.<String> getList("foo")).thenReturn(list);
+        when(list.addItemListener(any(), eq(true))).thenReturn(UUID.randomUUID());
     }
 
     @Override
@@ -55,12 +61,12 @@ public class HazelcastListConsumerTest extends HazelcastCamelTestSupport {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void add() throws InterruptedException {
         MockEndpoint out = getMockEndpoint("mock:added");
         out.expectedMessageCount(1);
 
-        final ItemEvent<String> event = new ItemEvent<String>("mm", ItemEventType.ADDED, "foo", null);
+        verify(list).addItemListener(argument.capture(), eq(true));
+        final ItemEvent<String> event = new ItemEvent<>("mm", ItemEventType.ADDED, "foo", null);
         argument.getValue().itemAdded(event);
 
         assertMockEndpointsSatisfied(2000, TimeUnit.MILLISECONDS);
@@ -69,12 +75,12 @@ public class HazelcastListConsumerTest extends HazelcastCamelTestSupport {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void remove() throws InterruptedException {
         MockEndpoint out = getMockEndpoint("mock:removed");
         out.expectedMessageCount(1);
 
-        final ItemEvent<String> event = new ItemEvent<String>("mm", ItemEventType.REMOVED, "foo", null);
+        verify(list).addItemListener(argument.capture(), eq(true));
+        final ItemEvent<String> event = new ItemEvent<>("mm", ItemEventType.REMOVED, "foo", null);
         argument.getValue().itemRemoved(event);
 
         assertMockEndpointsSatisfied(2000, TimeUnit.MILLISECONDS);
@@ -86,8 +92,11 @@ public class HazelcastListConsumerTest extends HazelcastCamelTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from(String.format("hazelcast:%sfoo", HazelcastConstants.LIST_PREFIX)).log("object...").choice().when(header(HazelcastConstants.LISTENER_ACTION).isEqualTo(HazelcastConstants.ADDED))
-                        .log("...added").to("mock:added").when(header(HazelcastConstants.LISTENER_ACTION).isEqualTo(HazelcastConstants.REMOVED)).log("...removed").to("mock:removed").otherwise()
+                from(String.format("hazelcast-%sfoo", HazelcastConstants.LIST_PREFIX)).log("object...").choice()
+                        .when(header(HazelcastConstants.LISTENER_ACTION).isEqualTo(HazelcastConstants.ADDED))
+                        .log("...added").to("mock:added")
+                        .when(header(HazelcastConstants.LISTENER_ACTION).isEqualTo(HazelcastConstants.REMOVED))
+                        .log("...removed").to("mock:removed").otherwise()
                         .log("fail!");
             }
         };

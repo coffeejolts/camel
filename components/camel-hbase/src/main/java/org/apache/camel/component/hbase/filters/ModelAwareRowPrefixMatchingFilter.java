@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,7 +24,7 @@ import org.apache.hadoop.hbase.filter.PrefixFilter;
 /**
  * A {@link FilterList} that contains multiple {@link PrefixFilter}s one per column that is part of the model.
  */
-public class ModelAwareRowPrefixMatchingFilter extends FilterList implements ModelAwareFilter<FilterList> {
+public class ModelAwareRowPrefixMatchingFilter extends ModelAwareFilterList {
 
     /**
      * Writable constructor, do not use.
@@ -33,8 +33,7 @@ public class ModelAwareRowPrefixMatchingFilter extends FilterList implements Mod
     }
 
     /**
-     * Applies the message to {@link org.apache.hadoop.hbase.filter.Filter} to
-     * context.
+     * Applies the message to {@link org.apache.hadoop.hbase.filter.Filter} to context.
      */
     @Override
     public void apply(CamelContext context, HBaseRow rowModel) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,23 +20,26 @@ import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * A component for integrating with JSR-170 (JCR) compliant content repositories
  */
-public class JcrComponent extends UriEndpointComponent {
+@Component("jcr")
+public class JcrComponent extends DefaultComponent {
 
     public JcrComponent() {
-        super(JcrEndpoint.class);
     }
 
     public JcrComponent(CamelContext context) {
-        super(context, JcrEndpoint.class);
+        super(context);
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> properties) throws Exception {
-        return new JcrEndpoint(uri, this);
+        JcrEndpoint endpoint = new JcrEndpoint(uri, this);
+        setProperties(endpoint, properties);
+        return endpoint;
     }
 }

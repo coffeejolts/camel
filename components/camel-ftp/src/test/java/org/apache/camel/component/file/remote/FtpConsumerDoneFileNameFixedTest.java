@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,15 +20,14 @@ import java.io.File;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 public class FtpConsumerDoneFileNameFixedTest extends FtpServerTestSupport {
 
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/done?password=admin&initialDelay=0&delay=100&stepwise=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}/done?password=admin&initialDelay=0&delay=100&stepwise=false";
     }
 
     @Test
@@ -37,7 +36,8 @@ public class FtpConsumerDoneFileNameFixedTest extends FtpServerTestSupport {
 
         template.sendBodyAndHeader(getFtpUrl(), "Hello World", Exchange.FILE_NAME, "hello.txt");
 
-        // wait a bit and it should not pickup the written file as there are no done file
+        // wait a bit and it should not pickup the written file as there are no
+        // done file
         Thread.sleep(1000);
 
         assertMockEndpointsSatisfied();
@@ -55,8 +55,8 @@ public class FtpConsumerDoneFileNameFixedTest extends FtpServerTestSupport {
         Thread.sleep(1000);
 
         // done file should be deleted now
-        File file = new File(FTP_ROOT_DIR + "done/fin.dat");
-        assertFalse("Done file should be deleted: " + file, file.exists());
+        File file = new File(service.getFtpRootDir() + "done/fin.dat");
+        assertFalse(file.exists(), "Done file should be deleted: " + file);
     }
 
     @Override
@@ -64,9 +64,7 @@ public class FtpConsumerDoneFileNameFixedTest extends FtpServerTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from(getFtpUrl() + "&doneFileName=fin.dat")
-                    .convertBodyTo(String.class)
-                    .to("mock:result");
+                from(getFtpUrl() + "&doneFileName=fin.dat").convertBodyTo(String.class).to("mock:result");
             }
         };
     }

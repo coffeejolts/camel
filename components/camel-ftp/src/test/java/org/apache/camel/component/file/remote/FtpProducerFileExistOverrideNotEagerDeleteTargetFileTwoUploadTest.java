@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,14 +16,13 @@
  */
 package org.apache.camel.component.file.remote;
 
-/**
- * @version 
- */
-public class FtpProducerFileExistOverrideNotEagerDeleteTargetFileTwoUploadTest extends FtpProducerFileExistOverrideTwoUploadTest {
+public class FtpProducerFileExistOverrideNotEagerDeleteTargetFileTwoUploadTest
+        extends FtpProducerFileExistOverrideTwoUploadTest {
 
+    @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/exist?password=admin&tempPrefix=upload-&fileExist=Override&disconnect=true&eagerDeleteTargetFile=false";
+        return "ftp://admin@localhost:{{ftp.server.port}}"
+               + "/exist?password=admin&tempPrefix=upload-&fileExist=Override&disconnect=true&eagerDeleteTargetFile=false";
     }
 
 }
-

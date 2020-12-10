@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,21 +23,20 @@ import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.spring.integration.SpringIntegrationBinding;
+import org.apache.camel.support.service.ServiceHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.integration.Message;
-import org.springframework.integration.MessageChannel;
-import org.springframework.integration.MessageHeaders;
 import org.springframework.integration.channel.DirectChannel;
-import org.springframework.integration.core.MessageHandler;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageHandler;
+import org.springframework.messaging.MessageHeaders;
 
 /**
- * A CamelContext will be injected into CameSourceAdapter which will
- * let Spring Integration channel talk to the CamelContext certain endpoint
- *
- * @version 
+ * A CamelContext will be injected into CameSourceAdapter which will let Spring Integration channel talk to the
+ * CamelContext certain endpoint
  */
 public class CamelSourceAdapter extends AbstractCamelAdapter implements InitializingBean, DisposableBean {
     private static final Logger LOG = LoggerFactory.getLogger(CamelSourceAdapter.class);
@@ -49,23 +48,25 @@ public class CamelSourceAdapter extends AbstractCamelAdapter implements Initiali
     private final AtomicBoolean initialized = new AtomicBoolean();
 
     public void setRequestChannel(MessageChannel channel) {
-        requestChannel = channel;        
+        requestChannel = channel;
     }
 
     public MessageChannel getChannel() {
         return requestChannel;
     }
 
-    public void setReplyChannel(DirectChannel channel) {        
+    public void setReplyChannel(DirectChannel channel) {
         replyChannel = channel;
     }
 
     protected class ConsumerProcessor implements Processor {
+        @Override
         public void process(final Exchange exchange) throws Exception {
-            org.springframework.integration.Message<?> request = SpringIntegrationBinding.createSpringIntegrationMessage(exchange);
+            org.springframework.messaging.Message<?> request
+                    = SpringIntegrationBinding.createSpringIntegrationMessage(exchange);
 
             if (exchange.getPattern().isOutCapable()) {
-                exchange.getIn().getHeaders().put(MessageHeaders.REPLY_CHANNEL , replyChannel);
+                exchange.getIn().getHeaders().put(MessageHeaders.REPLY_CHANNEL, replyChannel);
 
                 // we want to do in-out so the inputChannel is mandatory (used to receive reply from spring integration)
                 if (replyChannel == null) {
@@ -75,25 +76,27 @@ public class CamelSourceAdapter extends AbstractCamelAdapter implements Initiali
                 replyChannel.subscribe(new MessageHandler() {
                     public void handleMessage(Message<?> message) {
                         LOG.debug("Received {} from ReplyChannel: {}", message, replyChannel);
-                        //TODO set the corralationID
+                        //TODO set the correlationID
                         SpringIntegrationBinding.storeToCamelMessage(message, exchange.getOut());
                     }
                 });
             }
-                 
+
             requestChannel.send(request);
         }
     }
 
+    @Override
     public final void afterPropertiesSet() throws Exception {
         if (initialized.compareAndSet(false, true)) {
             initialize();
         }
     }
 
+    @Override
     public void destroy() throws Exception {
         if (consumer != null) {
-            consumer.stop();
+            ServiceHelper.stopAndShutdownService(consumer);
         }
     }
 
@@ -101,7 +104,7 @@ public class CamelSourceAdapter extends AbstractCamelAdapter implements Initiali
         // start the service here
         camelEndpoint = getCamelContext().getEndpoint(getCamelEndpointUri());
         consumer = camelEndpoint.createConsumer(new ConsumerProcessor());
-        consumer.start();
+        ServiceHelper.startService(consumer);
     }
 
 }

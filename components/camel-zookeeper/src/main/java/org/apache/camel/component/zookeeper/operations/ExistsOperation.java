@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,8 +20,7 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 
 /**
- * <code>ExistsOperation</code> is a basic ZooKeeper operation used to test the
- * existence of a given node.
+ * <code>ExistsOperation</code> is a basic ZooKeeper operation used to test the existence of a given node.
  */
 public class ExistsOperation extends ZooKeeperOperation<String> {
 
@@ -44,9 +43,9 @@ public class ExistsOperation extends ZooKeeperOperation<String> {
             if (LOG.isTraceEnabled()) {
                 LOG.trace(ok ? "node exists" : "node does not exist");
             }
-            return new OperationResult<String>(node, statistics, ok);
+            return new OperationResult<>(node, statistics, ok);
         } catch (Exception e) {
-            return new OperationResult<String>(e);
+            return new OperationResult<>(e);
         }
     }
 

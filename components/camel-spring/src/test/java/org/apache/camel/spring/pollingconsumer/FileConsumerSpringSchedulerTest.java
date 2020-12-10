@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,8 @@ package org.apache.camel.spring.pollingconsumer;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.spring.SpringTestSupport;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -26,10 +27,12 @@ public class FileConsumerSpringSchedulerTest extends SpringTestSupport {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/spring/pollingconsumer/FileConsumerSpringSchedulerTest.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/spring/pollingconsumer/FileConsumerSpringSchedulerTest.xml");
     }
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         deleteDirectory("target/file/spring");
         super.setUp();
@@ -41,7 +44,7 @@ public class FileConsumerSpringSchedulerTest extends SpringTestSupport {
 
         template.sendBodyAndHeader("file:target/file/spring", "Hello World", Exchange.FILE_NAME, "hello.txt");
 
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         assertMockEndpointsSatisfied();
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,19 +19,17 @@ package org.apache.camel.component.flatpack;
 import net.sf.flatpack.DataSet;
 import net.sf.flatpack.Parser;
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 
-/**
- * @version
- */
 class FlatpackProducer extends DefaultProducer {
     private FlatpackEndpoint endpoint;
 
-    public FlatpackProducer(FlatpackEndpoint endpoint) {
+    FlatpackProducer(FlatpackEndpoint endpoint) {
         super(endpoint);
         this.endpoint = endpoint;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public void process(Exchange exchange) throws Exception {
         Parser parser = endpoint.createParser(exchange);

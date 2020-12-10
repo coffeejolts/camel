@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,6 +24,7 @@ import org.apache.camel.spring.SpringRouteBuilder;
  */
 public class TransactionalClientDataSourceTransactedWithChoiceRedeliveryTest extends TransactionalClientDataSourceTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new SpringRouteBuilder() {
             public void configure() throws Exception {
@@ -31,29 +32,29 @@ public class TransactionalClientDataSourceTransactedWithChoiceRedeliveryTest ext
                 errorHandler(transactionErrorHandler().maximumRedeliveries(3));
 
                 from("direct:okay")
-                    .transacted()
-                    .choice()
+                        .transacted()
+                        .choice()
                         .when(body().contains("Hello")).to("log:hello")
-                    .otherwise()
+                        .otherwise()
                         .to("log:other")
-                    .end()
-                    .to("direct:tiger")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                        .end()
+                        .to("direct:tiger")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 from("direct:tiger")
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService");
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService");
 
                 from("direct:donkey")
-                    // notice this one is not marked as transacted but since the exchange is transacted
-                    // the default error handler will not handle it and thus not interfeer
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        // notice this one is not marked as transacted but since the exchange is transacted
+                        // the default error handler will not handle it and thus not interfeer
+                        .setBody(constant("Donkey in Action")).bean("bookService");
 
                 // marks this route as transacted that will use the single policy defined in the registry
                 from("direct:fail")
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .to("direct:donkey");
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .to("direct:donkey");
             }
         };
     }

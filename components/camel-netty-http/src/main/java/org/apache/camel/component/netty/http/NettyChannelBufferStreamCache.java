@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,23 +20,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import io.netty.buffer.ByteBuf;
 import org.apache.camel.Exchange;
 import org.apache.camel.StreamCache;
 import org.apache.camel.util.IOHelper;
-import org.jboss.netty.buffer.ChannelBuffer;
 
 /**
- * A {@link ChannelBuffer} which is exposed as an {@link InputStream} which makes it very
- * easy to use by Camel and other Camel components. Also supported is {@link StreamCache}
- * which allows the data to be re-read for example when doing content based routing with XPath.
+ * A {@link ByteBuf} which is exposed as an {@link InputStream} which makes it very easy to use by Camel and other Camel
+ * components. Also supported is {@link StreamCache} which allows the data to be re-read for example when doing content
+ * based routing with XPath.
  */
 public final class NettyChannelBufferStreamCache extends InputStream implements StreamCache {
 
-    private final ChannelBuffer buffer;
+    private final ByteBuf buffer;
 
-    public NettyChannelBufferStreamCache(ChannelBuffer buffer) {
-        this.buffer = buffer;
-        buffer.markReaderIndex();
+    public NettyChannelBufferStreamCache(ByteBuf buffer) {
+        // retain the buffer so we keep it in use until we release it when we are done
+        this.buffer = buffer.retain();
+        this.buffer.markReaderIndex();
     }
 
     @Override
@@ -71,7 +72,7 @@ public final class NettyChannelBufferStreamCache extends InputStream implements 
     }
 
     @Override
-    public void reset() {
+    public synchronized void reset() {
         buffer.resetReaderIndex();
     }
 
@@ -101,4 +102,12 @@ public final class NettyChannelBufferStreamCache extends InputStream implements 
     public long length() {
         return buffer.readableBytes();
     }
+
+    /**
+     * Release the buffer when we are done using it.
+     */
+    public void release() {
+        buffer.release();
+    }
+
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,12 +23,11 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Producer;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.mina.transport.socket.nio.SocketConnector;
-import org.junit.Test;
+import org.apache.mina.transport.socket.SocketConnector;
+import org.junit.jupiter.api.Test;
 
-import static org.easymock.classextension.EasyMock.createMock;
-import static org.easymock.classextension.EasyMock.replay;
-import static org.easymock.classextension.EasyMock.verify;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * Unit testing for using a MinaProducer that it can shutdown properly (CAMEL-395)
@@ -40,13 +39,10 @@ public class MinaProducerShutdownMockTest extends BaseMinaTest {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Hello World");
 
-        // create our mock and record expected behavior = that worker timeout should be set to 0
-        SocketConnector mockConnector = createMock(SocketConnector.class);
-        mockConnector.setWorkerTimeout(0);
-        replay(mockConnector);
+        SocketConnector mockConnector = mock(SocketConnector.class);
 
         // normal camel code to get a producer
-        Endpoint endpoint = context.getEndpoint("mina:tcp://localhost:{{port}}?textline=true&sync=false");
+        Endpoint endpoint = context.getEndpoint(String.format("mina:tcp://localhost:%1$s?textline=true&sync=false", getPort()));
         Exchange exchange = endpoint.createExchange();
         Producer producer = endpoint.createProducer();
         producer.start();
@@ -60,20 +56,26 @@ public class MinaProducerShutdownMockTest extends BaseMinaTest {
         field.setAccessible(true);
         field.set(producer, mockConnector);
 
+        //
+        // Everything is asynchronous.
+        // We need to wait a second to make sure we get the message.
+        //
+        Thread.sleep(1000);
         // stop using our mock
         producer.stop();
 
-        verify(mockConnector);
+        verify(mockConnector).dispose(true);
 
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
+
             public void configure() {
-                from("mina:tcp://localhost:{{port}}?textline=true&sync=false").to("mock:result");
+                from(String.format("mina:tcp://localhost:%1$s?textline=true&sync=false", getPort())).to("mock:result");
             }
         };
     }
-
 }

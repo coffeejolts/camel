@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,26 +16,29 @@
  */
 package org.apache.camel.component.mina;
 
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+
 public class MinaComponentWithConfigurationTest extends CamelTestSupport {
 
     @Test
     public void testMinaComponentWithConfiguration() throws Exception {
         MinaComponent comp = context.getComponent("mina", MinaComponent.class);
 
-        MinaConfiguration cfg = new MinaConfiguration();
-        cfg.setTextline(true);
+        MinaConfiguration cfg1 = new MinaConfiguration();
+        cfg1.setHost("abc");
+        cfg1.setPort(4455);
+        cfg1.setProtocol("tcp");
+        MinaConfiguration cfg2 = new MinaConfiguration();
+        cfg2.setHost("abc");
+        cfg2.setPort(4455);
+        cfg2.setProtocol("udp");
 
-        comp.setConfiguration(cfg);
-        assertSame(cfg, comp.getConfiguration());
-
-        MinaEndpoint e1 = (MinaEndpoint) comp.createEndpoint("mina://tcp://localhost:4455");
-        MinaEndpoint e2 = (MinaEndpoint) comp.createEndpoint("mina://tcp://localhost:5566?sync=false");
+        MinaEndpoint e1 = (MinaEndpoint) comp.createEndpoint(cfg1);
+        MinaEndpoint e2 = (MinaEndpoint) comp.createEndpoint(cfg2);
 
         // should not be same
         assertNotSame(e1, e2);
@@ -43,10 +46,8 @@ public class MinaComponentWithConfigurationTest extends CamelTestSupport {
 
         e2.getConfiguration().setPort(5566);
 
-        assertEquals(true, e1.getConfiguration().isSync());
-        assertEquals(false, e2.getConfiguration().isSync());
-        assertEquals(true, e1.getConfiguration().isTextline());
-        assertEquals(true, e2.getConfiguration().isTextline());
+        assertEquals(false, e1.getConfiguration().isTextline());
+        assertEquals(false, e2.getConfiguration().isTextline());
         assertEquals(4455, e1.getConfiguration().getPort());
         assertEquals(5566, e2.getConfiguration().getPort());
     }

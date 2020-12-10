@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,23 +19,26 @@ package org.apache.camel.component.redis;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Represents the component that manages {@link RedisEndpoint}.
  */
-public class RedisComponent extends UriEndpointComponent {
+@Component("spring-redis")
+public class RedisComponent extends DefaultComponent {
+
+    private final ExchangeConverter exchangeConverter = new ExchangeConverter();
 
     public RedisComponent() {
-        super(RedisEndpoint.class);
     }
 
-    protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters)
-        throws Exception {
+    @Override
+    protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         RedisConfiguration configuration = new RedisConfiguration();
         setHostAndPort(configuration, remaining);
-        setProperties(configuration, parameters);
         RedisEndpoint endpoint = new RedisEndpoint(uri, this, configuration);
+        setProperties(endpoint, parameters);
         return endpoint;
     }
 
@@ -47,5 +50,9 @@ public class RedisComponent extends UriEndpointComponent {
         if (hostAndPort.length > 1 && hostAndPort[1].length() > 0) {
             configuration.setPort(Integer.parseInt(hostAndPort[1]));
         }
+    }
+
+    public ExchangeConverter getExchangeConverter() {
+        return exchangeConverter;
     }
 }

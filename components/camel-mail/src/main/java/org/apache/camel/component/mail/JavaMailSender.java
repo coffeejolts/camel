@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,20 +17,21 @@
 package org.apache.camel.component.mail;
 
 import java.util.Properties;
+
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.internet.MimeMessage;
 
 /**
- * The JavaMailSender interface contains all the methods of a JavaMailSender
- * implementation currently used by the mail component.
+ * The JavaMailSender interface contains all the methods of a JavaMailSender implementation currently used by the mail
+ * component.
  */
 public interface JavaMailSender {
 
     /**
      * Send the mail
      *
-     * @param mimeMessage the message to send
+     * @param  mimeMessage                   the message to send
      * @throws javax.mail.MessagingException is thrown if error sending the mail.
      */
     void send(MimeMessage mimeMessage) throws MessagingException;
@@ -38,6 +39,8 @@ public interface JavaMailSender {
     Properties getJavaMailProperties();
 
     void setJavaMailProperties(Properties javaMailProperties);
+
+    void addAdditionalJavaMailProperty(String key, String value);
 
     void setHost(String host);
 
@@ -62,4 +65,8 @@ public interface JavaMailSender {
     void setSession(Session session);
 
     Session getSession();
+
+    void setAuthenticator(MailAuthenticator authenticator);
+
+    MailAuthenticator getAuthenticator();
 }

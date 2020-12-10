@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,7 @@ package org.apache.camel.component.feed;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.ScheduledPollConsumer;
+import org.apache.camel.support.ScheduledPollConsumer;
 
 /**
  * Base class for consuming feeds.
@@ -32,6 +32,7 @@ public abstract class FeedPollingConsumer extends ScheduledPollConsumer {
         this.endpoint = endpoint;
     }
 
+    @Override
     protected int poll() throws Exception {
         Object feed = createFeed();
         if (feed != null) {

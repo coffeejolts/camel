@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,7 +19,7 @@ package org.apache.camel.component.google.calendar;
 import java.util.Map;
 
 import com.google.api.services.calendar.Calendar;
-
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
@@ -29,15 +29,16 @@ import org.apache.camel.component.google.calendar.internal.GoogleCalendarConstan
 import org.apache.camel.component.google.calendar.internal.GoogleCalendarPropertiesHelper;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
-import org.apache.camel.util.component.AbstractApiEndpoint;
-import org.apache.camel.util.component.ApiMethod;
-import org.apache.camel.util.component.ApiMethodPropertiesHelper;
+import org.apache.camel.support.component.AbstractApiEndpoint;
+import org.apache.camel.support.component.ApiMethod;
+import org.apache.camel.support.component.ApiMethodPropertiesHelper;
 
 /**
- * Represents a GoogleCalendar endpoint.
+ * Perform various operations on a Google Calendar.
  */
-@UriEndpoint(scheme = "google-calendar", title = "Google Calendar", syntax = "google-calendar:apiName/methodName",
-consumerClass = GoogleCalendarConsumer.class, consumerPrefix = "consumer", label = "api,cloud")
+@UriEndpoint(firstVersion = "2.15.0", scheme = "google-calendar", title = "Google Calendar",
+             syntax = "google-calendar:apiName/methodName", apiSyntax = "apiName/methodName",
+             consumerPrefix = "consumer", category = { Category.API, Category.CLOUD })
 public class GoogleCalendarEndpoint extends AbstractApiEndpoint<GoogleCalendarApiName, GoogleCalendarConfiguration> {
 
     @UriParam
@@ -46,8 +47,10 @@ public class GoogleCalendarEndpoint extends AbstractApiEndpoint<GoogleCalendarAp
     private Object apiProxy;
 
     public GoogleCalendarEndpoint(String uri, GoogleCalendarComponent component,
-                         GoogleCalendarApiName apiName, String methodName, GoogleCalendarConfiguration endpointConfiguration) {
-        super(uri, component, apiName, methodName, GoogleCalendarApiCollection.getCollection().getHelper(apiName), endpointConfiguration);
+                                  GoogleCalendarApiName apiName, String methodName,
+                                  GoogleCalendarConfiguration endpointConfiguration) {
+        super(uri, component, apiName, methodName, GoogleCalendarApiCollection.getCollection().getHelper(apiName),
+              endpointConfiguration);
         this.configuration = endpointConfiguration;
     }
 
@@ -70,7 +73,7 @@ public class GoogleCalendarEndpoint extends AbstractApiEndpoint<GoogleCalendarAp
 
     @Override
     protected ApiMethodPropertiesHelper<GoogleCalendarConfiguration> getPropertiesHelper() {
-        return GoogleCalendarPropertiesHelper.getHelper();
+        return GoogleCalendarPropertiesHelper.getHelper(getCamelContext());
     }
 
     @Override
@@ -81,49 +84,42 @@ public class GoogleCalendarEndpoint extends AbstractApiEndpoint<GoogleCalendarAp
     @Override
     protected void afterConfigureProperties() {
         switch (apiName) {
-        case LIST:
-            apiProxy = getClient().calendarList();
-            break;
-        case ACL:
-            apiProxy = getClient().acl();
-            break;
-        case CALENDARS:
-            apiProxy = getClient().calendars();
-            break;
-        case CHANNELS:
-            apiProxy = getClient().channels();
-            break;
-        case COLORS:
-            apiProxy = getClient().colors();
-            break;
-        case EVENTS:
-            apiProxy = getClient().events();
-            break;
-        case FREEBUSY:
-            apiProxy = getClient().freebusy();
-            break;                
-        case SETTINGS:
-            apiProxy = getClient().settings();
-            break;                
-        default:
-            throw new IllegalArgumentException("Invalid API name " + apiName);
+            case LIST:
+                apiProxy = getClient().calendarList();
+                break;
+            case ACL:
+                apiProxy = getClient().acl();
+                break;
+            case CALENDARS:
+                apiProxy = getClient().calendars();
+                break;
+            case CHANNELS:
+                apiProxy = getClient().channels();
+                break;
+            case COLORS:
+                apiProxy = getClient().colors();
+                break;
+            case EVENTS:
+                apiProxy = getClient().events();
+                break;
+            case FREEBUSY:
+                apiProxy = getClient().freebusy();
+                break;
+            case SETTINGS:
+                apiProxy = getClient().settings();
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid API name " + apiName);
         }
     }
 
     public Calendar getClient() {
-        return ((GoogleCalendarComponent)getComponent()).getClient();
+        return ((GoogleCalendarComponent) getComponent()).getClient(configuration);
     }
-    
+
     @Override
     public Object getApiProxy(ApiMethod method, Map<String, Object> args) {
         return apiProxy;
     }
-    
-    public GoogleCalendarClientFactory getClientFactory() {
-        return ((GoogleCalendarComponent)getComponent()).getClientFactory();
-    }
 
-    public void setClientFactory(GoogleCalendarClientFactory clientFactory) {
-        ((GoogleCalendarComponent)getComponent()).setClientFactory(clientFactory);
-    }
 }

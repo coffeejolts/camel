@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,12 +24,14 @@ import java.util.Map;
 import java.util.Set;
 
 import facebook4j.Reading;
-
+import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
+import org.apache.camel.ExtendedCamelContext;
 import org.apache.camel.component.facebook.FacebookConstants;
 import org.apache.camel.component.facebook.config.FacebookConfiguration;
 import org.apache.camel.component.facebook.config.FacebookEndpointConfiguration;
-import org.apache.camel.util.IntrospectionSupport;
+import org.apache.camel.spi.BeanIntrospection;
+import org.apache.camel.util.PropertiesHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +41,11 @@ import org.slf4j.LoggerFactory;
 public final class FacebookPropertiesHelper {
 
     // set of field names which are specific to Facebook4J api, to be excluded from method argument considerations
-    private static final Set<String> COMPONENT_CONFIG_FIELDS = new HashSet<String>();
+    private static final Set<String> COMPONENT_CONFIG_FIELDS = new HashSet<>();
 
     private static final Logger LOG = LoggerFactory.getLogger(FacebookPropertiesHelper.class);
 
-    private static final Set<String> ENDPOINT_CONFIG_FIELDS = new HashSet<String>();
+    private static final Set<String> ENDPOINT_CONFIG_FIELDS = new HashSet<>();
 
     static {
         for (Field field : FacebookConfiguration.class.getDeclaredFields()) {
@@ -60,31 +62,34 @@ public final class FacebookPropertiesHelper {
 
     /**
      * Apply properties for {@link Reading} type to the supplied {@link FacebookEndpointConfiguration}.
+     * 
      * @param configuration endpoint configuration to update
-     * @param options properties to apply to the reading field in configuration
+     * @param options       properties to apply to the reading field in configuration
      */
-    public static void configureReadingProperties(FacebookEndpointConfiguration configuration,
-                                                  Map<String, Object> options) {
-        final Map<String, Object> readingProperties = IntrospectionSupport.extractProperties(
-            options, FacebookConstants.READING_PREFIX);
+    public static void configureReadingProperties(
+            FacebookEndpointConfiguration configuration,
+            Map<String, Object> options) {
+        final Map<String, Object> readingProperties = PropertiesHelper.extractProperties(
+                options, FacebookConstants.READING_PREFIX);
         if (!readingProperties.isEmpty()) {
             try {
-
                 // add to an existing reading reference?
                 // NOTE Reading class does not support overwriting properties!!!
                 Reading reading = configuration.getReading();
-                if (reading == null) {
-                    reading = new Reading();
+
+                if (reading != null) {
+                    Reading readingUpdate = new Reading();
+                    ReadingBuilder.setProperties(readingUpdate, readingProperties);
+                    reading = ReadingBuilder.merge(reading, readingUpdate);
                 } else {
-                    reading = ReadingBuilder.copy(reading, false);
+                    reading = new Reading();
+                    ReadingBuilder.setProperties(reading, readingProperties);
                 }
                 // set properties
-                ReadingBuilder.setProperties(reading,
-                    readingProperties);
+                ReadingBuilder.setProperties(reading, readingProperties);
 
                 // update reading in configuration
                 configuration.setReading(reading);
-
             } catch (Exception e) {
                 throw new IllegalArgumentException(readingProperties.toString(), e);
             }
@@ -99,15 +104,14 @@ public final class FacebookPropertiesHelper {
     /**
      * Gets exchange header properties that start with {@link FacebookConstants}.FACEBOOK_PROPERTY_PREFIX.
      *
-     * @param exchange Camel exchange
+     * @param exchange   Camel exchange
      * @param properties map to collect properties with required prefix
      */
     public static Map<String, Object> getExchangeProperties(Exchange exchange, Map<String, Object> properties) {
         int nProperties = 0;
         for (Map.Entry<String, Object> entry : exchange.getIn().getHeaders().entrySet()) {
             if (entry.getKey().startsWith(FacebookConstants.FACEBOOK_PROPERTY_PREFIX)) {
-                properties.put(entry.getKey().substring(FacebookConstants.FACEBOOK_PROPERTY_PREFIX.length()),
-                    entry.getValue());
+                properties.put(entry.getKey().substring(FacebookConstants.FACEBOOK_PROPERTY_PREFIX.length()), entry.getValue());
                 nProperties++;
             }
         }
@@ -115,9 +119,11 @@ public final class FacebookPropertiesHelper {
         return properties;
     }
 
-    public static void getEndpointProperties(FacebookEndpointConfiguration configuration,
-                                             Map<String, Object> properties) {
-        if (IntrospectionSupport.getProperties(configuration, properties, null, false)) {
+    public static void getEndpointProperties(
+            CamelContext camelContext, FacebookEndpointConfiguration configuration,
+            Map<String, Object> properties) {
+        BeanIntrospection beanIntrospection = camelContext.adapt(ExtendedCamelContext.class).getBeanIntrospection();
+        if (beanIntrospection.getProperties(configuration, properties, null, false)) {
             final Set<String> names = properties.keySet();
             // remove component config properties so we only have endpoint properties
             names.removeAll(COMPONENT_CONFIG_FIELDS);
@@ -128,9 +134,9 @@ public final class FacebookPropertiesHelper {
         }
     }
 
-    public static Set<String> getEndpointPropertyNames(FacebookEndpointConfiguration configuration) {
-        Map<String, Object> properties = new HashMap<String, Object>();
-        getEndpointProperties(configuration, properties);
+    public static Set<String> getEndpointPropertyNames(CamelContext camelContext, FacebookEndpointConfiguration configuration) {
+        Map<String, Object> properties = new HashMap<>();
+        getEndpointProperties(camelContext, configuration, properties);
         return Collections.unmodifiableSet(properties.keySet());
     }
 

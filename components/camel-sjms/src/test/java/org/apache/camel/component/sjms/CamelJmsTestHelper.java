@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,12 +27,10 @@ import org.apache.camel.util.FileUtil;
 
 /**
  * A helper for unit testing with Apache ActiveMQ as embedded JMS broker.
- *
- * @version
  */
 public final class CamelJmsTestHelper {
 
-    private static AtomicInteger counter = new AtomicInteger(0);
+    private static AtomicInteger counter = new AtomicInteger();
 
     private CamelJmsTestHelper() {
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,24 +19,31 @@ package org.apache.camel.component.splunk;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.util.regex.Pattern;
+
 import javax.net.ssl.SSLException;
 
 import com.splunk.Service;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.ScheduledPollEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.ScheduledPollEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Represents a Splunk endpoint.
+ * Publish or search for events in Splunk.
  */
-@UriEndpoint(scheme = "splunk", title = "Splunk", syntax = "splunk:name", consumerClass = SplunkConsumer.class, label = "monitoring")
+@UriEndpoint(firstVersion = "2.13.0", scheme = "splunk", title = "Splunk", syntax = "splunk:name",
+             category = { Category.IOT, Category.MONITORING })
 public class SplunkEndpoint extends ScheduledPollEndpoint {
+
     private static final Logger LOG = LoggerFactory.getLogger(SplunkEndpoint.class);
+
+    private static final Pattern SPLUNK_SCHEMA_PATTERN = Pattern.compile("splunk:(//)*");
+    private static final Pattern SPLUNK_OPTIONS_PATTER = Pattern.compile("\\?.*");
 
     private Service service;
     @UriParam
@@ -50,15 +57,19 @@ public class SplunkEndpoint extends ScheduledPollEndpoint {
         this.configuration = configuration;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         String[] uriSplit = splitUri(getEndpointUri());
         if (uriSplit.length > 0) {
             ProducerType producerType = ProducerType.fromUri(uriSplit[0]);
             return new SplunkProducer(this, producerType);
         }
-        throw new IllegalArgumentException("Cannot create any producer with uri " + getEndpointUri() + ". A producer type was not provided (or an incorrect pairing was used).");
+        throw new IllegalArgumentException(
+                "Cannot create any producer with uri " + getEndpointUri()
+                                           + ". A producer type was not provided (or an incorrect pairing was used).");
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         if (configuration.getInitEarliestTime() == null) {
             throw new IllegalArgumentException("Required initialEarliestTime option could not be found");
@@ -70,11 +81,9 @@ public class SplunkEndpoint extends ScheduledPollEndpoint {
             configureConsumer(consumer);
             return consumer;
         }
-        throw new IllegalArgumentException("Cannot create any consumer with uri " + getEndpointUri() + ". A consumer type was not provided (or an incorrect pairing was used).");
-    }
-
-    public boolean isSingleton() {
-        return true;
+        throw new IllegalArgumentException(
+                "Cannot create any consumer with uri " + getEndpointUri()
+                                           + ". A consumer type was not provided (or an incorrect pairing was used).");
     }
 
     @Override
@@ -91,11 +100,8 @@ public class SplunkEndpoint extends ScheduledPollEndpoint {
     }
 
     private static String[] splitUri(String uri) {
-        Pattern p1 = Pattern.compile("splunk:(//)*");
-        Pattern p2 = Pattern.compile("\\?.*");
-
-        uri = p1.matcher(uri).replaceAll("");
-        uri = p2.matcher(uri).replaceAll("");
+        uri = SPLUNK_SCHEMA_PATTERN.matcher(uri).replaceAll("");
+        uri = SPLUNK_OPTIONS_PATTER.matcher(uri).replaceAll("");
 
         return uri.split("/");
     }
@@ -106,7 +112,8 @@ public class SplunkEndpoint extends ScheduledPollEndpoint {
 
     public synchronized boolean reset(Exception e) {
         boolean answer = false;
-        if ((e instanceof RuntimeException && ((RuntimeException)e).getCause() instanceof ConnectException) || ((e instanceof SocketException) || (e instanceof SSLException))) {
+        if ((e instanceof RuntimeException && ((RuntimeException) e).getCause() instanceof ConnectException)
+                || ((e instanceof SocketException) || (e instanceof SSLException))) {
             LOG.warn("Got exception from Splunk. Service will be reset.");
             this.service = null;
             answer = true;

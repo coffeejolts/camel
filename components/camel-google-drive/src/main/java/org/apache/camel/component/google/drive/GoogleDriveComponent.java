@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,16 +21,22 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.component.google.drive.internal.GoogleDriveApiCollection;
 import org.apache.camel.component.google.drive.internal.GoogleDriveApiName;
-import org.apache.camel.util.component.AbstractApiComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.component.AbstractApiComponent;
+import org.apache.camel.util.ObjectHelper;
 
-/**
- * Represents the component that manages {@link GoogleDriveEndpoint}.
- */
-public class GoogleDriveComponent extends AbstractApiComponent<GoogleDriveApiName, GoogleDriveConfiguration, GoogleDriveApiCollection> {
+@Component("google-drive")
+public class GoogleDriveComponent
+        extends AbstractApiComponent<GoogleDriveApiName, GoogleDriveConfiguration, GoogleDriveApiCollection> {
 
+    @Metadata
+    GoogleDriveConfiguration configuration;
+    @Metadata(label = "advanced")
     private Drive client;
+    @Metadata(label = "advanced")
     private GoogleDriveClientFactory clientFactory;
-    
+
     public GoogleDriveComponent() {
         super(GoogleDriveEndpoint.class, GoogleDriveApiName.class, GoogleDriveApiCollection.getCollection());
     }
@@ -40,21 +46,31 @@ public class GoogleDriveComponent extends AbstractApiComponent<GoogleDriveApiNam
     }
 
     @Override
-    protected GoogleDriveApiName getApiName(String apiNameStr) throws IllegalArgumentException {
-        return GoogleDriveApiName.fromValue(apiNameStr);
+    protected GoogleDriveApiName getApiName(String apiNameStr) {
+        return getCamelContext().getTypeConverter().convertTo(GoogleDriveApiName.class, apiNameStr);
     }
 
-    public Drive getClient() {
+    public Drive getClient(GoogleDriveConfiguration googleDriveConfiguration) {
         if (client == null) {
-            client = getClientFactory().makeClient(configuration.getClientId(), configuration.getClientSecret(), configuration.getScopes(), 
-                configuration.getApplicationName(), configuration.getRefreshToken(), configuration.getAccessToken());
+            client = getClientFactory().makeClient(googleDriveConfiguration.getClientId(),
+                    googleDriveConfiguration.getClientSecret(),
+                    googleDriveConfiguration.getScopes(), googleDriveConfiguration.getApplicationName(),
+                    googleDriveConfiguration.getRefreshToken(), googleDriveConfiguration.getAccessToken());
         }
         return client;
     }
-    
+
     public GoogleDriveClientFactory getClientFactory() {
         if (clientFactory == null) {
-            clientFactory = new BatchGoogleDriveClientFactory();
+            // configure https proxy from camelContext
+            if (ObjectHelper.isNotEmpty(getCamelContext().getGlobalOption("http.proxyHost"))
+                    && ObjectHelper.isNotEmpty(getCamelContext().getGlobalOption("http.proxyPort"))) {
+                String host = getCamelContext().getGlobalOption("http.proxyHost");
+                int port = Integer.parseInt(getCamelContext().getGlobalOption("http.proxyPort"));
+                clientFactory = new BatchGoogleDriveClientFactory(host, port);
+            } else {
+                clientFactory = new BatchGoogleDriveClientFactory();
+            }
         }
         return clientFactory;
     }
@@ -67,19 +83,30 @@ public class GoogleDriveComponent extends AbstractApiComponent<GoogleDriveApiNam
         super.setConfiguration(configuration);
     }
 
+    @Override
+    public GoogleDriveConfiguration getConfiguration() {
+        if (configuration == null) {
+            configuration = new GoogleDriveConfiguration();
+        }
+        return super.getConfiguration();
+    }
+
     /**
-     * To use the GoogleCalendarClientFactory as factory for creating the client.
-     * Will by default use {@link BatchGoogleDriveClientFactory}
+     * To use the GoogleCalendarClientFactory as factory for creating the client. Will by default use
+     * {@link BatchGoogleDriveClientFactory}
      */
     public void setClientFactory(GoogleDriveClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
-    
+
     @Override
-    protected Endpoint createEndpoint(String uri, String methodName, GoogleDriveApiName apiName,
-                                      GoogleDriveConfiguration endpointConfiguration) {
+    protected Endpoint createEndpoint(
+            String uri, String methodName, GoogleDriveApiName apiName,
+            GoogleDriveConfiguration endpointConfiguration) {
         endpointConfiguration.setApiName(apiName);
         endpointConfiguration.setMethodName(methodName);
-        return new GoogleDriveEndpoint(uri, this, apiName, methodName, endpointConfiguration);
+        GoogleDriveEndpoint endpoint = new GoogleDriveEndpoint(uri, this, apiName, methodName, endpointConfiguration);
+        endpoint.setClientFactory(clientFactory);
+        return endpoint;
     }
 }

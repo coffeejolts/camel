@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * HL7 MLLP Decoder for Netty4
+ * HL7 MLLP Decoder for Netty
  */
 class HL7MLLPNettyDecoder extends DelimiterBasedFrameDecoder {
 
@@ -38,19 +38,19 @@ class HL7MLLPNettyDecoder extends DelimiterBasedFrameDecoder {
     /**
      * Creates a decoder instance using a default HL7MLLPConfig
      */
-    public HL7MLLPNettyDecoder() {
+    HL7MLLPNettyDecoder() {
         this(new HL7MLLPConfig());
     }
 
     /**
      * Creates a decoder instance
      *
-     * @param config HL7MLLPConfig to be used for decoding
+     * @param  config                         HL7MLLPConfig to be used for decoding
      * @throws java.lang.NullPointerException is config is null
      */
-    public HL7MLLPNettyDecoder(HL7MLLPConfig config) {
+    HL7MLLPNettyDecoder(HL7MLLPConfig config) {
         super(MAX_FRAME_LENGTH, true, Unpooled.copiedBuffer(
-                new char[]{config.getEndByte1(), config.getEndByte2()},
+                new char[] { config.getEndByte1(), config.getEndByte2() },
                 Charset.defaultCharset()));
         this.config = config;
     }
@@ -59,13 +59,18 @@ class HL7MLLPNettyDecoder extends DelimiterBasedFrameDecoder {
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
         ByteBuf buf = (ByteBuf) super.decode(ctx, buffer);
         if (buf != null) {
-            int pos = buf.bytesBefore((byte) config.getStartByte());
-            if (pos >= 0) {
-                ByteBuf msg = buf.readerIndex(pos + 1).slice();
-                LOG.debug("Message ends with length {}", msg.readableBytes());
-                return config.isProduceString() ? asString(msg) : asByteArray(msg);
-            } else {
-                throw new DecoderException("Did not find start byte " + (int) config.getStartByte());
+            try {
+                int pos = buf.bytesBefore((byte) config.getStartByte());
+                if (pos >= 0) {
+                    ByteBuf msg = buf.readerIndex(pos + 1).slice();
+                    LOG.debug("Message ends with length {}", msg.readableBytes());
+                    return config.isProduceString() ? asString(msg) : asByteArray(msg);
+                } else {
+                    throw new DecoderException("Did not find start byte " + (int) config.getStartByte());
+                }
+            } finally {
+                // We need to release the buf here to avoid the memory leak
+                buf.release();
             }
         }
         // Message not complete yet - return null to be called again

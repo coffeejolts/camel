@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -40,13 +40,13 @@ import org.apache.camel.component.facebook.data.FacebookMethodsType;
 import org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper.MatchType;
 import org.apache.camel.component.facebook.data.FacebookPropertiesHelper;
 import org.apache.camel.component.facebook.data.ReadingBuilder;
-import org.apache.camel.impl.ScheduledPollConsumer;
-import org.apache.camel.util.ObjectHelper;
+import org.apache.camel.support.ScheduledPollConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import static org.apache.camel.component.facebook.FacebookConstants.FACEBOOK_DATE_FORMAT;
-import static org.apache.camel.component.facebook.FacebookConstants.READING_PPROPERTY;
 import static org.apache.camel.component.facebook.FacebookConstants.READING_PREFIX;
+import static org.apache.camel.component.facebook.FacebookConstants.READING_PROPERTY;
 import static org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper.filterMethods;
 import static org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper.getHighestPriorityMethod;
 import static org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper.getMissingProperties;
@@ -58,6 +58,7 @@ import static org.apache.camel.component.facebook.data.FacebookMethodsTypeHelper
 public class FacebookConsumer extends ScheduledPollConsumer {
 
     private static final Logger LOG = LoggerFactory.getLogger(FacebookConsumer.class);
+
     private static final String SINCE_PREFIX = "since=";
 
     private final FacebookEndpoint endpoint;
@@ -75,11 +76,11 @@ public class FacebookConsumer extends ScheduledPollConsumer {
         this.method = findMethod();
 
         // get endpoint properties in a map
-        final HashMap<String, Object> properties = new HashMap<String, Object>();
-        FacebookPropertiesHelper.getEndpointProperties(endpoint.getConfiguration(), properties);
+        final HashMap<String, Object> properties = new HashMap<>();
+        FacebookPropertiesHelper.getEndpointProperties(endpoint.getCamelContext(), endpoint.getConfiguration(), properties);
 
         // skip since and until fields?
-        final Reading reading = (Reading) properties.get(READING_PPROPERTY);
+        final Reading reading = (Reading) properties.get(READING_PROPERTY);
         if (reading != null) {
             final String queryString = reading.toString();
             if (queryString.contains(SINCE_PREFIX)) {
@@ -94,8 +95,10 @@ public class FacebookConsumer extends ScheduledPollConsumer {
                 try {
                     this.sinceTime = URLDecoder.decode(strSince, "UTF-8");
                 } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeCamelException(String.format("Error decoding %s.since with value %s due to: %s"
-                            , READING_PREFIX, strSince, e.getMessage()), e);
+                    throw new RuntimeCamelException(
+                            String.format("Error decoding %s.since with value %s due to: %s", READING_PREFIX, strSince,
+                                    e.getMessage()),
+                            e);
                 }
                 LOG.debug("Using supplied property {}since value {}", READING_PREFIX, this.sinceTime);
             }
@@ -116,21 +119,22 @@ public class FacebookConsumer extends ScheduledPollConsumer {
 
         FacebookMethodsType result;
         // find one that takes the largest subset of endpoint parameters
-        final Set<String> argNames = new HashSet<String>();
-        argNames.addAll(FacebookPropertiesHelper.getEndpointPropertyNames(endpoint.getConfiguration()));
+        final Set<String> argNames = new HashSet<>();
+        argNames.addAll(
+                FacebookPropertiesHelper.getEndpointPropertyNames(endpoint.getCamelContext(), endpoint.getConfiguration()));
 
         // add reading property for polling, if it doesn't already exist!
-        argNames.add(READING_PPROPERTY);
+        argNames.add(READING_PROPERTY);
 
         final String[] argNamesArray = argNames.toArray(new String[argNames.size()]);
         List<FacebookMethodsType> filteredMethods = filterMethods(
-            endpoint.getCandidates(), MatchType.SUPER_SET, argNamesArray);
+                endpoint.getCandidates(), MatchType.SUPER_SET, argNamesArray);
 
         if (filteredMethods.isEmpty()) {
             throw new IllegalArgumentException(
-                String.format("Missing properties for %s, need one or more from %s",
-                    endpoint.getMethod(),
-                    getMissingProperties(endpoint.getMethod(), endpoint.getNameStyle(), argNames)));
+                    String.format("Missing properties for %s, need one or more from %s",
+                            endpoint.getMethod(),
+                            getMissingProperties(endpoint.getMethod(), endpoint.getNameStyle(), argNames)));
         } else if (filteredMethods.size() == 1) {
             // single match
             result = filteredMethods.get(0);
@@ -150,9 +154,9 @@ public class FacebookConsumer extends ScheduledPollConsumer {
             String rawJSON = null;
             Object result;
             if (endpoint.getConfiguration().getJsonStoreEnabled() == null
-                || !endpoint.getConfiguration().getJsonStoreEnabled()) {
+                    || !endpoint.getConfiguration().getJsonStoreEnabled()) {
                 result = invokeMethod(endpoint.getConfiguration().getFacebook(),
-                    method, args);
+                        method, args);
             } else {
                 final Facebook facebook = endpoint.getConfiguration().getFacebook();
                 synchronized (facebook) {
@@ -175,7 +179,7 @@ public class FacebookConsumer extends ScheduledPollConsumer {
                 return 1; // number of messages polled
             }
         } catch (Throwable t) {
-            throw ObjectHelper.wrapRuntimeCamelException(t);
+            throw RuntimeCamelException.wrapRuntimeCamelException(t);
         }
     }
 
@@ -210,21 +214,20 @@ public class FacebookConsumer extends ScheduledPollConsumer {
     private Map<String, Object> getMethodArguments() {
         // start by setting the Reading since and until fields,
         // these are used to avoid reading duplicate results across polls
-        Map<String, Object> arguments = new HashMap<String, Object>();
+        Map<String, Object> arguments = new HashMap<>();
         arguments.putAll(endpointProperties);
 
-        Reading reading = (Reading) arguments.remove(READING_PPROPERTY);
+        Reading reading = (Reading) arguments.remove(READING_PROPERTY);
         if (reading == null) {
             reading = new Reading();
         } else {
             try {
                 reading = ReadingBuilder.copy(reading, true);
-            } catch (NoSuchFieldException e) {
-                throw new IllegalArgumentException(String.format("Error creating property [%s]: %s",
-                    READING_PPROPERTY, e.getMessage()), e);
-            } catch (IllegalAccessException e) {
-                throw new IllegalArgumentException(String.format("Error creating property [%s]: %s",
-                    READING_PPROPERTY, e.getMessage()), e);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new IllegalArgumentException(
+                        String.format("Error creating property [%s]: %s",
+                                READING_PROPERTY, e.getMessage()),
+                        e);
             }
         }
 
@@ -233,8 +236,9 @@ public class FacebookConsumer extends ScheduledPollConsumer {
         final long currentMillis = System.currentTimeMillis();
         if (this.sinceTime == null) {
             // first poll, set this to (current time - initial poll delay)
-            final Date startTime = new Date(currentMillis
-                - TimeUnit.MILLISECONDS.convert(getInitialDelay(), getTimeUnit()));
+            final Date startTime = new Date(
+                    currentMillis
+                                            - TimeUnit.MILLISECONDS.convert(getInitialDelay(), getTimeUnit()));
             this.sinceTime = dateFormat.format(startTime);
         } else if (this.untilTime != null) {
             // use the last 'until' time
@@ -245,7 +249,7 @@ public class FacebookConsumer extends ScheduledPollConsumer {
         reading.since(this.sinceTime);
         reading.until(this.untilTime);
 
-        arguments.put(READING_PPROPERTY, reading);
+        arguments.put(READING_PROPERTY, reading);
 
         return arguments;
     }

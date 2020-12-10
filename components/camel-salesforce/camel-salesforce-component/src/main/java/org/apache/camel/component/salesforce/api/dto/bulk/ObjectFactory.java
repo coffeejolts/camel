@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,19 +21,14 @@ import javax.xml.bind.annotation.XmlElementDecl;
 import javax.xml.bind.annotation.XmlRegistry;
 import javax.xml.namespace.QName;
 
-
 /**
- * This object contains factory methods for each
- * Java content interface and Java element interface
- * in the org.apache.camel.component.salesforce.api.dto.bulk package.
- * <p>An ObjectFactory allows you to programatically
- * construct new instances of the Java representation
- * for XML content. The Java representation of XML
- * content can consist of schema derived interfaces
- * and classes representing the binding of schema
- * type definitions, element declarations and model
- * groups.  Factory methods for each of these are
- * provided in this class.
+ * This object contains factory methods for each Java content interface and Java element interface in the
+ * org.apache.camel.component.salesforce.api.dto.bulk package.
+ * <p>
+ * An ObjectFactory allows you to programatically construct new instances of the Java representation for XML content.
+ * The Java representation of XML content can consist of schema derived interfaces and classes representing the binding
+ * of schema type definitions, element declarations and model groups. Factory methods for each of these are provided in
+ * this class.
  */
 @XmlRegistry
 public class ObjectFactory {
@@ -43,11 +38,13 @@ public class ObjectFactory {
     private static final QName ERROR_QNAME = new QName("http://www.force.com/2009/06/asyncapi/dataload", "error");
     private static final QName RESULTS_QNAME = new QName("http://www.force.com/2009/06/asyncapi/dataload", "results");
     private static final QName RESULT_LIST_QNAME = new QName("http://www.force.com/2009/06/asyncapi/dataload", "result-list");
-    private static final QName BATCH_INFO_LIST_QNAME = new QName("http://www.force.com/2009/06/asyncapi/dataload", "batchInfoList");
+    private static final QName BATCH_INFO_LIST_QNAME
+            = new QName("http://www.force.com/2009/06/asyncapi/dataload", "batchInfoList");
     private static final QName QUERY_RESULT_QNAME = new QName("http://www.force.com/2009/06/asyncapi/dataload", "queryResult");
 
     /**
-     * Create a new ObjectFactory that can be used to create new instances of schema derived classes for package: org.apache.camel.component.salesforce.api.dto.bulk
+     * Create a new ObjectFactory that can be used to create new instances of schema derived classes for package:
+     * org.apache.camel.component.salesforce.api.dto.bulk
      */
     public ObjectFactory() {
     }
@@ -127,7 +124,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "jobInfo")
     public JAXBElement<JobInfo> createJobInfo(JobInfo value) {
-        return new JAXBElement<JobInfo>(JOB_INFO_QNAME, JobInfo.class, null, value);
+        return new JAXBElement<>(JOB_INFO_QNAME, JobInfo.class, null, value);
     }
 
     /**
@@ -135,7 +132,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "batchInfo")
     public JAXBElement<BatchInfo> createBatchInfo(BatchInfo value) {
-        return new JAXBElement<BatchInfo>(BATCH_INFO_QNAME, BatchInfo.class, null, value);
+        return new JAXBElement<>(BATCH_INFO_QNAME, BatchInfo.class, null, value);
     }
 
     /**
@@ -143,7 +140,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "error")
     public JAXBElement<Error> createError(Error value) {
-        return new JAXBElement<Error>(ERROR_QNAME, Error.class, null, value);
+        return new JAXBElement<>(ERROR_QNAME, Error.class, null, value);
     }
 
     /**
@@ -151,7 +148,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "results")
     public JAXBElement<BatchResult> createResults(BatchResult value) {
-        return new JAXBElement<BatchResult>(RESULTS_QNAME, BatchResult.class, null, value);
+        return new JAXBElement<>(RESULTS_QNAME, BatchResult.class, null, value);
     }
 
     /**
@@ -159,7 +156,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "result-list")
     public JAXBElement<QueryResultList> createResultList(QueryResultList value) {
-        return new JAXBElement<QueryResultList>(RESULT_LIST_QNAME, QueryResultList.class, null, value);
+        return new JAXBElement<>(RESULT_LIST_QNAME, QueryResultList.class, null, value);
     }
 
     /**
@@ -167,7 +164,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "batchInfoList")
     public JAXBElement<BatchInfoList> createBatchInfoList(BatchInfoList value) {
-        return new JAXBElement<BatchInfoList>(BATCH_INFO_LIST_QNAME, BatchInfoList.class, null, value);
+        return new JAXBElement<>(BATCH_INFO_LIST_QNAME, BatchInfoList.class, null, value);
     }
 
     /**
@@ -175,7 +172,7 @@ public class ObjectFactory {
      */
     @XmlElementDecl(namespace = "http://www.force.com/2009/06/asyncapi/dataload", name = "queryResult")
     public JAXBElement<QueryResult> createQueryResult(QueryResult value) {
-        return new JAXBElement<QueryResult>(QUERY_RESULT_QNAME, QueryResult.class, null, value);
+        return new JAXBElement<>(QUERY_RESULT_QNAME, QueryResult.class, null, value);
     }
 
 }

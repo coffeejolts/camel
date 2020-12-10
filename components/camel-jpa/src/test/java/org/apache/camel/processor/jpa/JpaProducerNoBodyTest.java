@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,11 @@ import org.apache.camel.CamelExecutionException;
 import org.apache.camel.InvalidPayloadRuntimeException;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.examples.SendEmail;
-import org.apache.camel.spring.SpringRouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class JpaProducerNoBodyTest extends AbstractJpaTest {
     protected static final String SELECT_ALL_STRING = "select x from " + SendEmail.class.getName() + " x";
 
@@ -35,14 +34,13 @@ public class JpaProducerNoBodyTest extends AbstractJpaTest {
             template.sendBody("direct:start", null);
             fail("Should have thrown an exception");
         } catch (CamelExecutionException e) {
-            InvalidPayloadRuntimeException cause = assertIsInstanceOf(InvalidPayloadRuntimeException.class, e.getCause());
-            assertTrue(cause.getMessage().contains("Body is null"));
+            assertIsInstanceOf(InvalidPayloadRuntimeException.class, e.getCause());
         }
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() {
-        return new SpringRouteBuilder() {
+        return new RouteBuilder() {
             public void configure() {
                 from("direct:start").to("jpa://" + SendEmail.class.getName()).to("mock:result");
             }

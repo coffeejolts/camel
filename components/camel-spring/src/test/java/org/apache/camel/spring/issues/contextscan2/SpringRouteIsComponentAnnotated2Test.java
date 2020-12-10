@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,19 +17,19 @@
 package org.apache.camel.spring.issues.contextscan2;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
 public class SpringRouteIsComponentAnnotated2Test extends SpringTestSupport {
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
-        return new ClassPathXmlApplicationContext("org/apache/camel/spring/issues/contextscan2/SpringRouteIsComponentAnnotated2Test.xml");
+        return new ClassPathXmlApplicationContext(
+                "org/apache/camel/spring/issues/contextscan2/SpringRouteIsComponentAnnotated2Test.xml");
     }
 
+    @Test
     public void testSpringRouteIsComponentAnnotated() throws Exception {
         getMockEndpoint("mock:result").expectedBodiesReceived("Hello World");
 

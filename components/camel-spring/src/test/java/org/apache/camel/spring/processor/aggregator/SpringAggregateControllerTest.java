@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,14 @@ package org.apache.camel.spring.processor.aggregator;
 import org.apache.camel.CamelContext;
 import org.apache.camel.processor.aggregate.AggregateController;
 import org.apache.camel.processor.aggregator.AggregateControllerTest;
+import org.junit.jupiter.api.Disabled;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
 
-/**
- * @version 
- */
+@Disabled
 public class SpringAggregateControllerTest extends AggregateControllerTest {
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/aggregator/SpringAggregateControllerTest.xml");
     }

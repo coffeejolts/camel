@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,25 +17,32 @@
 package org.apache.camel.component.metrics;
 
 import com.codahale.metrics.MetricRegistry;
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultEndpoint;
 
-@UriEndpoint(scheme = "metrics", title = "Metrics", syntax = "metrics:metricsType:metricsName", producerOnly = true, label = "monitoring")
+/**
+ * Collect various metrics directly from Camel routes using the DropWizard metrics library.
+ */
+@UriEndpoint(firstVersion = "2.14.0", scheme = "metrics", title = "Metrics", syntax = "metrics:metricsType:metricsName",
+             producerOnly = true, category = { Category.MONITORING })
 public class MetricsEndpoint extends DefaultEndpoint {
 
     protected final MetricRegistry registry;
 
-    @UriPath(description = "Type of metrics") @Metadata(required = "true")
+    @UriPath(description = "Type of metrics")
+    @Metadata(required = true)
     protected final MetricsType metricsType;
-    @UriPath(description = "Name of metrics") @Metadata(required = "true")
+    @UriPath(description = "Name of metrics")
+    @Metadata(required = true)
     protected final String metricsName;
     @UriParam(description = "Action when using timer type")
     private MetricsTimerAction action;
@@ -47,8 +54,11 @@ public class MetricsEndpoint extends DefaultEndpoint {
     private Long increment;
     @UriParam(description = "Decrement value when using counter type")
     private Long decrement;
+    @UriParam(description = "Subject value when using gauge type")
+    private Object subject;
 
-    public MetricsEndpoint(String uri, Component component, MetricRegistry registry, MetricsType metricsType, String metricsName) {
+    public MetricsEndpoint(String uri, Component component, MetricRegistry registry, MetricsType metricsType,
+                           String metricsName) {
         super(uri, component);
         this.registry = registry;
         this.metricsType = metricsType;
@@ -70,14 +80,11 @@ public class MetricsEndpoint extends DefaultEndpoint {
             return new MeterProducer(this);
         } else if (metricsType == MetricsType.TIMER) {
             return new TimerProducer(this);
+        } else if (metricsType == MetricsType.GAUGE) {
+            return new GaugeProducer(this);
         } else {
             throw new IllegalArgumentException("Metrics type " + metricsType + " is not supported");
         }
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
     }
 
     public MetricRegistry getRegistry() {
@@ -130,5 +137,13 @@ public class MetricsEndpoint extends DefaultEndpoint {
 
     public void setDecrement(Long decrement) {
         this.decrement = decrement;
+    }
+
+    public Object getSubject() {
+        return subject;
+    }
+
+    public void setSubject(Object subject) {
+        this.subject = subject;
     }
 }

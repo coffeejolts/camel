@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,24 +19,23 @@ package org.apache.camel.component.file.remote;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class FtpReconnectAttemptServerStoppedTest extends FtpServerTestSupport {
 
     private String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/reconnect?password=admin&maximumReconnectAttempts=2&reconnectDelay=500&delete=true";
+        return "ftp://admin@localhost:{{ftp.server.port}}"
+               + "/reconnect?password=admin&maximumReconnectAttempts=2&reconnectDelay=500&delete=true";
     }
 
     @Test
     public void testFromFileToFtp() throws Exception {
         // suspect serve so we cannot connect
-        ftpServer.suspend();
+        service.suspend();
 
         // put a file in the folder (do not use ftp as we then will connect)
-        template.sendBodyAndHeader("file:" + FTP_ROOT_DIR + "/reconnect", "Hello World", Exchange.FILE_NAME, "hello.txt");
+        template.sendBodyAndHeader("file:" + service.getFtpRootDir() + "/reconnect", "Hello World", Exchange.FILE_NAME,
+                "hello.txt");
 
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(0);
@@ -50,7 +49,7 @@ public class FtpReconnectAttemptServerStoppedTest extends FtpServerTestSupport {
         mock.expectedMessageCount(1);
 
         // resume the server so we can connect
-        ftpServer.resume();
+        service.resume();
 
         // wait a bit so that the server resumes properly
         Thread.sleep(3000);
@@ -58,6 +57,7 @@ public class FtpReconnectAttemptServerStoppedTest extends FtpServerTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {

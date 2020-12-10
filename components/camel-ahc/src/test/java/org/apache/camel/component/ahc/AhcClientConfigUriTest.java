@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,13 +17,15 @@
 package org.apache.camel.component.ahc;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AhcClientConfigUriTest extends BaseAhcTest {
 
     @Test
     public void testAhcProduce() throws Exception {
-        Object out = template.requestBody(getAhcEndpointUri() + "?clientConfig.IOThreadMultiplier=4", null, String.class);
+        Object out = template.requestBody(getAhcEndpointUri() + "?clientConfig.maxRedirects=4", null, String.class);
         assertEquals("Bye World", out);
     }
 

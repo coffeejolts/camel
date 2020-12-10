@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,17 +18,17 @@ package org.apache.camel.component.velocity;
 
 import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
 public class VelocityEndpointTest extends VelocityTest {
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 VelocityEndpoint endpoint = new VelocityEndpoint();
                 endpoint.setCamelContext(context);
                 endpoint.setResourceUri("org/apache/camel/component/velocity/example.vm");
+                endpoint.setAllowTemplateFromHeader(true);
+                endpoint.setAllowContextMapAll(true);
 
                 context.addEndpoint("velo", endpoint);
 

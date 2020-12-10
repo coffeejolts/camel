@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,7 +23,7 @@ public class FromFtpNoopAccountTest extends FromFtpNoopTest {
 
     @Override
     protected String getFtpUrl() {
-        return "ftp://admin@localhost:" + getPort() + "/noop?password=admin&account=me&binary=false&noop=true";
+        return "ftp://admin@localhost:{{ftp.server.port}}/noop?password=admin&account=me&binary=false&noop=true";
     }
 
 }

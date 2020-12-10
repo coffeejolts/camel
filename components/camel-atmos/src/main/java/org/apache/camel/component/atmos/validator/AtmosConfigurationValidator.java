@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,9 +25,12 @@ import java.util.regex.Pattern;
 import org.apache.camel.component.atmos.AtmosConfiguration;
 import org.apache.camel.component.atmos.util.AtmosException;
 import org.apache.camel.component.atmos.util.AtmosOperation;
+
 import static org.apache.camel.component.atmos.util.AtmosConstants.ATMOS_FILE_SEPARATOR;
 
 public final class AtmosConfigurationValidator {
+
+    private static final Pattern UNIX_PATH_PATTERN = Pattern.compile("/*?(\\S+)/*?", Pattern.CASE_INSENSITIVE);
 
     private AtmosConfigurationValidator() {
     }
@@ -35,7 +38,7 @@ public final class AtmosConfigurationValidator {
     /**
      * Validate the parameters passed in the incoming url.
      *
-     * @param configuration object containing the parameters.
+     * @param  configuration  object containing the parameters.
      * @throws AtmosException
      */
     public static void validate(AtmosConfiguration configuration) throws AtmosException {
@@ -63,7 +66,7 @@ public final class AtmosConfigurationValidator {
             throw new AtmosException("option <uri> is not present!");
         } else {
             try {
-                URI uri = new URI(configuration.getUri());
+                new URI(configuration.getUri());
             } catch (URISyntaxException use) {
                 throw new AtmosException("option <uri> is not valid!", use);
             }
@@ -118,8 +121,7 @@ public final class AtmosConfigurationValidator {
     }
 
     private static void validatePathInUnix(String path) throws AtmosException {
-        Pattern pattern = Pattern.compile("/*?(\\S+)/*?", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(path);
+        Matcher matcher = UNIX_PATH_PATTERN.matcher(path);
         if (!matcher.matches()) {
             throw new AtmosException(path + " is not a valid path, must be in UNIX form!");
         }

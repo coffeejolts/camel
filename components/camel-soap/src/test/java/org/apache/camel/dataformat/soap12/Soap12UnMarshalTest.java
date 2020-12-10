@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,6 +19,8 @@ package org.apache.camel.dataformat.soap12;
 import java.io.IOException;
 import java.io.InputStream;
 
+import javax.xml.ws.soap.SOAPFaultException;
+
 import com.example.customerservice.GetCustomersByName;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.Exchange;
@@ -26,21 +28,23 @@ import org.apache.camel.Produce;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Checks that a static soap request is unmarshalled to the correct java
- * objects
+ * Checks that a static soap request is unmarshalled to the correct java objects
  */
 public class Soap12UnMarshalTest extends CamelTestSupport {
     private static final String SERVICE_PACKAGE = GetCustomersByName.class
             .getPackage().getName();
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     protected MockEndpoint resultEndpoint;
 
-    @Produce(uri = "direct:start")
+    @Produce("direct:start")
     protected ProducerTemplate producer;
 
     @Test
@@ -54,6 +58,17 @@ public class Soap12UnMarshalTest extends CamelTestSupport {
         assertEquals(GetCustomersByName.class, body.getClass());
         GetCustomersByName request = (GetCustomersByName) body;
         assertEquals("Smith", request.getName());
+    }
+
+    @Test
+    public void testUnMarshalSoapFaultWithoutDetail() throws IOException, InterruptedException {
+        try {
+            InputStream in = this.getClass().getResourceAsStream("faultWithoutDetail.xml");
+            producer.sendBody(in);
+            fail("Should have thrown an Exception.");
+        } catch (Exception e) {
+            assertEquals(SOAPFaultException.class, e.getCause().getClass());
+        }
     }
 
     @Override

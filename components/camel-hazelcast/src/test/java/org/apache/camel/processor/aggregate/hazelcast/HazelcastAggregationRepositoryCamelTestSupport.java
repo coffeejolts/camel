@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,26 +16,16 @@
  */
 package org.apache.camel.processor.aggregate.hazelcast;
 
+import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 public class HazelcastAggregationRepositoryCamelTestSupport extends CamelTestSupport {
     private static HazelcastInstance hzOne;
     private static HazelcastInstance hzTwo;
-
-    protected static void doInitializeHazelcastInstances() {
-        hzOne = Hazelcast.newHazelcastInstance();
-        hzTwo = Hazelcast.newHazelcastInstance();
-    }
-
-    protected static void doDestroyHazelcastInstances() {
-        hzOne.getLifecycleService().shutdown();
-        hzTwo.getLifecycleService().shutdown();
-    }
 
     protected static HazelcastInstance getFirstInstance() {
         return hzOne;
@@ -45,13 +35,23 @@ public class HazelcastAggregationRepositoryCamelTestSupport extends CamelTestSup
         return hzTwo;
     }
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpHazelcastCluster() {
-        doInitializeHazelcastInstances();
+        hzOne = Hazelcast.newHazelcastInstance(createConfig("hzOne"));
+        hzTwo = Hazelcast.newHazelcastInstance(createConfig("hzTwo"));
     }
 
-    @AfterClass
+    @AfterAll
     public static void shutDownHazelcastCluster() {
-        doDestroyHazelcastInstances();
+        Hazelcast.shutdownAll();
+    }
+
+    private static Config createConfig(String name) {
+        Config config = new Config();
+        config.setInstanceName(name);
+        config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+        config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true).addMember("127.0.0.1");
+
+        return config;
     }
 }

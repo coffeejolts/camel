@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,9 +22,18 @@ import java.util.Date;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.spi.DataFormat;
-import org.apache.camel.util.ExchangeHelper;
+import org.apache.camel.spi.DataFormatName;
+import org.apache.camel.spi.annotations.Dataformat;
+import org.apache.camel.support.ExchangeHelper;
+import org.apache.camel.support.service.ServiceSupport;
 
-public class SyslogDataFormat implements DataFormat {
+@Dataformat("syslog")
+public class SyslogDataFormat extends ServiceSupport implements DataFormat, DataFormatName {
+
+    @Override
+    public String getDataFormatName() {
+        return "syslog";
+    }
 
     @Override
     public void marshal(Exchange exchange, Object body, OutputStream stream) throws Exception {
@@ -70,5 +79,15 @@ public class SyslogDataFormat implements DataFormat {
         }
 
         return message;
+    }
+
+    @Override
+    protected void doStart() throws Exception {
+        // noop
+    }
+
+    @Override
+    protected void doStop() throws Exception {
+        // noop
     }
 }

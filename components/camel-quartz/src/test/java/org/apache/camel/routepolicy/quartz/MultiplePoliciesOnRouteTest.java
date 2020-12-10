@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,27 +22,24 @@ import org.apache.camel.ServiceStatus;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.component.quartz.QuartzComponent;
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.impl.ThrottlingInflightRoutePolicy;
+import org.apache.camel.spi.Registry;
 import org.apache.camel.spi.RoutePolicy;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.apache.camel.throttling.ThrottlingInflightRoutePolicy;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 public class MultiplePoliciesOnRouteTest extends CamelTestSupport {
     private String url = "seda:foo?concurrentConsumers=20";
     private int size = 100;
-    
+
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
-        JndiRegistry registry = new JndiRegistry(createJndiContext());
+    protected void bindToRegistry(Registry registry) throws Exception {
         registry.bind("startPolicy", createRouteStartPolicy());
         registry.bind("throttlePolicy", createThrottlePolicy());
-        return registry;
     }
-    
+
     @Override
     public boolean isUseRouteBuilder() {
         return false;
@@ -54,34 +51,35 @@ public class MultiplePoliciesOnRouteTest extends CamelTestSupport {
         policy.setRouteStartDate(new Date(startTime));
         policy.setRouteStartRepeatCount(1);
         policy.setRouteStartRepeatInterval(3000);
-        
+
         return policy;
     }
-    
+
     private RoutePolicy createThrottlePolicy() {
         ThrottlingInflightRoutePolicy policy = new ThrottlingInflightRoutePolicy();
         policy.setMaxInflightExchanges(10);
         return policy;
     }
-    
+
     @Test
     public void testMultiplePoliciesOnRoute() throws Exception {
-        MockEndpoint success = context.getEndpoint("mock:success", MockEndpoint.class);        
+        MockEndpoint success = context.getEndpoint("mock:success", MockEndpoint.class);
         success.expectedMinimumMessageCount(size - 10);
-        
-        context.getComponent("quartz", QuartzComponent.class).setPropertiesFile("org/apache/camel/routepolicy/quartz/myquartz.properties");
+
+        context.getComponent("quartz", QuartzComponent.class)
+                .setPropertiesFile("org/apache/camel/routepolicy/quartz/myquartz.properties");
         context.addRoutes(new RouteBuilder() {
-            public void configure() {   
+            public void configure() {
                 from(url)
-                    .routeId("test")
-                    .routePolicyRef("startPolicy, throttlePolicy")
-                    .to("log:foo?groupSize=10")
-                    .to("mock:success");
+                        .routeId("test")
+                        .routePolicyRef("startPolicy, throttlePolicy")
+                        .to("log:foo?groupSize=10")
+                        .to("mock:success");
             }
         });
         context.start();
 
-        assertTrue(context.getRouteStatus("test") == ServiceStatus.Started);
+        assertSame(ServiceStatus.Started, context.getRouteController().getRouteStatus("test"));
         for (int i = 0; i < size; i++) {
             template.sendBody(url, "Message " + i);
             Thread.sleep(3);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,25 +22,32 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.component.crypto.processor.SigningProcessor;
 import org.apache.camel.component.crypto.processor.VerifyingProcessor;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 
-@UriEndpoint(scheme = "crypto", title = "Crypto (Java Cryptographic Extension)", syntax = "crypto:cryptoOperation", producerOnly = true, label = "security,transformation")
+/**
+ * Sign and verify exchanges using the Signature Service of the Java Cryptographic Extension (JCE).
+ */
+@UriEndpoint(firstVersion = "2.3.0", scheme = "crypto", title = "Crypto (JCE)", syntax = "crypto:cryptoOperation:name",
+             producerOnly = true, category = { Category.SECURITY, Category.TRANSFORMATION })
 public class DigitalSignatureEndpoint extends DefaultEndpoint {
     @UriParam
     private DigitalSignatureConfiguration configuration;
 
-    public DigitalSignatureEndpoint(String uri, DigitalSignatureComponent component, DigitalSignatureConfiguration configuration) {
+    public DigitalSignatureEndpoint(String uri, DigitalSignatureComponent component,
+                                    DigitalSignatureConfiguration configuration) {
         super(uri, component);
         this.configuration = configuration;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         if (CryptoOperation.sign == configuration.getCryptoOperation()) {
             return new DigitalSignatureProducer(this, new SigningProcessor(configuration));
@@ -49,18 +56,15 @@ public class DigitalSignatureEndpoint extends DefaultEndpoint {
         }
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        throw new UnsupportedOperationException("Digital Signatures endpoints are not meant to be consumed from. They are meant be used as an intermediate endpoints");
+        throw new UnsupportedOperationException(
+                "Digital Signatures endpoints are not meant to be consumed from. They are meant be used as an intermediate endpoints");
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
-    public Object getManagedObject(DigitalSignatureEndpoint endpoint) {
-        return this;
-    }
-
+    /**
+     * Sets the configuration to use
+     */
     public void setConfiguration(DigitalSignatureConfiguration configuration) {
         this.configuration = configuration;
     }
@@ -101,11 +105,11 @@ public class DigitalSignatureEndpoint extends DefaultEndpoint {
         getConfiguration().setKeystore(keystore);
     }
 
-    public char[] getPassword() {
+    public String getPassword() {
         return getConfiguration().getPassword();
     }
 
-    public void setKeyPassword(char[] keyPassword) {
+    public void setKeyPassword(String keyPassword) {
         getConfiguration().setPassword(keyPassword);
     }
 

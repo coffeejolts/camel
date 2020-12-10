@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,9 +25,12 @@ import javax.mail.internet.MimeMessage;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for rollback option.
@@ -37,6 +40,7 @@ public class MailDoNotDeleteIfProcessFailsTest extends CamelTestSupport {
     private static int counter;
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
         prepareMailbox();
         super.setUp();
@@ -68,21 +72,24 @@ public class MailDoNotDeleteIfProcessFailsTest extends CamelTestSupport {
         Message[] msg = new Message[2];
         msg[0] = new MimeMessage(sender.getSession());
         msg[0].setText("Message 1");
+        msg[0].setHeader("Message-ID", "0");
         msg[0].setFlag(Flags.Flag.SEEN, false);
         msg[1] = new MimeMessage(sender.getSession());
         msg[1].setText("Message 2");
+        msg[0].setHeader("Message-ID", "1");
         msg[1].setFlag(Flags.Flag.SEEN, true);
         folder.appendMessages(msg);
         folder.close(true);
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 // no redelivery for unit test as we want it to be polled next time
                 onException(IllegalArgumentException.class).to("mock:error");
 
-                from("imap://localhost?username=claus&password=secret&unseen=true&delay=250")
+                from("imap://localhost?username=claus&password=secret&unseen=true&initialDelay=100&delay=100")
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
                                 counter++;

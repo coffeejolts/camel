@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,7 @@ import java.util.Map;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.impl.ScheduledPollConsumer;
+import org.apache.camel.support.ScheduledPollConsumer;
 import org.apache.chemistry.opencmis.client.api.OperationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,34 +30,49 @@ import org.slf4j.LoggerFactory;
  * The CMIS consumer.
  */
 public class CMISConsumer extends ScheduledPollConsumer {
+
     private static final Logger LOG = LoggerFactory.getLogger(CMISConsumer.class);
+
+    private final CMISSessionFacadeFactory sessionFacadeFactory;
     private CMISSessionFacade sessionFacade;
 
-    public CMISConsumer(CMISEndpoint endpoint, Processor processor) {
-        super(endpoint, processor);
+    public CMISConsumer(CMISEndpoint cmisEndpoint, Processor processor, CMISSessionFacadeFactory sessionFacadeFactory) {
+        super(cmisEndpoint, processor);
+        this.sessionFacadeFactory = sessionFacadeFactory;
+        this.sessionFacade = null;
     }
 
-    public CMISConsumer(CMISEndpoint cmisEndpoint, Processor processor, CMISSessionFacade sessionFacade) {
-        this(cmisEndpoint, processor);
-        this.sessionFacade = sessionFacade;
+    @Override
+    public CMISEndpoint getEndpoint() {
+        return (CMISEndpoint) super.getEndpoint();
     }
 
     @Override
     protected int poll() throws Exception {
-        return this.sessionFacade.poll(this);
+        return getSessionFacade().poll(this);
     }
-    
-    public OperationContext createOperationContext() {
-        return sessionFacade.createOperationContext();
+
+    public OperationContext createOperationContext() throws Exception {
+        return getSessionFacade().createOperationContext();
     }
 
     int sendExchangeWithPropsAndBody(Map<String, Object> properties, InputStream inputStream)
-        throws Exception {
+            throws Exception {
         Exchange exchange = getEndpoint().createExchange();
         exchange.getIn().setHeaders(properties);
         exchange.getIn().setBody(inputStream);
-        LOG.debug("Polling node : {}", properties.get("cmis:name"));
+        LOG.debug("Polling node: {}", properties.get("cmis:name"));
         getProcessor().process(exchange);
         return 1;
     }
+
+    private CMISSessionFacade getSessionFacade() throws Exception {
+        if (sessionFacade == null) {
+            sessionFacade = sessionFacadeFactory.create(getEndpoint());
+            sessionFacade.initSession();
+        }
+
+        return sessionFacade;
+    }
+
 }

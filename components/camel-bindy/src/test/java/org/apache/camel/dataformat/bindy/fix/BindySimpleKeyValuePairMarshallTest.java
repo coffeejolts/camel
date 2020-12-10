@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -30,20 +30,22 @@ import org.apache.camel.dataformat.bindy.kvp.BindyKeyValuePairDataFormat;
 import org.apache.camel.dataformat.bindy.model.fix.simple.Header;
 import org.apache.camel.dataformat.bindy.model.fix.simple.Order;
 import org.apache.camel.dataformat.bindy.model.fix.simple.Trailer;
-import org.junit.Test;
+import org.apache.camel.test.spring.junit5.CamelSpringTest;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 
 @ContextConfiguration
-public class BindySimpleKeyValuePairMarshallTest extends AbstractJUnit4SpringContextTests {
+@CamelSpringTest
+public class BindySimpleKeyValuePairMarshallTest {
 
-    private List<Map<String, Object>> models = new ArrayList<Map<String, Object>>();
-    private String result = "1=BE.CHM.0018=FIX 4.19=2010=22011=CHM0001-0122=434=135=048=BE000124567849=INVMGR54=156=BRKR58=this is a camel - bindy test\r\n";
+    private List<Map<String, Object>> models = new ArrayList<>();
+    private String result
+            = "1=BE.CHM.0018=FIX 4.19=2010=22011=CHM0001-0122=434=135=048=BE000124567849=INVMGR54=156=BRKR58=this is a camel - bindy test\r\n";
 
-    @Produce(uri = "direct:start")
+    @Produce("direct:start")
     private ProducerTemplate template;
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     private MockEndpoint resultEndpoint;
 
     @Test
@@ -55,7 +57,7 @@ public class BindySimpleKeyValuePairMarshallTest extends AbstractJUnit4SpringCon
     }
 
     public List<Map<String, Object>> generateModel() {
-        Map<String, Object> modelObjects = new HashMap<String, Object>();
+        Map<String, Object> modelObjects = new HashMap<>();
 
         Header header = new Header();
         header.setBeginString("FIX 4.1");
@@ -88,8 +90,10 @@ public class BindySimpleKeyValuePairMarshallTest extends AbstractJUnit4SpringCon
     }
 
     public static class ContextConfig extends RouteBuilder {
-        BindyKeyValuePairDataFormat camelDataFormat = new BindyKeyValuePairDataFormat("org.apache.camel.dataformat.bindy.model.fix.simple");
+        BindyKeyValuePairDataFormat camelDataFormat
+                = new BindyKeyValuePairDataFormat(org.apache.camel.dataformat.bindy.model.fix.simple.Order.class);
 
+        @Override
         public void configure() {
             from("direct:start").marshal(camelDataFormat).to("mock:result");
         }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,27 +16,27 @@
  */
 package org.apache.camel.component.netty;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandler;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
-import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
+import java.util.List;
 
-import static org.jboss.netty.buffer.ChannelBuffers.copiedBuffer;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.MessageToMessageDecoder;
+import io.netty.handler.codec.MessageToMessageEncoder;
 
 public final class MyCustomCodec {
-    
-    private static ChannelBuffer nullDelimiter = ChannelBuffers.wrappedBuffer(new byte[]{0});
-    
+
+    private static ByteBuf nullDelimiter = Unpooled.wrappedBuffer(new byte[] { 0 });
+
     private MyCustomCodec() {
         // Helper class
     }
 
     public static ChannelHandlerFactory createMyCustomDecoder() {
-        ChannelBuffer[] delimiters = new ChannelBuffer[]{nullDelimiter, nullDelimiter};
-        return ChannelHandlerFactories.newDelimiterBasedFrameDecoder(4096, delimiters);
+        ByteBuf[] delimiters = new ByteBuf[] { nullDelimiter, nullDelimiter };
+        return ChannelHandlerFactories.newDelimiterBasedFrameDecoder(4096, delimiters, "tcp");
     }
 
     public static ChannelHandler createMyCustomDecoder2() {
@@ -48,34 +48,31 @@ public final class MyCustomCodec {
     }
 
     @ChannelHandler.Sharable
-    public static class BytesDecoder extends OneToOneDecoder {
+    public static class BytesDecoder extends MessageToMessageDecoder<ByteBuf> {
 
         @Override
-        protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
-            if (!(msg instanceof ChannelBuffer)) {
-                return msg;
-            } else {
-                // it may be empty, then return null
-                ChannelBuffer cb = (ChannelBuffer) msg;
-                if (cb.hasArray() && cb.readable()) {
-                    return cb.array();
-                } else {
-                    return null;
-                }
+        protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
+            // it may be empty, then return null
+            if (msg.isReadable()) {
+                // ByteBuf may not expose array method for accessing the under layer bytes
+                byte[] bytes = new byte[msg.readableBytes()];
+                int readerIndex = msg.readerIndex();
+                msg.getBytes(readerIndex, bytes);
+                out.add(bytes);
             }
         }
 
     }
 
     @ChannelHandler.Sharable
-    public static class BytesEncoder extends OneToOneEncoder {
+    public static class BytesEncoder extends MessageToMessageEncoder<byte[]> {
 
         @Override
-        protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
-            if (msg instanceof byte[]) {
-                return copiedBuffer((byte[]) msg);
-            }
-            return msg;
+        protected void encode(ChannelHandlerContext ctx, byte[] msg, List<Object> out) throws Exception {
+            byte[] bytes = msg;
+            ByteBuf buf = ByteBufAllocator.DEFAULT.buffer(bytes.length);
+            buf.writeBytes(bytes);
+            out.add(buf);
         }
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,7 +22,7 @@ import java.util.Date;
 import org.apache.camel.dataformat.bindy.annotation.DataField;
 import org.apache.camel.dataformat.bindy.annotation.FixedLengthRecord;
 
-@FixedLengthRecord(hasHeader = true, hasFooter = true)
+@FixedLengthRecord(header = OrderHeader.class, footer = OrderFooter.class)
 public class Order {
 
     @DataField(pos = 1, length = 2)
@@ -148,9 +148,10 @@ public class Order {
 
     @Override
     public String toString() {
-        return "Model : " + Order.class.getName() + " : " + this.orderNr + ", " + this.orderType + ", " + String.valueOf(this.amount) + ", " + this.instrumentCode + ", "
-               + this.instrumentNumber + ", " + this.instrumentType + ", " + this.currency + ", " + this.clientNr + ", " + this.firstName + ", " + this.lastName + ", "
+        return "Model : " + Order.class.getName() + " : " + this.orderNr + ", " + this.orderType + ", "
+               + String.valueOf(this.amount) + ", " + this.instrumentCode + ", "
+               + this.instrumentNumber + ", " + this.instrumentType + ", " + this.currency + ", " + this.clientNr + ", "
+               + this.firstName + ", " + this.lastName + ", "
                + String.valueOf(this.orderDate);
     }
 }
-

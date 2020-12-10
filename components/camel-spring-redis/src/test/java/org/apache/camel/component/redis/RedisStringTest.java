@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,37 +22,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.camel.impl.JndiRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.spi.Registry;
+import org.apache.camel.support.SimpleRegistry;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class RedisStringTest extends RedisTestSupport {
-    private ValueOperations valueOperations;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
     @Override
-    protected JndiRegistry createRegistry() throws Exception {
+    protected Registry createCamelRegistry() throws Exception {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        JndiRegistry registry = super.createRegistry();
+        Registry registry = new SimpleRegistry();
         registry.bind("redisTemplate", redisTemplate);
         return registry;
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        redisTemplate = mock(RedisTemplate.class);
-        valueOperations = mock(ValueOperations.class);
-        super.setUp();
     }
 
     @Test
@@ -75,7 +73,6 @@ public class RedisStringTest extends RedisTestSupport {
         verify(valueOperations).setIfAbsent("key", "value");
     }
 
-
     @Test
     public void shouldExecuteSETEX() throws Exception {
         sendHeaders(
@@ -87,7 +84,6 @@ public class RedisStringTest extends RedisTestSupport {
         verify(valueOperations).set("key", "value", 10, TimeUnit.SECONDS);
     }
 
-
     @Test
     public void shouldExecuteSETRANGE() throws Exception {
         sendHeaders(
@@ -98,7 +94,6 @@ public class RedisStringTest extends RedisTestSupport {
 
         verify(valueOperations).set("key", "value", 10);
     }
-
 
     @Test
     public void shouldExecuteGETRANGE() throws Exception {
@@ -114,7 +109,6 @@ public class RedisStringTest extends RedisTestSupport {
         assertEquals("test", result);
     }
 
-
     @Test
     public void shouldExecuteSETBIT() throws Exception {
         sendHeaders(
@@ -123,20 +117,19 @@ public class RedisStringTest extends RedisTestSupport {
                 RedisConstants.OFFSET, "10",
                 RedisConstants.VALUE, "0");
 
-        verify(redisTemplate).execute(any(RedisCallback.class));
+        verify(redisTemplate).execute(ArgumentMatchers.<RedisCallback<String>> any());
     }
-
 
     @Test
     public void shouldExecuteGETBIT() throws Exception {
-        when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(true);
+        when(redisTemplate.execute(ArgumentMatchers.<RedisCallback<Boolean>> any())).thenReturn(true);
 
         Object result = sendHeaders(
                 RedisConstants.COMMAND, "GETBIT",
                 RedisConstants.KEY, "key",
                 RedisConstants.OFFSET, "2");
 
-        verify(redisTemplate).execute(any(RedisCallback.class));
+        verify(redisTemplate).execute(ArgumentMatchers.<RedisCallback<String>> any());
         assertEquals(true, result);
     }
 
@@ -215,7 +208,6 @@ public class RedisStringTest extends RedisTestSupport {
         assertEquals(1L, result);
     }
 
-
     @Test
     public void shouldExecuteSTRLEN() throws Exception {
         when(valueOperations.size(anyString())).thenReturn(5L);
@@ -228,13 +220,12 @@ public class RedisStringTest extends RedisTestSupport {
         assertEquals(5L, result);
     }
 
-
     @Test
     public void shouldExecuteMGET() throws Exception {
-        List<String> fields = new ArrayList<String>();
+        List<String> fields = new ArrayList<>();
         fields.add("field1");
 
-        List<String> values = new ArrayList<String>();
+        List<String> values = new ArrayList<>();
         values.add("value1");
 
         when(valueOperations.multiGet(fields)).thenReturn(values);
@@ -247,10 +238,9 @@ public class RedisStringTest extends RedisTestSupport {
         assertEquals(values, result);
     }
 
-
     @Test
     public void shouldExecuteMSET() throws Exception {
-        Map<String, String> values = new HashMap<String, String>();
+        Map<String, String> values = new HashMap<>();
         values.put("field1", "valu1");
 
         sendHeaders(
@@ -260,10 +250,9 @@ public class RedisStringTest extends RedisTestSupport {
         verify(valueOperations).multiSet(values);
     }
 
-
     @Test
     public void shouldExecuteMSETNX() throws Exception {
-        Map<String, String> values = new HashMap<String, String>();
+        Map<String, String> values = new HashMap<>();
         values.put("field1", "valu1");
 
         sendHeaders(

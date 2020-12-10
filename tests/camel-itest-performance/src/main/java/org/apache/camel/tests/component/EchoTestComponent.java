@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.tests.component;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.AsyncProcessor;
@@ -26,9 +27,9 @@ import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultComponent;
-import org.apache.camel.impl.DefaultEndpoint;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.support.DefaultEndpoint;
+import org.apache.camel.support.DefaultProducer;
 
 public class EchoTestComponent extends DefaultComponent {
 
@@ -40,10 +41,10 @@ public class EchoTestComponent extends DefaultComponent {
     }
 
     private final class EchoEndpoint extends DefaultEndpoint {
-        public EchoEndpoint(String uri, Component component) {
+        protected EchoEndpoint(String uri, Component component) {
             super(uri, component);
         }
-        
+
         @Override
         public Consumer createConsumer(Processor processor) throws Exception {
             // Component only supports Producers
@@ -62,7 +63,7 @@ public class EchoTestComponent extends DefaultComponent {
     }
 
     private final class EchoProducer extends DefaultProducer implements AsyncProcessor {
-        public EchoProducer(Endpoint endpoint) {
+        protected EchoProducer(Endpoint endpoint) {
             super(endpoint);
         }
 
@@ -75,6 +76,12 @@ public class EchoTestComponent extends DefaultComponent {
         public boolean process(Exchange exchange, AsyncCallback callback) {
             // do nothing, echo is implicit
             return true;
+        }
+
+        @Override
+        public CompletableFuture<Exchange> processAsync(Exchange exchange) {
+            // TODO Auto-generated method stub
+            return null;
         }
     }
 }

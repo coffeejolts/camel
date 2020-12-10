@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,31 +19,30 @@ package org.apache.camel.component.mina;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class MinaClientServerTest extends BaseMinaTest {
 
     @Test
-    public void testSendToServer() {
+    public void testSendToServer() throws InterruptedException {
         // START SNIPPET: e3
-        String out = (String) template.requestBody("mina:tcp://localhost:{{port}}?sync=true&textline=true", "Claus");
-        assertEquals("Hello Claus", out);
+        String out = (String) template.requestBody(String.format("mina:tcp://localhost:%1$s?textline=true", getPort()), "Chad");
+        assertEquals("Hello Chad", out);
         // END SNIPPET: e3
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
                 // START SNIPPET: e1
-                // lets setup a server on port {{port}}
-                // we set the sync option so we will send a reply
+                // lets setup a server on port %1$s
                 // and we let the request-reply be processed in the MyServerProcessor
-                from("mina:tcp://localhost:{{port}}?sync=true&textline=true").process(new MyServerProcessor());
+                from(String.format("mina:tcp://localhost:%1$s?textline=true", getPort())).process(new MyServerProcessor());
                 // END SNIPPET: e1
             }
         };
@@ -51,13 +50,14 @@ public class MinaClientServerTest extends BaseMinaTest {
 
     // START SNIPPET: e2
     private static class MyServerProcessor implements Processor {
+
+        @Override
         public void process(Exchange exchange) throws Exception {
             // get the input from the IN body
             String name = exchange.getIn().getBody(String.class);
             // send back a response on the OUT body
-            exchange.getOut().setBody("Hello " + name);
+            exchange.getMessage().setBody("Hello " + name);
         }
     }
     // END SNIPPET: e2
-
 }

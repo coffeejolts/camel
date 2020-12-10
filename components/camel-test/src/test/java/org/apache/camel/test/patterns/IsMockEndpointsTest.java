@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,19 +18,15 @@ package org.apache.camel.test.patterns;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.test.junit4.CamelTestSupport;
-
 import org.junit.Test;
 
-/**
- * @version 
- */
 public class IsMockEndpointsTest extends CamelTestSupport {
 
     @Override
     public String isMockEndpoints() {
         return "*";
     }
-    
+
     @Test
     public void testMockAllEndpoints() throws Exception {
         getMockEndpoint("mock:direct:start").expectedBodiesReceived("Hello World");

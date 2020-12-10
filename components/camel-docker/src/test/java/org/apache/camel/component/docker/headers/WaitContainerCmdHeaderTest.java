@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,16 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.WaitContainerCmd;
-
+import com.github.dockerjava.core.command.WaitContainerResultCallback;
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Wait Container Request headers are applied properly
@@ -36,15 +38,16 @@ public class WaitContainerCmdHeaderTest extends BaseDockerHeaderTest<WaitContain
     @Mock
     private WaitContainerCmd mockObject;
 
-    @Ignore
+    @Mock
+    private WaitContainerResultCallback callback;
+
     @Test
-    public void waitContainerHeaderTest() {
+    void waitContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
 
         Map<String, Object> headers = getDefaultParameters();
         headers.put(DockerConstants.DOCKER_CONTAINER_ID, containerId);
-
 
         template.sendBodyAndHeaders("direct:in", "", headers);
 
@@ -54,7 +57,9 @@ public class WaitContainerCmdHeaderTest extends BaseDockerHeaderTest<WaitContain
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.waitContainerCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.waitContainerCmd(anyString())).thenReturn(mockObject);
+        Mockito.when(mockObject.exec(any())).thenReturn(callback);
+        Mockito.when(callback.awaitStatusCode()).thenReturn(anyInt());
     }
 
     @Override

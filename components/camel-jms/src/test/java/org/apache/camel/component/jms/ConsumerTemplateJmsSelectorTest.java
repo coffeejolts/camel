@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,18 +19,19 @@ package org.apache.camel.component.jms;
 import javax.jms.ConnectionFactory;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentTransacted;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * @version 
- */
 public class ConsumerTemplateJmsSelectorTest extends CamelTestSupport {
 
     @Test
     public void testJmsSelector() throws Exception {
+        // must start CamelContext because use route builder is false
+        context.start();
+
         template.sendBodyAndHeader("activemq:foo", "Hello World", "foo", "123");
         template.sendBodyAndHeader("activemq:foo", "Bye World", "foo", "456");
 
@@ -41,6 +42,7 @@ public class ConsumerTemplateJmsSelectorTest extends CamelTestSupport {
         assertEquals("Hello World", body);
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
 

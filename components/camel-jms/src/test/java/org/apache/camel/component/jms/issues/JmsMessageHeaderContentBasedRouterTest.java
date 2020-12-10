@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,15 +23,13 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Predicate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.CamelJmsTestHelper;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.component.jms.JmsComponent.jmsComponentAutoAcknowledge;
 
 /**
  * Unit test based on user on user forum with an issue.
- *
- * @version 
  */
 public class JmsMessageHeaderContentBasedRouterTest extends CamelTestSupport {
 
@@ -45,6 +43,7 @@ public class JmsMessageHeaderContentBasedRouterTest extends CamelTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         CamelContext camelContext = super.createCamelContext();
         ConnectionFactory connectionFactory = CamelJmsTestHelper.createConnectionFactory();
@@ -61,18 +60,18 @@ public class JmsMessageHeaderContentBasedRouterTest extends CamelTestSupport {
                 Predicate isB = header("route").isEqualTo("b");
 
                 from("activemq:queue:start")
-                    .bean(MyPreProcessorBean.class, "determineRouting")
-                    .choice()
+                        .bean(MyPreProcessorBean.class, "determineRouting")
+                        .choice()
                         .when(isA).to("mock:a")
                         .when(isB).to("mock:b")
-                    .end();
+                        .end();
 
             }
         };
     }
 
     public static class MyPreProcessorBean {
-        
+
         public void determineRouting(Exchange exchange) {
             exchange.getIn().setHeader("route", "b");
         }

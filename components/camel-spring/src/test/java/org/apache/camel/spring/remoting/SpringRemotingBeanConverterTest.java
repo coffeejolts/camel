@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,26 +16,26 @@
  */
 package org.apache.camel.spring.remoting;
 
-import junit.framework.TestCase;
 import org.apache.camel.CamelContext;
 import org.apache.camel.spring.SpringCamelContext;
 import org.apache.camel.util.IOHelper;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
-public class SpringRemotingBeanConverterTest extends TestCase {
-    
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class SpringRemotingBeanConverterTest {
+
+    @Test
     public void testBeanRoutes() throws Exception {
         AbstractXmlApplicationContext applicationContext = createApplicationContext();
 
-        CamelContext camelContext = SpringCamelContext.springCamelContext(applicationContext);
-        
+        CamelContext camelContext = SpringCamelContext.springCamelContext(applicationContext, true);
+
         Invoker invoker = applicationContext.getBean("invokerProxy", Invoker.class);
         String response = invoker.invoke(new Bean.SubClass());
-        assertEquals("Hello from Sub" , response);
+        assertEquals("Hello from Sub", response);
 
         camelContext.stop();
         IOHelper.close(applicationContext);

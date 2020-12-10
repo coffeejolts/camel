@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,21 +20,22 @@ import java.net.URI;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
-public class SipComponent extends UriEndpointComponent {
+@Component("sip,sips")
+public class SipComponent extends DefaultComponent {
 
     public SipComponent() {
-        super(SipEndpoint.class);
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         SipConfiguration config = new SipConfiguration();
         config.initialize(new URI(uri), parameters, this);
-        
+
         SipEndpoint sipEndpoint = new SipEndpoint(uri, this, config);
-        setProperties(sipEndpoint.getConfiguration(), parameters);
+        setProperties(sipEndpoint, parameters);
         return sipEndpoint;
     }
 }

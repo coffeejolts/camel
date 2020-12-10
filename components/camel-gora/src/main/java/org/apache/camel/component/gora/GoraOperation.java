@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -73,11 +73,8 @@ public enum GoraOperation {
 
     /**
      * Enum constructor
-     *
-     * @param str Operation Value
      */
-    private GoraOperation(final String str) {
-
+    GoraOperation(final String str) {
         value = str;
     }
 }

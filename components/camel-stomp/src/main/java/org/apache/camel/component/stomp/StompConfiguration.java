@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,31 @@
  */
 package org.apache.camel.component.stomp;
 
+import java.util.Properties;
+
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriParams;
+import org.apache.camel.support.jsse.SSLContextParameters;
 
 @UriParams
 public class StompConfiguration implements Cloneable {
-
-    @UriParam(defaultValue = "tcp://localhost:61613") @Metadata(required = "true")
+    @UriParam(defaultValue = "tcp://localhost:61613")
+    @Metadata(required = true)
     private String brokerURL = "tcp://localhost:61613";
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String login;
-    @UriParam
+    @UriParam(label = "security", secret = true)
     private String passcode;
+    @UriParam
+    private String host;
+    @UriParam(label = "security")
+    private SSLContextParameters sslContextParameters;
+    @UriParam
+    private String version;
+    @UriParam
+    private Properties customHeaders;
 
     /**
      * Returns a copy of this configuration
@@ -45,6 +56,17 @@ public class StompConfiguration implements Cloneable {
 
     public String getBrokerURL() {
         return brokerURL;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    /**
+     * The virtual host name
+     */
+    public void setHost(String host) {
+        this.host = host;
     }
 
     /**
@@ -76,4 +98,36 @@ public class StompConfiguration implements Cloneable {
         this.passcode = passcode;
     }
 
+    public SSLContextParameters getSslContextParameters() {
+        return sslContextParameters;
+    }
+
+    /**
+     * To configure security using SSLContextParameters
+     */
+    public void setSslContextParameters(SSLContextParameters sslContextParameters) {
+        this.sslContextParameters = sslContextParameters;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    /**
+     * The stomp version (1.1, or 1.2)
+     */
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
+    public Properties getCustomHeaders() {
+        return customHeaders;
+    }
+
+    /**
+     * To set custom headers
+     */
+    public void setCustomHeaders(Properties customHeaders) {
+        this.customHeaders = customHeaders;
+    }
 }

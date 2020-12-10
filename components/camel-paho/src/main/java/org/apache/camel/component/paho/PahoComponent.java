@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,20 +18,68 @@ package org.apache.camel.component.paho;
 
 import java.util.Map;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 
-public class PahoComponent extends UriEndpointComponent {
+/**
+ * Component to integrate with the Eclipse Paho MQTT library.
+ */
+@Component("paho")
+public class PahoComponent extends DefaultComponent {
+
+    @Metadata
+    private PahoConfiguration configuration = new PahoConfiguration();
+
+    @Metadata(label = "advanced")
+    private MqttClient client;
 
     public PahoComponent() {
-        super(PahoEndpoint.class);
+        this(null);
+    }
+
+    public PahoComponent(CamelContext context) {
+        super(context);
+
+        registerExtension(new PahoComponentVerifierExtension());
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        PahoEndpoint pahoEndpoint = new PahoEndpoint(uri, this);
-        setProperties(pahoEndpoint, parameters);
-        return pahoEndpoint;
+        // Each endpoint can have its own configuration so make
+        // a copy of the configuration
+        PahoConfiguration configuration = getConfiguration().copy();
+
+        PahoEndpoint answer = new PahoEndpoint(uri, remaining, this, configuration);
+        answer.setClient(client);
+
+        setProperties(answer, parameters);
+        return answer;
+    }
+
+    public PahoConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * To use the shared Paho configuration
+     */
+    public void setConfiguration(PahoConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    public MqttClient getClient() {
+        return client;
+    }
+
+    /**
+     * To use a shared Paho client
+     */
+    public void setClient(MqttClient client) {
+        this.client = client;
     }
 
 }

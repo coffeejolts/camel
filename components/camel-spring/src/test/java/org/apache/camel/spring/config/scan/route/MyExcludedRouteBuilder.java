@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.spring.config.scan.route;
 
 import org.apache.camel.builder.RouteBuilder;
@@ -23,6 +22,6 @@ public class MyExcludedRouteBuilder extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        from("direct:shouldNeverRecieveExchange").to("mock:definitelyShouldNeverReceiveExchange");
+        from("direct:shouldNeverReceiveExchange").to("mock:definitelyShouldNeverReceiveExchange");
     }
 }

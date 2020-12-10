@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,8 +25,9 @@ import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.examples.SendEmail;
-import org.apache.camel.spring.SpringRouteBuilder;
-import org.junit.Test;
+import org.apache.camel.util.ObjectHelper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -34,14 +35,21 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.orm.jpa.LocalEntityManagerFactoryBean;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-/**
- * @version 
- */
 public class JpaRouteSharedEntityManagerTest extends AbstractJpaTest {
     protected static final String SELECT_ALL_STRING = "select x from " + SendEmail.class.getName() + " x";
     private CountDownLatch latch = new CountDownLatch(1);
-    
+
+    @Override
+    @BeforeEach
+    public void setUp() throws Exception {
+        // Don't run on Hibernate
+        assumeTrue(ObjectHelper.loadClass("org.hibernate.Hibernate") == null);
+        super.setUp();
+    }
+
     @Test
     public void testRouteJpaShared() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -52,30 +60,31 @@ public class JpaRouteSharedEntityManagerTest extends AbstractJpaTest {
 
         template.sendBody("direct:startShared", new SendEmail("one@somewhere.org"));
         // start route
-        context.startRoute("jpaShared");
+        context.getRouteController().startRoute("jpaShared");
 
         // not the cleanest way to check the number of open connections
         int countEnd = getBrokerCount();
         assertThat("brokerCount", countEnd, equalTo(1));
-        
+
         latch.countDown();
 
         assertMockEndpointsSatisfied();
     }
 
     private int getBrokerCount() {
-        LocalEntityManagerFactoryBean entityManagerFactory = applicationContext.getBean("&entityManagerFactory", LocalEntityManagerFactoryBean.class);
+        LocalEntityManagerFactoryBean entityManagerFactory
+                = applicationContext.getBean("&entityManagerFactory", LocalEntityManagerFactoryBean.class);
 
         //uses Spring EL so we don't need to reference the classes
         StandardEvaluationContext context = new StandardEvaluationContext(entityManagerFactory);
         context.setBeanResolver(new BeanFactoryResolver(applicationContext));
         SpelExpressionParser parser = new SpelExpressionParser();
-        Expression expression = parser.parseExpression("nativeEntityManagerFactory.brokerFactory.openBrokers"); 
+        Expression expression = parser.parseExpression("nativeEntityManagerFactory.brokerFactory.openBrokers");
         List<?> brokers = expression.getValue(context, List.class);
 
         return brokers.size();
     }
-    
+
     @Test
     public void testRouteJpaNotShared() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -87,25 +96,28 @@ public class JpaRouteSharedEntityManagerTest extends AbstractJpaTest {
         assertThat("brokerCount", countStart, equalTo(1));
 
         // start route
-        context.startRoute("jpaOwn");
+        context.getRouteController().startRoute("jpaOwn");
 
         // not the cleanest way to check the number of open connections
         int countEnd = getBrokerCount();
         assertThat("brokerCount", countEnd, equalTo(2));
-        
+
         latch.countDown();
 
         assertMockEndpointsSatisfied();
-    }    
+    }
 
     @Override
     protected RouteBuilder createRouteBuilder() {
-        return new SpringRouteBuilder() {
+        return new RouteBuilder() {
             public void configure() {
                 from("direct:startNotshared").to("jpa://" + SendEmail.class.getName() + "?");
-                from("direct:startShared").to("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=true&joinTransaction=false");
-                from("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=true&joinTransaction=false").routeId("jpaShared").autoStartup(false).process(new LatchProcessor()).to("mock:result");
-                from("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=false").routeId("jpaOwn").autoStartup(false).process(new LatchProcessor()).to("mock:result");
+                from("direct:startShared")
+                        .to("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=true&joinTransaction=false");
+                from("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=true&joinTransaction=false")
+                        .routeId("jpaShared").autoStartup(false).process(new LatchProcessor()).to("mock:result");
+                from("jpa://" + SendEmail.class.getName() + "?sharedEntityManager=false").routeId("jpaOwn").autoStartup(false)
+                        .process(new LatchProcessor()).to("mock:result");
             }
         };
     }
@@ -119,7 +131,7 @@ public class JpaRouteSharedEntityManagerTest extends AbstractJpaTest {
     protected String selectAllString() {
         return SELECT_ALL_STRING;
     }
-    
+
     private class LatchProcessor implements Processor {
         @Override
         public void process(Exchange exchange) throws Exception {
@@ -127,4 +139,3 @@ public class JpaRouteSharedEntityManagerTest extends AbstractJpaTest {
         }
     }
 }
-

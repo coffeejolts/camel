@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,12 @@ import org.apache.camel.Exchange;
 import org.apache.camel.spi.ExchangeFormatter;
 
 /**
- * A test exchange formatter. 
+ * A test exchange formatter.
  */
 public class TestExchangeFormatter implements ExchangeFormatter {
 
     private String testProperty;
-    
+
     @Override
     public String format(Exchange exchange) {
         return exchange.toString();

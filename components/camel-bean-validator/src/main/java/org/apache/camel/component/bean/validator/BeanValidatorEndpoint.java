@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,34 +22,46 @@ import javax.validation.TraversableResolver;
 import javax.validation.ValidationProviderResolver;
 import javax.validation.ValidatorFactory;
 
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
-import org.apache.camel.util.PlatformHelper;
+import org.apache.camel.support.DefaultEndpoint;
+import org.apache.camel.support.PlatformHelper;
 
 import static org.apache.camel.component.bean.validator.ValidatorFactories.buildValidatorFactory;
 
-@UriEndpoint(scheme = "bean-validator", title = "Bean Validator", syntax = "bean-validator:label", producerOnly = true, label = "validation")
+/**
+ * Validate the message body using the Java Bean Validation API.
+ *
+ * Camel uses the reference implementation, which is Hibernate Validator.
+ */
+@UriEndpoint(firstVersion = "2.3.0", scheme = "bean-validator", title = "Bean Validator", syntax = "bean-validator:label",
+             producerOnly = true, category = { Category.VALIDATION })
 public class BeanValidatorEndpoint extends DefaultEndpoint {
 
-    @UriPath(description = "Where label is an arbitrary text value describing the endpoint") @Metadata(required = "true")
+    @UriPath(description = "Where label is an arbitrary text value describing the endpoint")
+    @Metadata(required = true)
     private String label;
     @UriParam(defaultValue = "javax.validation.groups.Default")
     private String group;
     @UriParam
+    private boolean ignoreXmlConfiguration;
+    @UriParam(label = "advanced")
     private ValidationProviderResolver validationProviderResolver;
-    @UriParam
+    @UriParam(label = "advanced")
     private MessageInterpolator messageInterpolator;
-    @UriParam
+    @UriParam(label = "advanced")
     private TraversableResolver traversableResolver;
-    @UriParam
-    private ConstraintValidatorFactory constraintValidatorFactory; 
+    @UriParam(label = "advanced")
+    private ConstraintValidatorFactory constraintValidatorFactory;
+    @UriParam(label = "advanced")
+    private ValidatorFactory validatorFactory;
 
     public BeanValidatorEndpoint(String endpointUri, Component component) {
         super(endpointUri, component);
@@ -61,8 +73,13 @@ public class BeanValidatorEndpoint extends DefaultEndpoint {
         if (group != null) {
             producer.setGroup(getCamelContext().getClassResolver().resolveMandatoryClass(group));
         }
-        ValidatorFactory validatorFactory = buildValidatorFactory(isOsgiContext(),
-                validationProviderResolver, messageInterpolator, traversableResolver, constraintValidatorFactory);
+
+        ValidatorFactory validatorFactory = this.validatorFactory;
+        if (validatorFactory == null) {
+            validatorFactory = buildValidatorFactory(isOsgiContext(), isIgnoreXmlConfiguration(),
+                    validationProviderResolver, messageInterpolator, traversableResolver, constraintValidatorFactory);
+        }
+
         producer.setValidatorFactory(validatorFactory);
         return producer;
     }
@@ -70,11 +87,6 @@ public class BeanValidatorEndpoint extends DefaultEndpoint {
     @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         throw new UnsupportedOperationException("Consumer is not supported");
-    }
-
-    @Override
-    public boolean isSingleton() {
-        return true;
     }
 
     /**
@@ -103,6 +115,17 @@ public class BeanValidatorEndpoint extends DefaultEndpoint {
      */
     public void setGroup(String group) {
         this.group = group;
+    }
+
+    public boolean isIgnoreXmlConfiguration() {
+        return ignoreXmlConfiguration;
+    }
+
+    /**
+     * Whether to ignore data from the META-INF/validation.xml file.
+     */
+    public void setIgnoreXmlConfiguration(boolean ignoreXmlConfiguration) {
+        this.ignoreXmlConfiguration = ignoreXmlConfiguration;
     }
 
     public ValidationProviderResolver getValidationProviderResolver() {
@@ -147,5 +170,16 @@ public class BeanValidatorEndpoint extends DefaultEndpoint {
      */
     public void setConstraintValidatorFactory(ConstraintValidatorFactory constraintValidatorFactory) {
         this.constraintValidatorFactory = constraintValidatorFactory;
+    }
+
+    /**
+     * To use a custom {@link ValidatorFactory}
+     */
+    public void setValidatorFactory(ValidatorFactory validatorFactory) {
+        this.validatorFactory = validatorFactory;
+    }
+
+    public ValidatorFactory getValidatorFactory() {
+        return validatorFactory;
     }
 }

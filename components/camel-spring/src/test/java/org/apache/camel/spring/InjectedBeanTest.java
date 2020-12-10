@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,15 +16,17 @@
  */
 package org.apache.camel.spring;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class InjectedBeanTest extends SpringTestSupport {
     protected InjectedBean bean;
 
+    @Test
     public void testInjectionPoints() throws Exception {
         log.info("getFieldInjectedEndpoint()         = " + bean.getFieldInjectedEndpoint());
         log.info("getPropertyInjectedEndpoint()      = " + bean.getPropertyInjectedEndpoint());
@@ -38,28 +40,34 @@ public class InjectedBeanTest extends SpringTestSupport {
         assertEndpointUri(bean.getFieldInjectedEndpoint(), "direct://fieldInjectedEndpoint");
         assertEndpointUri(bean.getPropertyInjectedEndpoint(), "direct://namedEndpoint1");
 
-        assertNotNull("No Producer injected for getFieldInjectedProducer()", bean.getFieldInjectedProducer());
-        assertNotNull("No Producer injected for getPropertyInjectedProducer()", bean.getPropertyInjectedProducer());
+        assertNotNull(bean.getFieldInjectedProducer(), "No Producer injected for getFieldInjectedProducer()");
+        assertNotNull(bean.getPropertyInjectedProducer(), "No Producer injected for getPropertyInjectedProducer()");
 
-        assertNotNull("No CamelTemplate injected for getFieldInjectedCamelTemplate()", bean.getFieldInjectedCamelTemplate());
-        assertNotNull("No CamelTemplate injected for getPropertyInjectedCamelTemplate()", bean.getPropertyInjectedCamelTemplate());
+        assertNotNull(bean.getFieldInjectedCamelTemplate(), "No CamelTemplate injected for getFieldInjectedCamelTemplate()");
+        assertNotNull(bean.getPropertyInjectedCamelTemplate(),
+                "No CamelTemplate injected for getPropertyInjectedCamelTemplate()");
 
-        assertNotNull("No ProducerTemplate injected for getInjectByFieldName()", bean.getInjectByFieldName());
-        assertNotNull("No ProducerTemplate injected for getInjectByPropertyName()", bean.getInjectByPropertyName());
+        assertNotNull(bean.getInjectByFieldName(), "No ProducerTemplate injected for getInjectByFieldName()");
+        assertNotNull(bean.getInjectByPropertyName(), "No ProducerTemplate injected for getInjectByPropertyName()");
 
-        assertNotNull("No PollingConsumer injected for getFieldInjectedPollingConsumer()", bean.getFieldInjectedPollingConsumer());
-        assertNotNull("No PollingConsumer injected for getPropertyInjectedPollingConsumer()", bean.getPropertyInjectedPollingConsumer());
+        assertNotNull(bean.getFieldInjectedPollingConsumer(),
+                "No PollingConsumer injected for getFieldInjectedPollingConsumer()");
+        assertNotNull(bean.getPropertyInjectedPollingConsumer(),
+                "No PollingConsumer injected for getPropertyInjectedPollingConsumer()");
     }
 
+    @Test
     public void testSendAndReceive() throws Exception {
     }
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         super.setUp();
         bean = getMandatoryBean(InjectedBean.class, "injectedBean");
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/injectedBean.xml");
     }

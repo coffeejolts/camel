@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,20 +20,19 @@ import java.util.Map;
 
 import com.google.common.eventbus.EventBus;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
-/**
- * Camel component for Guava EventBus
- * (http://docs.guava-libraries.googlecode.com/git/javadoc/com/google/common/eventbus/EventBus.html). Supports both
- * producer and consumer endpoints.
- */
-public class GuavaEventBusComponent extends UriEndpointComponent {
+@Component("guava-eventbus")
+public class GuavaEventBusComponent extends DefaultComponent {
 
+    @Metadata
     private EventBus eventBus;
+    @Metadata(label = "consumer")
     private Class<?> listenerInterface;
 
     public GuavaEventBusComponent() {
-        super(GuavaEventBusEndpoint.class);
     }
 
     @Override
@@ -60,9 +59,9 @@ public class GuavaEventBusComponent extends UriEndpointComponent {
     }
 
     /**
-     * The interface with method(s) marked with the @Subscribe annotation.
-     * Dynamic proxy will be created over the interface so it could be registered as the EventBus listener.
-     * Particularly useful when creating multi-event listeners and for handling DeadEvent properly. This option cannot be used together with eventClass option.
+     * The interface with method(s) marked with the @Subscribe annotation. Dynamic proxy will be created over the
+     * interface so it could be registered as the EventBus listener. Particularly useful when creating multi-event
+     * listeners and for handling DeadEvent properly. This option cannot be used together with eventClass option.
      */
     public void setListenerInterface(Class<?> listenerInterface) {
         this.listenerInterface = listenerInterface;

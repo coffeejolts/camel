@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,19 +26,22 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.component.http.HttpEndpoint;
-import org.apache.camel.component.http.HttpMethods;
+import org.apache.camel.http.common.HttpHelper;
+import org.apache.camel.http.common.HttpMethods;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.DefaultExchange;
-import org.junit.Test;
+import org.apache.camel.support.DefaultExchange;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HttpHelperTest {
 
     @Test
     public void testAppendHeader() throws Exception {
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         HttpHelper.appendHeader(headers, "foo", "a");
         HttpHelper.appendHeader(headers, "bar", "b");
         HttpHelper.appendHeader(headers, "baz", "c");
@@ -51,7 +54,7 @@ public class HttpHelperTest {
 
     @Test
     public void testAppendHeaderMultipleValues() throws Exception {
-        Map<String, Object> headers = new HashMap<String, Object>();
+        Map<String, Object> headers = new HashMap<>();
         HttpHelper.appendHeader(headers, "foo", "a");
         HttpHelper.appendHeader(headers, "bar", "b");
         HttpHelper.appendHeader(headers, "bar", "c");
@@ -161,6 +164,54 @@ public class HttpHelperTest {
         assertEquals(HttpMethods.POST, method);
     }
 
+    @Test
+    public void createURLShouldNotRemoveTrailingSlash() throws Exception {
+        String url = HttpHelper.createURL(
+                createExchangeWithOptionalCamelHttpUriHeader(null, "/"),
+                createHttpEndpoint(true, "http://www.google.com"));
+        assertEquals("http://www.google.com/", url);
+    }
+
+    @Test
+    public void createURLShouldAddPathAndQueryParamsAndSlash() throws Exception {
+        String url = HttpHelper.createURL(
+                createExchangeWithOptionalCamelHttpUriHeader(null, "search"),
+                createHttpEndpoint(true, "http://www.google.com/context?test=true"));
+        assertEquals("http://www.google.com/context/search?test=true", url);
+    }
+
+    @Test
+    public void createURLShouldAddPathAndQueryParamsAndRemoveDuplicateSlash() throws Exception {
+        String url = HttpHelper.createURL(
+                createExchangeWithOptionalCamelHttpUriHeader(null, "/search"),
+                createHttpEndpoint(true, "http://www.google.com/context/?test=true"));
+        assertEquals("http://www.google.com/context/search?test=true", url);
+    }
+
+    @Test
+    public void testIsStatusCodeOkSimpleRange() throws Exception {
+        assertFalse(HttpHelper.isStatusCodeOk(199, "200-299"));
+        assertTrue(HttpHelper.isStatusCodeOk(200, "200-299"));
+        assertTrue(HttpHelper.isStatusCodeOk(299, "200-299"));
+        assertFalse(HttpHelper.isStatusCodeOk(300, "200-299"));
+        assertFalse(HttpHelper.isStatusCodeOk(300, "301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(301, "301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(304, "301-304"));
+        assertFalse(HttpHelper.isStatusCodeOk(305, "301-304"));
+    }
+
+    @Test
+    public void testIsStatusCodeOkComplexRange() throws Exception {
+        assertFalse(HttpHelper.isStatusCodeOk(199, "200-299,404,301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(200, "200-299,404,301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(299, "200-299,404,301-304"));
+        assertFalse(HttpHelper.isStatusCodeOk(300, "200-299,404,301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(301, "200-299,404,301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(304, "200-299,404,301-304"));
+        assertFalse(HttpHelper.isStatusCodeOk(305, "200-299,404,301-304"));
+        assertTrue(HttpHelper.isStatusCodeOk(404, "200-299,404,301-304"));
+    }
+
     private Exchange createExchangeWithOptionalHttpQueryAndHttpMethodHeader(String httpQuery, HttpMethods httpMethod) {
         CamelContext context = new DefaultCamelContext();
         Exchange exchange = new DefaultExchange(context);
@@ -175,7 +226,8 @@ public class HttpHelperTest {
         return exchange;
     }
 
-    private Exchange createExchangeWithOptionalCamelHttpUriHeader(String endpointURI, String httpPath) throws URISyntaxException {
+    private Exchange createExchangeWithOptionalCamelHttpUriHeader(String endpointURI, String httpPath)
+            throws URISyntaxException {
         CamelContext context = new DefaultCamelContext();
         DefaultExchange exchange = new DefaultExchange(context);
         Message inMsg = exchange.getIn();

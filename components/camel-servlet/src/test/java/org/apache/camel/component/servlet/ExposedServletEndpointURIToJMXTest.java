@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,8 +22,10 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ExposedServletEndpointURIToJMXTest extends CamelTestSupport {
 
@@ -34,28 +36,29 @@ public class ExposedServletEndpointURIToJMXTest extends CamelTestSupport {
 
     @Test
     public void exposedEndpointURIShouldContainContextAndOptions() throws Exception {
-        checkServletEndpointURI("\"servlet:///test1\\?matchOnUriPrefix=true\"");
-        checkServletEndpointURI("\"servlet:///test2\\?servletName=test2\"");
-        checkServletEndpointURI("\"servlet:///test3\\?matchOnUriPrefix=true&servletName=test3\"");
+        checkServletEndpointURI("\"servlet:/test1\\?matchOnUriPrefix=true\"");
+        checkServletEndpointURI("\"servlet:/test2\\?servletName=test2\"");
+        checkServletEndpointURI("\"servlet:/test3\\?matchOnUriPrefix=true&servletName=test3\"");
     }
 
     private void checkServletEndpointURI(String servletEndpointURI) throws Exception {
         MBeanServer mbeanServer = context.getManagementStrategy().getManagementAgent().getMBeanServer();
-        ObjectName name = new ObjectName("org.apache.camel:context=camel-1,type=endpoints,name=" + servletEndpointURI);
+        ObjectName name = new ObjectName(
+                "org.apache.camel:context=" + context.getName() + ",type=endpoints,name=" + servletEndpointURI);
         Set<ObjectName> objectNamesSet = mbeanServer.queryNames(name, null);
-        assertEquals("Expect one MBean for the servlet endpoint", 1, objectNamesSet.size());
+        assertEquals(1, objectNamesSet.size(), "Expect one MBean for the servlet endpoint");
 
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
-
         return new RouteBuilder() {
 
             @Override
             public void configure() throws Exception {
-                from("servlet:///test1?matchOnUriPrefix=true").to("mock:jmx");
-                from("servlet:///test2?servletName=test2").to("mock:jmx");
-                from("servlet:///test3?matchOnUriPrefix=true&servletName=test3").to("mock:jmx");
+                from("servlet:test1?matchOnUriPrefix=true").to("mock:jmx");
+                from("servlet:test2?servletName=test2").to("mock:jmx");
+                from("servlet:test3?matchOnUriPrefix=true&servletName=test3").to("mock:jmx");
             }
 
         };

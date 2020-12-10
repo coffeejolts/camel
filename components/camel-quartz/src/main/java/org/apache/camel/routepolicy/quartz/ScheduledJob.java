@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,32 +26,45 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.quartz.SchedulerContext;
 import org.quartz.SchedulerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ScheduledJob implements Job, Serializable, ScheduledRoutePolicyConstants {
+    private static final Logger LOG = LoggerFactory.getLogger(ScheduledJob.class);
+
     private static final long serialVersionUID = 26L;
 
+    @Override
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-        SchedulerContext schedulerContext;
-        try {
-            schedulerContext = jobExecutionContext.getScheduler().getContext();
-        } catch (SchedulerException e) {
-            throw new JobExecutionException("Failed to obtain scheduler context for job " + jobExecutionContext.getJobDetail().getName());
-        }
-        
-        ScheduledJobState state = (ScheduledJobState) schedulerContext.get(jobExecutionContext.getJobDetail().getName());
-        Action storedAction = state.getAction(); 
+        LOG.debug("Running ScheduledJob: jobExecutionContext={}", jobExecutionContext);
+
+        SchedulerContext schedulerContext = getSchedulerContext(jobExecutionContext);
+        ScheduledJobState state
+                = (ScheduledJobState) schedulerContext.get(jobExecutionContext.getJobDetail().getKey().toString());
+        Action storedAction = state.getAction();
         Route storedRoute = state.getRoute();
-        
-        List<RoutePolicy> policyList = storedRoute.getRouteContext().getRoutePolicyList();
+
+        List<RoutePolicy> policyList = storedRoute.getRoutePolicyList();
         for (RoutePolicy policy : policyList) {
             try {
                 if (policy instanceof ScheduledRoutePolicy) {
-                    ((ScheduledRoutePolicy)policy).onJobExecute(storedAction, storedRoute);
+                    ((ScheduledRoutePolicy) policy).onJobExecute(storedAction, storedRoute);
                 }
             } catch (Exception e) {
-                throw new JobExecutionException("Failed to execute Scheduled Job for route " + storedRoute.getId()
-                        + " with trigger name: " + jobExecutionContext.getTrigger().getFullName(), e);
+                throw new JobExecutionException(
+                        "Failed to execute Scheduled Job for route " + storedRoute.getId()
+                                                + " with trigger name: " + jobExecutionContext.getTrigger().getKey(),
+                        e);
             }
+        }
+    }
+
+    private SchedulerContext getSchedulerContext(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        try {
+            return jobExecutionContext.getScheduler().getContext();
+        } catch (SchedulerException e) {
+            throw new JobExecutionException(
+                    "Failed to obtain scheduler context for job " + jobExecutionContext.getJobDetail().getKey());
         }
     }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,20 +20,28 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.component.hbase.HBaseHelper;
 import org.apache.camel.component.hbase.model.HBaseCell;
 import org.apache.camel.component.hbase.model.HBaseRow;
-import org.apache.hadoop.hbase.filter.CompareFilter;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.SingleColumnValueExcludeFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 
 /**
- * A {@link FilterList} that contains multiple {@link SingleColumnValueExcludeFilter}s one per column that is part of the model.
+ * A {@link FilterList} that contains multiple {@link SingleColumnValueExcludeFilter}s one per column that is part of
+ * the model.
  */
-public class ModelAwareColumnMatchingFilter extends FilterList implements ModelAwareFilter<FilterList> {
+public class ModelAwareColumnMatchingFilter implements ModelAwareFilter<FilterList> {
+    FilterList fl;
 
     /**
      * Writable constructor, do not use.
      */
     public ModelAwareColumnMatchingFilter() {
+        fl = new FilterList();
+    }
+
+    @Override
+    public FilterList getFilteredList() {
+        return fl;
     }
 
     /**
@@ -41,15 +49,16 @@ public class ModelAwareColumnMatchingFilter extends FilterList implements ModelA
      */
     @Override
     public void apply(CamelContext context, HBaseRow rowModel) {
-        getFilters().clear();
+        fl.getFilters().clear();
         if (rowModel != null) {
             for (HBaseCell cell : rowModel.getCells()) {
                 if (cell.getValue() != null) {
                     byte[] family = HBaseHelper.getHBaseFieldAsBytes(cell.getFamily());
                     byte[] qualifier = HBaseHelper.getHBaseFieldAsBytes(cell.getQualifier());
                     byte[] value = context.getTypeConverter().convertTo(byte[].class, cell.getValue());
-                    SingleColumnValueFilter columnValueFilter = new SingleColumnValueFilter(family, qualifier, CompareFilter.CompareOp.EQUAL, value);
-                    addFilter(columnValueFilter);
+                    SingleColumnValueFilter columnValueFilter
+                            = new SingleColumnValueFilter(family, qualifier, CompareOperator.EQUAL, value);
+                    fl.addFilter(columnValueFilter);
                 }
             }
         }

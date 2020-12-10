@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,12 +16,12 @@
  */
 package org.apache.camel.component.netty;
 
-import org.jboss.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandler;
 
 /**
  * A {@link ChannelHandlerFactory} returning a shareable {@link ChannelHandler}.
  */
-public class ShareableChannelHandlerFactory implements ChannelHandlerFactory {
+public class ShareableChannelHandlerFactory extends DefaultChannelHandlerFactory {
 
     private final ChannelHandler channelHandler;
 
@@ -33,4 +33,5 @@ public class ShareableChannelHandlerFactory implements ChannelHandlerFactory {
     public ChannelHandler newChannelHandler() {
         return channelHandler;
     }
+
 }

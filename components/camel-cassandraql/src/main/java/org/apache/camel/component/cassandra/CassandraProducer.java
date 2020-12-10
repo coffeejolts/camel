@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,13 @@ package org.apache.camel.component.cassandra;
 
 import java.util.Collection;
 
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.RegularStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
-import org.apache.camel.impl.DefaultProducer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.camel.support.DefaultProducer;
 
 import static org.apache.camel.utils.cassandra.CassandraUtils.isEmpty;
 
@@ -34,14 +32,15 @@ import static org.apache.camel.utils.cassandra.CassandraUtils.isEmpty;
  * Cassandra 2 CQL3 producer.
  * <dl>
  * <dt>In Message</dt>
- * <dd>Bound parameters: Collection of Objects, Array of Objects, Simple Object<dd>
+ * <dd>Bound parameters: Collection of Objects, Array of Objects, Simple Object
+ * <dd>
  * <dt>Out Message</dt>
- * <dd>List of all Rows<dd>
+ * <dd>List of all Rows
+ * <dd>
  * <dl>
  */
 public class CassandraProducer extends DefaultProducer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CassandraProducer.class);
     private PreparedStatement preparedStatement;
 
     public CassandraProducer(CassandraEndpoint endpoint) {
@@ -51,7 +50,7 @@ public class CassandraProducer extends DefaultProducer {
     @Override
     protected void doStart() throws Exception {
         super.doStart();
-        if (isPrepareStatements()) {
+        if (isPrepareStatements() && getEndpoint().getCql() != null) {
             this.preparedStatement = getEndpoint().prepareStatement();
         }
     }
@@ -83,7 +82,7 @@ public class CassandraProducer extends DefaultProducer {
             final Collection cqlParamsColl = (Collection) cqlParamsObj;
             cqlParams = cqlParamsColl.toArray();
         } else {
-            cqlParams = new Object[]{cqlParamsObj};
+            cqlParams = new Object[] { cqlParamsObj };
         }
         return cqlParams;
     }
@@ -100,7 +99,7 @@ public class CassandraProducer extends DefaultProducer {
         Object[] cqlParams = getCqlParams(message);
 
         ResultSet resultSet;
-        Session session = getEndpoint().getSessionHolder().getSession();
+        CqlSession session = getEndpoint().getSessionHolder().getSession();
         if (isPrepareStatements()) {
             resultSet = executePreparedStatement(session, messageCql, cqlParams);
         } else {
@@ -112,7 +111,7 @@ public class CassandraProducer extends DefaultProducer {
     /**
      * Execute CQL as PreparedStatement
      */
-    private ResultSet executePreparedStatement(Session session, Object messageCql, Object[] cqlParams) {
+    private ResultSet executePreparedStatement(CqlSession session, Object messageCql, Object[] cqlParams) {
         ResultSet resultSet;
         PreparedStatement lPreparedStatement;
         if (messageCql == null) {
@@ -121,9 +120,9 @@ public class CassandraProducer extends DefaultProducer {
         } else if (messageCql instanceof String) {
             // Message CQL
             lPreparedStatement = getEndpoint().prepareStatement((String) messageCql);
-        } else if (messageCql instanceof RegularStatement) {
+        } else if (messageCql instanceof SimpleStatement) {
             // Message Statement
-            lPreparedStatement = getEndpoint().getSession().prepare((RegularStatement) messageCql);
+            lPreparedStatement = getEndpoint().getSession().prepare((SimpleStatement) messageCql);
         } else {
             throw new IllegalArgumentException("Invalid " + CassandraConstants.CQL_QUERY + " header");
         }
@@ -138,19 +137,19 @@ public class CassandraProducer extends DefaultProducer {
     /**
      * Execute CQL as is
      */
-    private ResultSet executeStatement(Session session, Object messageCql, Object[] cqlParams) {
-        ResultSet resultSet;
+    private ResultSet executeStatement(CqlSession session, Object messageCql, Object[] cqlParams) {
+        ResultSet resultSet = null;
         String cql = null;
-        RegularStatement statement = null;
+        SimpleStatement statement = null;
         if (messageCql == null) {
             // URI CQL
             cql = getEndpoint().getCql();
         } else if (messageCql instanceof String) {
             // Message CQL
             cql = (String) messageCql;
-        } else if (messageCql instanceof RegularStatement) {
+        } else if (messageCql instanceof SimpleStatement) {
             // Message Statement
-            statement = (RegularStatement) messageCql;
+            statement = (SimpleStatement) messageCql;
         } else {
             throw new IllegalArgumentException("Invalid " + CassandraConstants.CQL_QUERY + " header");
         }
@@ -159,14 +158,19 @@ public class CassandraProducer extends DefaultProducer {
         } else if (isEmpty(cqlParams)) {
             resultSet = session.execute(cql);
         } else {
-            resultSet = session.execute(cql, cqlParams);
+            resultSet = session.execute(
+                    SimpleStatement.builder(cql).addPositionalValues(cqlParams).build());
         }
         return resultSet;
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
+        // copy the header of in message to the out message
+        exchange.getMessage().copyFrom(exchange.getIn());
+
         ResultSet resultSet = execute(exchange.getIn());
-        getEndpoint().fillMessage(resultSet, exchange.getOut());
+        getEndpoint().fillMessage(resultSet, exchange.getMessage());
     }
 
 }

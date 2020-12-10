@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,12 +16,16 @@
  */
 package org.apache.camel.component.cxf;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.camel.AsyncCallback;
 import org.apache.camel.Exchange;
 import org.apache.cxf.endpoint.ClientCallback;
 import org.apache.cxf.endpoint.ConduitSelector;
+import org.apache.cxf.helpers.CastUtils;
+import org.apache.cxf.message.Message;
 import org.apache.cxf.service.model.BindingOperationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,31 +37,41 @@ public class CxfClientCallback extends ClientCallback {
     private final Exchange camelExchange;
     private final org.apache.cxf.message.Exchange cxfExchange;
     private final BindingOperationInfo boi;
-    private final CxfBinding binding;
-    
-    
-    public CxfClientCallback(AsyncCallback callback, 
+    private final CxfEndpoint endpoint;
+
+    public CxfClientCallback(AsyncCallback callback,
                              Exchange camelExchange,
                              org.apache.cxf.message.Exchange cxfExchange,
                              BindingOperationInfo boi,
-                             CxfBinding binding) {
+                             CxfEndpoint endpoint) {
         this.camelAsyncCallback = callback;
         this.camelExchange = camelExchange;
         this.cxfExchange = cxfExchange;
         this.boi = boi;
-        this.binding = binding;       
+        this.endpoint = endpoint;
     }
-    
+
+    @Override
     public void handleResponse(Map<String, Object> ctx, Object[] res) {
         try {
-            super.handleResponse(ctx, res);            
+            super.handleResponse(ctx, res);
         } finally {
+            // add cookies to the cookie store
+            if (endpoint.getCookieHandler() != null && cxfExchange.getInMessage() != null) {
+                try {
+                    Map<String, List<String>> cxfHeaders
+                            = CastUtils.cast((Map<?, ?>) cxfExchange.getInMessage().get(Message.PROTOCOL_HEADERS));
+                    endpoint.getCookieHandler().storeCookies(camelExchange, endpoint.getRequestUri(camelExchange), cxfHeaders);
+                } catch (IOException e) {
+                    LOG.error("Cannot store cookies", e);
+                }
+            }
             // bind the CXF response to Camel exchange and
             // call camel callback
             // for one way messages callback is already called in 
             // process method of org.apache.camel.component.cxf.CxfProducer
             if (!boi.getOperationInfo().isOneWay()) {
-                binding.populateExchangeFromCxfResponse(camelExchange, cxfExchange, ctx);
+                endpoint.getCxfBinding().populateExchangeFromCxfResponse(camelExchange, cxfExchange, ctx);
                 camelAsyncCallback.done(false);
             }
             if (LOG.isDebugEnabled()) {
@@ -65,7 +79,8 @@ public class CxfClientCallback extends ClientCallback {
             }
         }
     }
-    
+
+    @Override
     public void handleException(Map<String, Object> ctx, Throwable ex) {
         try {
             super.handleException(ctx, ex);
@@ -84,18 +99,28 @@ public class CxfClientCallback extends ClientCallback {
                 camelExchange.setException(ex);
             }
         } finally {
+            // add cookies to the cookie store
+            if (endpoint.getCookieHandler() != null && cxfExchange.getInMessage() != null) {
+                try {
+                    Map<String, List<String>> cxfHeaders
+                            = CastUtils.cast((Map<?, ?>) cxfExchange.getInMessage().get(Message.PROTOCOL_HEADERS));
+                    endpoint.getCookieHandler().storeCookies(camelExchange, endpoint.getRequestUri(camelExchange), cxfHeaders);
+                } catch (IOException e) {
+                    LOG.error("Cannot store cookies", e);
+                }
+            }
             // copy the context information and 
             // call camel callback
             // for one way messages callback is already called in 
             // process method of org.apache.camel.component.cxf.CxfProducer
             if (!boi.getOperationInfo().isOneWay()) {
-                binding.populateExchangeFromCxfResponse(camelExchange, cxfExchange, ctx);
+                endpoint.getCxfBinding().populateExchangeFromCxfResponse(camelExchange, cxfExchange, ctx);
                 camelAsyncCallback.done(false);
             }
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{} calling handleException", Thread.currentThread().getName());
             }
         }
-    }        
+    }
 
 }

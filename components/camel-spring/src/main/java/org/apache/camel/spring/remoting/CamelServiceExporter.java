@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,9 +20,11 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.CamelContextAware;
 import org.apache.camel.Consumer;
 import org.apache.camel.Endpoint;
+import org.apache.camel.FailedToCreateConsumerException;
 import org.apache.camel.component.bean.BeanProcessor;
 import org.apache.camel.spring.util.CamelContextResolverHelper;
-import org.apache.camel.util.CamelContextHelper;
+import org.apache.camel.support.CamelContextHelper;
+import org.apache.camel.support.service.ServiceHelper;
 import org.apache.camel.util.ObjectHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.DisposableBean;
@@ -37,12 +39,14 @@ import static org.apache.camel.util.ObjectHelper.notNull;
 /**
  * A {@link FactoryBean} to create a proxy to a service exposing a given {@link #getServiceInterface()}
  */
-public class CamelServiceExporter extends RemoteExporter implements InitializingBean, DisposableBean, ApplicationContextAware, CamelContextAware {
+public class CamelServiceExporter extends RemoteExporter
+        implements InitializingBean, DisposableBean, ApplicationContextAware, CamelContextAware {
     private String uri;
     private CamelContext camelContext;
     private String camelContextId;
     private Consumer consumer;
     private String serviceRef;
+    private String method;
     private ApplicationContext applicationContext;
 
     public String getUri() {
@@ -53,14 +57,16 @@ public class CamelServiceExporter extends RemoteExporter implements Initializing
         this.uri = uri;
     }
 
+    @Override
     public CamelContext getCamelContext() {
         return camelContext;
     }
 
+    @Override
     public void setCamelContext(CamelContext camelContext) {
         this.camelContext = camelContext;
     }
-    
+
     public void setCamelContextId(String camelContextId) {
         this.camelContextId = camelContextId;
     }
@@ -73,14 +79,24 @@ public class CamelServiceExporter extends RemoteExporter implements Initializing
         this.serviceRef = serviceRef;
     }
 
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+
     public ApplicationContext getApplicationContext() {
         return applicationContext;
     }
 
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
 
+    @Override
     public void afterPropertiesSet() throws Exception {
         // lets bind the URI to a pojo
         notNull(uri, "uri");
@@ -97,14 +113,22 @@ public class CamelServiceExporter extends RemoteExporter implements Initializing
         notNull(getService(), "service");
         Object proxy = getProxyForService();
 
-        consumer = endpoint.createConsumer(new BeanProcessor(proxy, camelContext));
-        consumer.start();
+        try {
+            // need to start endpoint before we create consumer
+            ServiceHelper.initService(endpoint);
+            BeanProcessor processor = new BeanProcessor(proxy, camelContext);
+            processor.setMethod(method);
+            consumer = endpoint.createConsumer(processor);
+            // add and start consumer
+            camelContext.addService(consumer, true, false);
+        } catch (Exception e) {
+            throw new FailedToCreateConsumerException(endpoint, e);
+        }
     }
 
+    @Override
     public void destroy() throws Exception {
-        if (consumer != null) {
-            consumer.stop();
-        }
+        // we let CamelContext manage the lifecycle of the consumer and shut it down when Camel stops
     }
 
 }

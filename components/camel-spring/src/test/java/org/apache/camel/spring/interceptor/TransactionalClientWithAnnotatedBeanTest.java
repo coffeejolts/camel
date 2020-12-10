@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,15 +17,15 @@
 package org.apache.camel.spring.interceptor;
 
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
 public class TransactionalClientWithAnnotatedBeanTest extends TransactionalClientDataSourceTest {
 
     @Override
+    @Test
     public void testTransactionSuccess() throws Exception {
         MockEndpoint book = getMockEndpoint("mock:book");
         book.expectedMessageCount(2);
@@ -36,6 +36,7 @@ public class TransactionalClientWithAnnotatedBeanTest extends TransactionalClien
     }
 
     @Override
+    @Test
     public void testTransactionRollback() throws Exception {
         MockEndpoint book = getMockEndpoint("mock:book");
         book.expectedMessageCount(1);
@@ -46,11 +47,13 @@ public class TransactionalClientWithAnnotatedBeanTest extends TransactionalClien
     }
 
     @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() throws Exception {
         setUseRouteBuilder(false);
         super.setUp();
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext(
                 "/org/apache/camel/spring/interceptor/transactionalClientWithAnnotatedBeanTest.xml");

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,9 +22,9 @@ import org.slf4j.MDC;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 public class SpringMDCWithBreadcrumbDisabledTest extends SpringMDCTest {
 
     @Override
@@ -34,17 +34,19 @@ public class SpringMDCWithBreadcrumbDisabledTest extends SpringMDCTest {
 
     public static class ProcessorA implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-a", MDC.get("camel.routeId"));
-            assertNull("Should not have breadcrumb", exchange.getIn().getHeader("camel.breadcrumbId"));
+            assertNull(exchange.getIn().getHeader("camel.breadcrumbId"), "Should not have breadcrumb");
         }
     }
 
     public static class ProcessorB implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-b", MDC.get("camel.routeId"));
-            assertNull("Should not have breadcrumb", exchange.getIn().getHeader("camel.breadcrumbId"));
+            assertNull(exchange.getIn().getHeader("camel.breadcrumbId"), "Should not have breadcrumb");
         }
     }
 

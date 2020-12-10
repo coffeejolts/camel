@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,8 +23,7 @@ import javax.xml.bind.annotation.XmlType;
 import org.apache.camel.CamelContext;
 import org.apache.camel.core.xml.util.jsse.AbstractSSLContextParametersFactoryBean;
 import org.apache.camel.spring.util.CamelContextResolverHelper;
-import org.apache.camel.util.jsse.SSLContextParameters;
-
+import org.apache.camel.support.jsse.SSLContextParameters;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -33,25 +32,25 @@ import org.springframework.context.ApplicationContextAware;
 @XmlType(propOrder = {})
 public class SSLContextParametersFactoryBean extends AbstractSSLContextParametersFactoryBean
         implements FactoryBean<SSLContextParameters>, ApplicationContextAware {
-    
+
     private KeyManagersParametersFactoryBean keyManagers;
-    
+
     private TrustManagersParametersFactoryBean trustManagers;
-        
+
     private SecureRandomParametersFactoryBean secureRandom;
-    
+
     private SSLContextClientParametersFactoryBean clientParameters;
-    
+
     private SSLContextServerParametersFactoryBean serverParameters;
-    
+
     @XmlTransient
     private ApplicationContext applicationContext;
-    
+
     @Override
     public KeyManagersParametersFactoryBean getKeyManagers() {
         return keyManagers;
     }
-    
+
     public void setKeyManagers(KeyManagersParametersFactoryBean keyManagers) {
         this.keyManagers = keyManagers;
     }
@@ -60,7 +59,7 @@ public class SSLContextParametersFactoryBean extends AbstractSSLContextParameter
     public TrustManagersParametersFactoryBean getTrustManagers() {
         return trustManagers;
     }
-    
+
     public void setTrustManagers(TrustManagersParametersFactoryBean trustManagers) {
         this.trustManagers = trustManagers;
     }
@@ -87,16 +86,17 @@ public class SSLContextParametersFactoryBean extends AbstractSSLContextParameter
     public SSLContextServerParametersFactoryBean getServerParameters() {
         return serverParameters;
     }
-    
+
     public void setServerParameters(SSLContextServerParametersFactoryBean serverParameters) {
         this.serverParameters = serverParameters;
     }
-    
+
     @Override
     protected CamelContext getCamelContextWithId(String camelContextId) {
         return CamelContextResolverHelper.getCamelContextWithId(applicationContext, camelContextId);
     }
 
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }

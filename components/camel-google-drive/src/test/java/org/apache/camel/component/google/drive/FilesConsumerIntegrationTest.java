@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,16 +16,17 @@
  */
 package org.apache.camel.component.google.drive;
 
-
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.google.drive.internal.DriveFilesApiMethod;
 import org.apache.camel.component.google.drive.internal.GoogleDriveApiCollection;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test class for com.google.api.services.drive.Drive$Files APIs.
@@ -33,8 +34,9 @@ import org.slf4j.LoggerFactory;
 public class FilesConsumerIntegrationTest extends AbstractGoogleDriveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(FilesConsumerIntegrationTest.class);
-    private static final String PATH_PREFIX = GoogleDriveApiCollection.getCollection().getApiName(DriveFilesApiMethod.class).getName();
-    
+    private static final String PATH_PREFIX
+            = GoogleDriveApiCollection.getCollection().getApiName(DriveFilesApiMethod.class).getName();
+
     @Test
     public void testListConsumer() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -44,10 +46,11 @@ public class FilesConsumerIntegrationTest extends AbstractGoogleDriveTestSupport
         String fileId = testFile.getId();
 
         assertMockEndpointsSatisfied();
-        
-        FileList fileList = mock.getReceivedExchanges().get(0).getIn().getBody(com.google.api.services.drive.model.FileList.class);
+
+        FileList fileList
+                = mock.getReceivedExchanges().get(0).getIn().getBody(com.google.api.services.drive.model.FileList.class);
         assertTrue(fileInList(fileId, fileList));
-        
+
     }
 
     private boolean fileInList(String fileId, FileList fileList) {
@@ -62,7 +65,7 @@ public class FilesConsumerIntegrationTest extends AbstractGoogleDriveTestSupport
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
-            public void configure() {           
+            public void configure() {
                 from("google-drive://drive-files/list").to("mock:result");
             }
         };

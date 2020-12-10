@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -46,7 +46,7 @@ final class CsvRecordConverters {
 
         @Override
         public List<String> convertRecord(CSVRecord record) {
-            List<String> answer = new ArrayList<String>(record.size());
+            List<String> answer = new ArrayList<>(record.size());
             for (int i = 0; i < record.size(); i++) {
                 answer.add(record.get(i));
             }
@@ -67,6 +67,25 @@ final class CsvRecordConverters {
         private static final MapCsvRecordConverter SINGLETON = new MapCsvRecordConverter();
 
         @Override
+        public Map<String, String> convertRecord(CSVRecord record) {
+            return record.toMap();
+        }
+    }
+
+    /**
+     * Returns a converter that transforms the CSV record into an ordered map.
+     *
+     * @return converter that transforms the CSV record into an ordered map
+     */
+    public static CsvRecordConverter<Map<String, String>> orderedMapConverter() {
+        return OrderedMapCsvRecordConverter.SINGLETON;
+    }
+
+    private static class OrderedMapCsvRecordConverter implements CsvRecordConverter<Map<String, String>> {
+        private static final OrderedMapCsvRecordConverter SINGLETON = new OrderedMapCsvRecordConverter();
+
+        @Override
+        @SuppressWarnings("unchecked")
         public Map<String, String> convertRecord(CSVRecord record) {
             return record.toMap();
         }

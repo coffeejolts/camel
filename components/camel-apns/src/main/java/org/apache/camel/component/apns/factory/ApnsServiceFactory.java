@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,17 +26,18 @@ import com.notnoop.apns.ApnsService;
 import com.notnoop.apns.ApnsServiceBuilder;
 import com.notnoop.apns.ReconnectPolicy;
 import com.notnoop.apns.internal.Utilities;
-
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelContextAware;
+import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.component.apns.model.ConnectionStrategy;
 import org.apache.camel.component.apns.model.ReconnectionPolicy;
 import org.apache.camel.component.apns.util.AssertUtils;
 import org.apache.camel.component.apns.util.ParamUtils;
 import org.apache.camel.component.apns.util.ResourceUtils;
+import org.apache.camel.support.ResourceHelper;
+import org.apache.camel.support.jsse.SSLContextParameters;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.camel.util.ResourceHelper;
-import org.apache.camel.util.jsse.SSLContextParameters;
+import org.apache.camel.util.StringHelper;
 
 public class ApnsServiceFactory implements CamelContextAware {
 
@@ -70,10 +71,12 @@ public class ApnsServiceFactory implements CamelContextAware {
         this.camelContext = camelContext;
     }
 
+    @Override
     public CamelContext getCamelContext() {
         return camelContext;
     }
 
+    @Override
     public void setCamelContext(CamelContext camelContext) {
         this.camelContext = camelContext;
     }
@@ -177,9 +180,9 @@ public class ApnsServiceFactory implements CamelContextAware {
         try {
             configureApnsCertificate(builder);
         } catch (IOException e) {
-            throw ObjectHelper.wrapRuntimeCamelException(e);
+            throw RuntimeCamelException.wrapRuntimeCamelException(e);
         } catch (GeneralSecurityException e) {
-            throw ObjectHelper.wrapRuntimeCamelException(e);
+            throw RuntimeCamelException.wrapRuntimeCamelException(e);
         }
 
         ApnsService apnsService = builder.build();
@@ -192,17 +195,17 @@ public class ApnsServiceFactory implements CamelContextAware {
 
     private void configureApnsCertificate(ApnsServiceBuilder builder) throws IOException, GeneralSecurityException {
         if (getSslContextParameters() != null) {
-            builder.withSSLContext(getSslContextParameters().createSSLContext());
+            builder.withSSLContext(getSslContextParameters().createSSLContext(getCamelContext()));
             return;
         }
 
         ObjectHelper.notNull(getCamelContext(), "camelContext");
-        ObjectHelper.notEmpty(getCertificatePath(), "certificatePath");
-        ObjectHelper.notEmpty(getCertificatePassword(), "certificatePassword");
+        StringHelper.notEmpty(getCertificatePath(), "certificatePath");
+        StringHelper.notEmpty(getCertificatePassword(), "certificatePassword");
 
         InputStream certificateInputStream = null;
         try {
-            certificateInputStream = ResourceHelper.resolveMandatoryResourceAsInputStream(camelContext.getClassResolver(), getCertificatePath());
+            certificateInputStream = ResourceHelper.resolveMandatoryResourceAsInputStream(camelContext, getCertificatePath());
             builder.withCert(certificateInputStream, getCertificatePassword());
         } finally {
             ResourceUtils.close(certificateInputStream);
@@ -238,14 +241,14 @@ public class ApnsServiceFactory implements CamelContextAware {
         }
 
         switch (getConnectionStrategy()) {
-        case QUEUE:
-            builder.asQueued();
-            break;
-        case POOL:
-            builder.asPool(getPoolSize());
-            break;
-        default:
-            break;
+            case QUEUE:
+                builder.asQueued();
+                break;
+            case POOL:
+                builder.asPool(getPoolSize());
+                break;
+            default:
+                break;
         }
     }
 
@@ -255,15 +258,15 @@ public class ApnsServiceFactory implements CamelContextAware {
         }
 
         switch (getReconnectionPolicy()) {
-        case EVERY_HALF_HOUR:
-            builder.withReconnectPolicy(ReconnectPolicy.Provided.EVERY_HALF_HOUR);
-            break;
-        case EVERY_NOTIFICATION:
-            builder.withReconnectPolicy(ReconnectPolicy.Provided.EVERY_NOTIFICATION);
-            break;
-        default:
-            builder.withReconnectPolicy(ReconnectPolicy.Provided.NEVER);
-            break;
+            case EVERY_HALF_HOUR:
+                builder.withReconnectPolicy(ReconnectPolicy.Provided.EVERY_HALF_HOUR);
+                break;
+            case EVERY_NOTIFICATION:
+                builder.withReconnectPolicy(ReconnectPolicy.Provided.EVERY_NOTIFICATION);
+                break;
+            default:
+                builder.withReconnectPolicy(ReconnectPolicy.Provided.NEVER);
+                break;
         }
     }
 

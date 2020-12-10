@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <code>ZookeeperConnectionManager</code> is a simple class to manage
- * {@link ZooKeeper} connections.
+ * <code>ZookeeperConnectionManager</code> is a simple class to manage {@link ZooKeeper} connections.
  */
 public class ZooKeeperConnectionManager {
 
@@ -48,17 +47,20 @@ public class ZooKeeperConnectionManager {
         private ConnectionHolder holder;
         private ZooKeeperConfiguration configuration;
 
-        public DefaultZookeeperConnectionStrategy(ZooKeeperEndpoint endpoint) {
+        DefaultZookeeperConnectionStrategy(ZooKeeperEndpoint endpoint) {
             this.configuration = endpoint.getConfiguration();
-            LOG.debug("Creating connection with static configuration of {}", configuration);
+            LOG.debug("Creating connection to ZooKeeper: {}", configuration);
             holder = new ConnectionHolder(configuration);
         }
 
+        @Override
         public ConnectionHolder getConnection() {
             return holder;
         }
 
+        @Override
         public void shutdown() {
+            LOG.debug("Shutting down connection to ZooKeeper: {}", configuration);
             holder.closeConnection();
         }
     }

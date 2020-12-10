@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,13 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.ContainerDiffCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Container Diff Request headers are parsed properly
@@ -36,9 +35,8 @@ public class DiffContainerCmdHeaderTest extends BaseDockerHeaderTest<ContainerDi
     @Mock
     private ContainerDiffCmd mockObject;
 
-    @Ignore
     @Test
-    public void containerDiffHeaderTest() {
+    void containerDiffHeaderTest() {
 
         String containerId = "9c09acd48a25";
         String containerIdDiff = "0f9dfe8defa0";
@@ -56,7 +54,7 @@ public class DiffContainerCmdHeaderTest extends BaseDockerHeaderTest<ContainerDi
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.containerDiffCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.containerDiffCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

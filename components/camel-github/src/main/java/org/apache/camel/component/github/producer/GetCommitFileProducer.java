@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.component.github.producer;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.component.github.GitHubConstants;
 import org.apache.camel.component.github.GitHubEndpoint;
 import org.apache.camel.spi.Registry;
 import org.apache.commons.codec.binary.Base64;
@@ -41,9 +42,9 @@ public class GetCommitFileProducer extends AbstractGitHubProducer {
         super(endpoint);
 
         Registry registry = endpoint.getCamelContext().getRegistry();
-        Object service = registry.lookupByName("githubDataService");
+        Object service = registry.lookupByName(GitHubConstants.GITHUB_DATA_SERVICE);
         if (service != null) {
-            LOG.debug("Using DataService found in registry " + service.getClass().getCanonicalName());
+            LOG.debug("Using DataService found in registry {}", service.getClass().getCanonicalName());
             dataService = (DataService) service;
         } else {
             dataService = new DataService();
@@ -60,6 +61,7 @@ public class GetCommitFileProducer extends AbstractGitHubProducer {
         }
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         CommitFile file = exchange.getIn().getBody(CommitFile.class);
 
@@ -69,8 +71,8 @@ public class GetCommitFileProducer extends AbstractGitHubProducer {
 
         // By default, if blob encoding is base64 then we convert to UTF-8. If
         // base64 encoding is required, then must be explicitly requested
-        if (response.getEncoding().equals(Blob.ENCODING_BASE64) 
-            && encoding != null && encoding.equalsIgnoreCase(Blob.ENCODING_UTF8)) {
+        if (response.getEncoding().equals(Blob.ENCODING_BASE64)
+                && encoding != null && encoding.equalsIgnoreCase(Blob.ENCODING_UTF8)) {
             text = new String(Base64.decodeBase64(text));
         }
 

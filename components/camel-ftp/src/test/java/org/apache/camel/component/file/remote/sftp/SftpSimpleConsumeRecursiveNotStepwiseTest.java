@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,9 +18,6 @@ package org.apache.camel.component.file.remote.sftp;
 
 import org.apache.camel.builder.RouteBuilder;
 
-/**
- * @version 
- */
 public class SftpSimpleConsumeRecursiveNotStepwiseTest extends SftpSimpleConsumeRecursiveTest {
 
     @Override
@@ -28,9 +25,10 @@ public class SftpSimpleConsumeRecursiveNotStepwiseTest extends SftpSimpleConsume
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("sftp://localhost:" + getPort() + "/" + FTP_ROOT_DIR + "?username=admin&password=admin&delay=10s&disconnect=true&recursive=true&stepwise=false")
-                    .routeId("foo").noAutoStartup()
-                    .to("log:result", "mock:result");
+                from("sftp://localhost:{{ftp.server.port}}/" + service.getFtpRootDir()
+                     + "?username=admin&password=admin&delay=10000&disconnect=true&recursive=true&stepwise=false")
+                             .routeId("foo")
+                             .noAutoStartup().to("log:result", "mock:result");
             }
         };
     }

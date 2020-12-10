@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -67,9 +67,9 @@ public final class Helper {
 }
 
 class MockConnectionSettings extends ConnectionSettings {
-    final Client client;
+    private final Client client;
 
-    public MockConnectionSettings(Client client) {
+    MockConnectionSettings(Client client) {
         super("tube");
         this.client = client;
     }

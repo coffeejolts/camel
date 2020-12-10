@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +16,7 @@
  */
 package org.apache.camel.component.mail;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -33,18 +34,17 @@ import javax.mail.internet.MimeMultipart;
 import javax.mail.search.SearchTerm;
 
 import com.sun.mail.imap.SortTerm;
-
 import org.apache.camel.Converter;
-import org.apache.camel.NoTypeConversionAvailableException;
+import org.apache.camel.Exchange;
 import org.apache.camel.TypeConverter;
-import org.apache.camel.converter.IOConverter;
+import org.apache.camel.spi.TypeConverterRegistry;
+import org.apache.camel.support.ExchangeHelper;
+import org.apache.camel.util.TimeUtils;
 
 /**
  * JavaMail specific converters.
- *
- * @version 
  */
-@Converter
+@Converter(generateLoader = true)
 public final class MailConverters {
 
     private static final String NOW_DATE_FORMAT = "yyyy-MM-dd HH:mm:SS";
@@ -56,13 +56,12 @@ public final class MailConverters {
     }
 
     /**
-     * Converts the given JavaMail message to a String body.
-     * Can return null.
+     * Converts the given JavaMail message to a String body. Can return null.
      */
     @Converter
     public static String toString(Message message) throws MessagingException, IOException {
         Object content = message.getContent();
-        if (content instanceof MimeMultipart) {
+        while (content instanceof MimeMultipart) {
             MimeMultipart multipart = (MimeMultipart) content;
             if (multipart.getCount() > 0) {
                 BodyPart part = multipart.getBodyPart(0);
@@ -76,15 +75,25 @@ public final class MailConverters {
     }
 
     /**
-     * Converts the given JavaMail multipart to a String body, where the content-type of the multipart
-     * must be text based (ie start with text). Can return null.
+     * Converts the given JavaMail multipart to a String body, where the content-type of the multipart must be text
+     * based (ie start with text). Can return null.
      */
     @Converter
     public static String toString(Multipart multipart) throws MessagingException, IOException {
         int size = multipart.getCount();
         for (int i = 0; i < size; i++) {
             BodyPart part = multipart.getBodyPart(i);
-            if (part.getContentType().toLowerCase().startsWith("text")) {
+            Object content = part.getContent();
+            while (content instanceof MimeMultipart) {
+                if (multipart.getCount() < 1) {
+                    break;
+                }
+                part = ((MimeMultipart) content).getBodyPart(0);
+                content = part.getContent();
+            }
+            // Perform a case insensitive "startsWith" check that works for different locales
+            String prefix = "text";
+            if (part.getContentType().regionMatches(true, 0, prefix, 0, prefix.length())) {
                 return part.getContent().toString();
             }
         }
@@ -100,19 +109,43 @@ public final class MailConverters {
     }
 
     /**
-     * Converts the given JavaMail multipart to a InputStream body, where the content-type of the multipart
-     * must be text based (ie start with text). Can return null.
+     * Converts the given JavaMail multipart to a InputStream body, where the content-type of the multipart must be text
+     * based (ie start with text). Can return null.
      */
     @Converter
-    public static InputStream toInputStream(Multipart multipart) throws IOException, MessagingException {
+    public static InputStream toInputStream(Multipart multipart, Exchange exchange) throws IOException, MessagingException {
         String s = toString(multipart);
         if (s == null) {
             return null;
         }
-        return IOConverter.toInputStream(s, null);
+        return new ByteArrayInputStream(s.getBytes(ExchangeHelper.getCharsetName(exchange)));
     }
 
-    public static SearchTerm toSearchTerm(SimpleSearchTerm simple, TypeConverter typeConverter) throws ParseException, NoTypeConversionAvailableException {
+    /**
+     * Converts a JavaMail multipart into a body of any type a String can be converted into. The content-type of the
+     * part must be text based.
+     */
+    @Converter(fallback = true)
+    public static <T> T convertTo(Class<T> type, Exchange exchange, Object value, TypeConverterRegistry registry)
+            throws MessagingException, IOException {
+        if (Multipart.class.isAssignableFrom(value.getClass())) {
+            TypeConverter tc = registry.lookup(type, String.class);
+            if (tc != null) {
+                String s = toString((Multipart) value);
+                if (s != null) {
+                    return tc.convertTo(type, s);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Converters the simple search term builder to search term.
+     *
+     * This should not be a @Converter method
+     */
+    public static SearchTerm toSearchTerm(SimpleSearchTerm simple) throws ParseException {
         SearchTermBuilder builder = new SearchTermBuilder();
         if (simple.isUnseen()) {
             builder = builder.unseen();
@@ -120,7 +153,9 @@ public final class MailConverters {
 
         if (simple.getSubjectOrBody() != null) {
             String text = simple.getSubjectOrBody();
-            builder = builder.subject(text).body(SearchTermBuilder.Op.or, text);
+            SearchTermBuilder builderTemp = new SearchTermBuilder();
+            builderTemp = builderTemp.subject(text).body(SearchTermBuilder.Op.or, text);
+            builder = builder.and(builderTemp.build());
         }
         if (simple.getSubject() != null) {
             builder = builder.subject(simple.getSubject());
@@ -137,7 +172,7 @@ public final class MailConverters {
         if (simple.getFromSentDate() != null) {
             String s = simple.getFromSentDate();
             if (s.startsWith("now")) {
-                long offset = extractOffset(s, typeConverter);
+                long offset = extractOffset(s);
                 builder = builder.and(new NowSearchTerm(SearchTermBuilder.Comparison.GE.asNum(), true, offset));
             } else {
                 SimpleDateFormat sdf = new SimpleDateFormat(NOW_DATE_FORMAT);
@@ -148,7 +183,7 @@ public final class MailConverters {
         if (simple.getToSentDate() != null) {
             String s = simple.getToSentDate();
             if (s.startsWith("now")) {
-                long offset = extractOffset(s, typeConverter);
+                long offset = extractOffset(s);
                 builder = builder.and(new NowSearchTerm(SearchTermBuilder.Comparison.LE.asNum(), true, offset));
             } else {
                 SimpleDateFormat sdf = new SimpleDateFormat(NOW_DATE_FORMAT);
@@ -159,7 +194,7 @@ public final class MailConverters {
         if (simple.getFromReceivedDate() != null) {
             String s = simple.getFromReceivedDate();
             if (s.startsWith("now")) {
-                long offset = extractOffset(s, typeConverter);
+                long offset = extractOffset(s);
                 builder = builder.and(new NowSearchTerm(SearchTermBuilder.Comparison.GE.asNum(), false, offset));
             } else {
                 SimpleDateFormat sdf = new SimpleDateFormat(NOW_DATE_FORMAT);
@@ -170,7 +205,7 @@ public final class MailConverters {
         if (simple.getToReceivedDate() != null) {
             String s = simple.getToReceivedDate();
             if (s.startsWith("now")) {
-                long offset = extractOffset(s, typeConverter);
+                long offset = extractOffset(s);
                 builder = builder.and(new NowSearchTerm(SearchTermBuilder.Comparison.LE.asNum(), false, offset));
             } else {
                 SimpleDateFormat sdf = new SimpleDateFormat(NOW_DATE_FORMAT);
@@ -183,18 +218,18 @@ public final class MailConverters {
     }
 
     /*
-     * Converts from comma separated list of sort terms to SortTerm obj array
+     * Converts from comma separated list of sort terms to SortTerm obj array.
+     * This should not be a @Converter method
      */
-    @Converter
     public static SortTerm[] toSortTerm(String sortTerm) {
-        ArrayList<SortTerm> result = new ArrayList<SortTerm>();
-        
+        ArrayList<SortTerm> result = new ArrayList<>();
+
         if (sortTerm == null) {
             return null;
         }
-        
+
         String[] sortTerms = sortTerm.split(",");
-        for (String key : sortTerms) {          
+        for (String key : sortTerms) {
             if ("arrival".equals(key)) {
                 result.add(SortTerm.ARRIVAL);
             } else if ("cc".equals(key)) {
@@ -213,14 +248,14 @@ public final class MailConverters {
                 result.add(SortTerm.TO);
             }
         }
-        if (result.size() > 0) {
+        if (!result.isEmpty()) {
             return result.toArray(new SortTerm[result.size()]);
         } else {
             return null;
         }
     }
-    
-    private static long extractOffset(String now, TypeConverter typeConverter) throws NoTypeConversionAvailableException {
+
+    private static long extractOffset(String now) {
         Matcher matcher = NOW_PATTERN.matcher(now);
         if (matcher.matches()) {
             String op = matcher.group(1);
@@ -228,7 +263,7 @@ public final class MailConverters {
 
             // convert remainder to a time millis (eg we have a String -> long converter that supports
             // syntax with hours, days, minutes: eg 5h30m for 5 hours and 30 minutes).
-            long offset = typeConverter.mandatoryConvertTo(long.class, remainder);
+            long offset = TimeUtils.toMilliSeconds(remainder);
 
             if ("+".equals(op)) {
                 return offset;

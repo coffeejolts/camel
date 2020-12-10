@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,19 +20,24 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import com.notnoop.apns.ApnsService;
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultConsumer;
-import org.apache.camel.impl.ScheduledPollEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultConsumer;
+import org.apache.camel.support.ScheduledPollEndpoint;
 
-@UriEndpoint(scheme = "apns", title = "APNS", syntax = "apns:name", consumerClass = ApnsConsumer.class, label = "eventbus,mobile")
+/**
+ * Send notifications to Apple iOS devices.
+ */
+@UriEndpoint(firstVersion = "2.8.0", scheme = "apns", title = "APNS", syntax = "apns:name",
+             category = { Category.EVENTBUS, Category.MOBILE })
 public class ApnsEndpoint extends ScheduledPollEndpoint {
 
-    private final CopyOnWriteArraySet<DefaultConsumer> consumers = new CopyOnWriteArraySet<DefaultConsumer>();
+    private final CopyOnWriteArraySet<DefaultConsumer> consumers = new CopyOnWriteArraySet<>();
 
     @UriPath(description = "Name of the endpoint")
     private String name;
@@ -56,34 +61,33 @@ public class ApnsEndpoint extends ScheduledPollEndpoint {
     }
 
     /**
-     * Configure this property in case you want to statically declare tokens related to devices you want to notify. Tokens are separated by comma.
+     * Configure this property in case you want to statically declare tokens related to devices you want to notify.
+     * Tokens are separated by comma.
      */
     public void setTokens(String tokens) {
         this.tokens = tokens;
     }
 
     private ApnsComponent getApnsComponent() {
-        return (ApnsComponent)getComponent();
+        return (ApnsComponent) getComponent();
     }
 
     public ApnsService getApnsService() {
         return getApnsComponent().getApnsService();
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
     protected Set<DefaultConsumer> getConsumers() {
         return consumers;
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         ApnsConsumer apnsConsumer = new ApnsConsumer(this, processor);
         configureConsumer(apnsConsumer);
         return apnsConsumer;
     }
 
+    @Override
     public Producer createProducer() throws Exception {
         return new ApnsProducer(this);
     }

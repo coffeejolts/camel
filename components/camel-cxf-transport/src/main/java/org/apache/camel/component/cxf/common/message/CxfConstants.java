@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,6 @@ package org.apache.camel.component.cxf.common.message;
 
 /**
  * Constants used in this module
- *
- * @version 
  */
 public final class CxfConstants {
     public static final String METHOD = "method";
@@ -39,11 +37,11 @@ public final class CxfConstants {
     public static final String OPERATION_NAME = "operationName";
     public static final String OPERATION_NAMESPACE = "operationNamespace";
     public static final String SPRING_CONTEXT_ENDPOINT = "bean:";
-    
+
     public static final String JAXWS_CONTEXT = "jaxwsContext";
     public static final String DISPATCH_NAMESPACE = "http://camel.apache.org/cxf/jaxws/dispatch";
-    public static final String DISPATCH_DEFAULT_OPERATION_NAMESPACE = "Invoke";    
-    
+    public static final String DISPATCH_DEFAULT_OPERATION_NAMESPACE = "Invoke";
+
     public static final String CAMEL_CXF_MESSAGE = "CamelCxfMessage";
     public static final String CAMEL_CXF_RS_USING_HTTP_API = "CamelCxfRsUsingHttpAPI";
     public static final String CAMEL_CXF_RS_VAR_VALUES = "CamelCxfRsVarValues";
@@ -54,7 +52,7 @@ public final class CxfConstants {
     public static final String CAMEL_CXF_RS_OPERATION_RESOURCE_INFO_STACK = "CamelCxfRsOperationResourceInfoStack";
     public static final String CAMEL_CXF_ATTACHMENTS = "CamelAttachments";
     public static final String CAMEL_CXF_RS_THROW_EXCEPTION_ON_FAILURE = "CamelCxfRsThrowExceptionOnFailure";
-    
+
     public static final String WSA_HEADERS_INBOUND = "javax.xml.ws.addressing.context.inbound";
 
     public static final String WSA_HEADERS_OUTBOUND = "javax.xml.ws.addressing.context.outbound";
@@ -65,6 +63,3 @@ public final class CxfConstants {
         // Utility class
     }
 }
-
-
-

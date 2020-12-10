@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,13 +18,15 @@ package org.apache.camel.spring.interceptor;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.spring.SpringRouteBuilder;
+import org.junit.jupiter.api.Test;
 
 /**
  * Easier transaction configuration as we do not have to setup a transaction error handler
  */
 public class TransactedInterceptSendToEndpointTest extends TransactionalClientDataSourceTest {
 
+    @Override
+    @Test
     public void testTransactionSuccess() throws Exception {
         MockEndpoint intercepted = getMockEndpoint("mock:intercepted");
         intercepted.expectedBodiesReceived("Hello World");
@@ -34,6 +36,8 @@ public class TransactedInterceptSendToEndpointTest extends TransactionalClientDa
         assertMockEndpointsSatisfied();
     }
 
+    @Override
+    @Test
     public void testTransactionRollback() throws Exception {
         MockEndpoint intercepted = getMockEndpoint("mock:intercepted");
         intercepted.expectedBodiesReceived("Tiger in Action");
@@ -43,22 +47,23 @@ public class TransactedInterceptSendToEndpointTest extends TransactionalClientDa
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
-        return new SpringRouteBuilder() {
+        return new RouteBuilder() {
             public void configure() throws Exception {
                 interceptSendToEndpoint("direct:(foo|bar)").to("mock:intercepted");
 
                 from("direct:okay")
-                    .transacted()
-                    .to("direct:foo")
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .setBody(constant("Elephant in Action")).bean("bookService");
+                        .transacted()
+                        .to("direct:foo")
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .setBody(constant("Elephant in Action")).bean("bookService");
 
                 from("direct:fail")
-                    .transacted()
-                    .setBody(constant("Tiger in Action")).bean("bookService")
-                    .to("direct:bar")
-                    .setBody(constant("Donkey in Action")).bean("bookService");
+                        .transacted()
+                        .setBody(constant("Tiger in Action")).bean("bookService")
+                        .to("direct:bar")
+                        .setBody(constant("Donkey in Action")).bean("bookService");
 
                 from("direct:foo").to("log:okay");
 

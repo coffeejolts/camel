@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,31 +16,37 @@
  */
 package org.apache.camel.component.ssh;
 
+import java.nio.file.Paths;
+
 import org.apache.camel.test.AvailablePortFinder;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.apache.sshd.SshServer;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.apache.sshd.common.keyprovider.FileKeyPairProvider;
+import org.apache.sshd.server.SshServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 public class SshComponentTestSupport extends CamelTestSupport {
     protected SshServer sshd;
     protected int port;
 
     @Override
+    @BeforeEach
     public void setUp() throws Exception {
-        port = AvailablePortFinder.getNextAvailable(22000);
+        port = AvailablePortFinder.getNextAvailable();
 
         sshd = SshServer.setUpDefaultServer();
         sshd.setPort(port);
-        sshd.setKeyPairProvider(new FileKeyPairProvider(new String[]{"src/test/resources/hostkey.pem"}));
+        sshd.setKeyPairProvider(new FileKeyPairProvider(Paths.get("src/test/resources/hostkey.pem")));
         sshd.setCommandFactory(new TestEchoCommandFactory());
-        sshd.setPasswordAuthenticator(new BogusPasswordAuthenticator());
-        sshd.setPublickeyAuthenticator(new BogusPublickeyAuthenticator());
+        sshd.setPasswordAuthenticator((username, password, session) -> true);
+        sshd.setPublickeyAuthenticator((username, key, session) -> true);
         sshd.start();
 
         super.setUp();
     }
 
     @Override
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
 

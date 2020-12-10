@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,26 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.camel.component.mina;
 
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
-import junit.framework.TestCase;
 import org.apache.camel.Exchange;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.DefaultExchange;
-import org.apache.mina.common.ByteBuffer;
+import org.apache.camel.support.DefaultExchange;
+import org.apache.mina.core.buffer.IoBuffer;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
-public class MinaConverterTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+public class MinaConverterTest {
+
+    @Test
     public void testToByteArray() {
         byte[] in = "Hello World".getBytes();
-        ByteBuffer bb = ByteBuffer.wrap(in);
+        IoBuffer bb = IoBuffer.wrap(in);
 
         byte[] out = MinaConverter.toByteArray(bb);
 
@@ -42,9 +42,10 @@ public class MinaConverterTest extends TestCase {
         }
     }
 
+    @Test
     public void testToString() throws UnsupportedEncodingException {
         String in = "Hello World \u4f60\u597d";
-        ByteBuffer bb = ByteBuffer.wrap(in.getBytes("UTF-8"));
+        IoBuffer bb = IoBuffer.wrap(in.getBytes("UTF-8"));
         Exchange exchange = new DefaultExchange(new DefaultCamelContext());
         exchange.setProperty(Exchange.CHARSET_NAME, "UTF-8");
 
@@ -52,23 +53,25 @@ public class MinaConverterTest extends TestCase {
         assertEquals("Hello World \u4f60\u597d", out);
     }
 
+    @Test
     public void testToStringTwoTimes() throws UnsupportedEncodingException {
         String in = "Hello World \u4f60\u597d";
-        ByteBuffer bb = ByteBuffer.wrap(in.getBytes("UTF-8"));
+        IoBuffer bb = IoBuffer.wrap(in.getBytes("UTF-8"));
         Exchange exchange = new DefaultExchange(new DefaultCamelContext());
         exchange.setProperty(Exchange.CHARSET_NAME, "UTF-8");
 
         String out = MinaConverter.toString(bb, exchange);
         assertEquals("Hello World \u4f60\u597d", out);
 
-        // should be possible to convert to string without affecting the ByteBuffer
+        // should NOT be possible to convert to string without affecting the ByteBuffer
         out = MinaConverter.toString(bb, exchange);
-        assertEquals("Hello World \u4f60\u597d", out);
+        assertEquals("", out);
     }
 
+    @Test
     public void testToInputStream() throws Exception {
         byte[] in = "Hello World".getBytes();
-        ByteBuffer bb = ByteBuffer.wrap(in);
+        IoBuffer bb = IoBuffer.wrap(in);
 
         InputStream is = MinaConverter.toInputStream(bb);
         for (byte b : in) {
@@ -77,10 +80,11 @@ public class MinaConverterTest extends TestCase {
         }
     }
 
+    @Test
     public void testToByteBuffer() {
         byte[] in = "Hello World".getBytes();
 
-        ByteBuffer bb = MinaConverter.toByteBuffer(in);
+        IoBuffer bb = MinaConverter.toIoBuffer(in);
         assertNotNull(bb);
 
         // convert back to byte[] and see if the bytes are equal
@@ -91,5 +95,4 @@ public class MinaConverterTest extends TestCase {
             assertEquals(in[i], out[i]);
         }
     }
-
 }

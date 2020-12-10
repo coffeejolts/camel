@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.component.github.producer;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.component.github.GitHubConstants;
 import org.apache.camel.component.github.GitHubEndpoint;
 import org.apache.camel.spi.Registry;
 import org.eclipse.egit.github.core.CommitStatus;
@@ -27,8 +28,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Producer endpoint that sets the commit status.
  *
- * The endpoint requires the "GitHubPullRequest" header, identifying the pull request number (integer),
- * and the "GitHubPullRequestHeadCommitSHA" header, identifying the commit SHA on which the state will be recorded.
+ * The endpoint requires the "GitHubPullRequest" header, identifying the pull request number (integer), and the
+ * "GitHubPullRequestHeadCommitSHA" header, identifying the commit SHA on which the state will be recorded.
  */
 public class PullRequestStateProducer extends AbstractGitHubProducer {
     private static final transient Logger LOG = LoggerFactory.getLogger(PullRequestStateProducer.class);
@@ -42,9 +43,9 @@ public class PullRequestStateProducer extends AbstractGitHubProducer {
         super(endpoint);
 
         Registry registry = endpoint.getCamelContext().getRegistry();
-        Object service = registry.lookupByName("githubCommitService");
+        Object service = registry.lookupByName(GitHubConstants.GITHUB_COMMIT_SERVICE);
         if (service != null) {
-            LOG.debug("Using CommitService found in registry " + service.getClass().getCanonicalName());
+            LOG.debug("Using CommitService found in registry {}", service.getClass().getCanonicalName());
             commitService = (CommitService) service;
         } else {
             commitService = new CommitService();
@@ -55,8 +56,10 @@ public class PullRequestStateProducer extends AbstractGitHubProducer {
         targetUrl = endpoint.getTargetUrl();
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
-        String pullRequestNumberSHA = exchange.getIn().getHeader("GitHubPullRequestHeadCommitSHA", String.class);
+        String pullRequestNumberSHA
+                = exchange.getIn().getHeader(GitHubConstants.GITHUB_PULLREQUEST_HEAD_COMMIT_SHA, String.class);
         String text = exchange.getIn().getBody(String.class);
 
         CommitStatus status = new CommitStatus();

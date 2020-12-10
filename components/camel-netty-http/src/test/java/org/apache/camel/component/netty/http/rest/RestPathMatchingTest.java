@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,17 @@
  */
 package org.apache.camel.component.netty.http.rest;
 
-import junit.framework.TestCase;
 import org.apache.camel.component.netty.http.RestContextPathMatcher;
+import org.junit.jupiter.api.Test;
 
-public class RestPathMatchingTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class RestPathMatchingTest {
 
     private RestContextPathMatcher matcher = new RestContextPathMatcher("", "", null, true);
 
+    @Test
     public void testRestPathMatcher() throws Exception {
         assertTrue(matcher.matchRestPath("/foo/", "/foo/", true));
         assertTrue(matcher.matchRestPath("/foo/", "foo/", true));
@@ -53,6 +57,7 @@ public class RestPathMatchingTest extends TestCase {
         assertTrue(matcher.matchRestPath("/1234567890/list/2014", "/{user}/list/{year}", true));
     }
 
+    @Test
     public void testRestPathMatcherNoWildcard() throws Exception {
         assertTrue(matcher.matchRestPath("/foo/", "/foo/", false));
         assertTrue(matcher.matchRestPath("/foo/", "foo/", false));

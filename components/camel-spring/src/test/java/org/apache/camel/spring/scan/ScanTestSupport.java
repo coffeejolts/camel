@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,19 +19,23 @@ package org.apache.camel.spring.scan;
 import java.util.HashSet;
 import java.util.Set;
 
-import junit.framework.TestCase;
 import org.apache.camel.core.xml.PatternBasedPackageScanFilter;
+import org.junit.jupiter.api.BeforeEach;
 
-public abstract class ScanTestSupport extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public abstract class ScanTestSupport {
 
     protected PatternBasedPackageScanFilter filter;
 
+    @BeforeEach
     public void setUp() throws Exception {
         filter = new PatternBasedPackageScanFilter();
     }
 
     protected void validateMatchingSetContains(Set<Class<?>> scannedClasses, Class<?>... matchingClasses) {
-        HashSet<Class<?>> expectedSet = new HashSet<Class<?>>();
+        HashSet<Class<?>> expectedSet = new HashSet<>();
         for (Class<?> expected : matchingClasses) {
             expectedSet.add(expected);
         }
@@ -40,10 +44,10 @@ public abstract class ScanTestSupport extends TestCase {
 
     protected void validateMatchingSetContains(Set<Class<?>> scannedClasses, Set<Class<?>> matchingClasses) {
         Set<Class<?>> matching = getMatchingClasses(scannedClasses, filter);
-        assertEquals("Incorrect number of classes matched", matchingClasses.size(), matching.size());
+        assertEquals(matchingClasses.size(), matching.size(), "Incorrect number of classes matched");
 
         for (Class<?> expected : matchingClasses) {
-            assertTrue("Expected matching class '" + expected + "' is not present", matching.contains(expected));
+            assertTrue(matching.contains(expected), "Expected matching class '" + expected + "' is not present");
         }
     }
 
@@ -60,7 +64,7 @@ public abstract class ScanTestSupport extends TestCase {
     }
 
     public Set<Class<?>> getMatchingClasses(Set<Class<?>> scannedClasses, PatternBasedPackageScanFilter filter) {
-        Set<Class<?>> matching = new HashSet<Class<?>>();
+        Set<Class<?>> matching = new HashSet<>();
 
         for (Class<?> candidate : scannedClasses) {
             if (filter.matches(candidate)) {

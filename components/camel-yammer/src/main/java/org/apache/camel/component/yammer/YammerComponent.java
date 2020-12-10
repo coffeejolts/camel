@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,81 +19,41 @@ package org.apache.camel.component.yammer;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.DefaultComponent;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * Represents the component that manages {@link YammerEndpoint}.
  */
+@Component("yammer")
 public class YammerComponent extends DefaultComponent {
 
-    private String consumerKey;
-    private String consumerSecret;
-    private String accessToken;
-    private YammerConfiguration config;
-    
+    @Metadata(label = "advanced")
+    private YammerConfiguration configuration = new YammerConfiguration();
+
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        // by default use config for each endpoint; use from component level if one has been explicitly set
-        YammerConfiguration endpointConfig = getConfig();
-        if (endpointConfig == null) {
-            endpointConfig = new YammerConfiguration();            
-        }
-        
+        // copy config for endpoint
+        YammerConfiguration endpointConfig = configuration.copy();
+
         // set options from component
-        endpointConfig.setConsumerKey(consumerKey);
-        endpointConfig.setConsumerSecret(consumerSecret);
-        endpointConfig.setAccessToken(accessToken);
-        endpointConfig.setFunction(remaining);
-        endpointConfig.setFunctionType(YammerFunctionType.fromUri(remaining));
-        
-        // and then override from parameters
-        setProperties(endpointConfig, parameters);
-        
+        endpointConfig.setFunction(YammerFunctionType.fromUri(remaining));
+
         Endpoint endpoint = new YammerEndpoint(uri, this, endpointConfig);
         setProperties(endpoint, parameters);
         return endpoint;
     }
-    
-    public String getConsumerKey() {
-        return consumerKey;
+
+    public YammerConfiguration getConfiguration() {
+        return configuration;
     }
 
     /**
-     * The consumer key
+     * Component configuration
      */
-    public void setConsumerKey(String consumerKey) {
-        this.consumerKey = consumerKey;
+    public void setConfiguration(YammerConfiguration configuration) {
+        this.configuration = configuration;
     }
 
-    public String getConsumerSecret() {
-        return consumerSecret;
-    }
-
-    /**
-     * The consumer secret
-     */
-    public void setConsumerSecret(String consumerSecret) {
-        this.consumerSecret = consumerSecret;
-    }
-
-    public String getAccessToken() {
-        return accessToken;
-    }
-
-    /**
-     * The access token
-     */
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
-
-    public YammerConfiguration getConfig() {
-        return config;
-    }
-
-    /**
-     * To use a shared yammer configuration
-     */
-    public void setConfig(YammerConfiguration config) {
-        this.config = config;
-    }
 }

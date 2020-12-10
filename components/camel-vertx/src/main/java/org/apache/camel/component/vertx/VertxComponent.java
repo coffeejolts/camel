@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,40 +16,61 @@
  */
 package org.apache.camel.component.vertx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
+import io.vertx.core.impl.VertxFactoryImpl;
+import io.vertx.core.spi.VertxFactory;
 import org.apache.camel.CamelContext;
-import org.apache.camel.ComponentConfiguration;
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.spi.EndpointCompleter;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
+import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.AsyncResultHandler;
-import org.vertx.java.core.Vertx;
-import org.vertx.java.core.VertxFactory;
 
-/**
- * A Camel Component for <a href="http://vertx.io/">vert.x</a>
- */
-public class VertxComponent extends UriEndpointComponent implements EndpointCompleter {
+@Component("vertx")
+public class VertxComponent extends DefaultComponent {
+
     private static final Logger LOG = LoggerFactory.getLogger(VertxComponent.class);
+
     private volatile boolean createdVertx;
+
+    @Metadata(label = "advanced")
+    private VertxFactory vertxFactory;
+    @Metadata(autowired = true)
     private Vertx vertx;
+    @Metadata
     private String host;
+    @Metadata
     private int port;
+    @Metadata(defaultValue = "60")
     private int timeout = 60;
+    @Metadata
+    private VertxOptions vertxOptions;
 
     public VertxComponent() {
-        super(VertxEndpoint.class);
     }
 
     public VertxComponent(CamelContext context) {
-        super(context, VertxEndpoint.class);
+        super(context);
+    }
+
+    public VertxFactory getVertxFactory() {
+        return vertxFactory;
+    }
+
+    /**
+     * To use a custom VertxFactory implementation
+     */
+    public void setVertxFactory(VertxFactory vertxFactory) {
+        this.vertxFactory = vertxFactory;
     }
 
     public String getHost() {
@@ -72,6 +93,17 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
      */
     public void setPort(int port) {
         this.port = port;
+    }
+
+    public VertxOptions getVertxOptions() {
+        return vertxOptions;
+    }
+
+    /**
+     * Options to use for creating vertx
+     */
+    public void setVertxOptions(VertxOptions vertxOptions) {
+        this.vertxOptions = vertxOptions;
     }
 
     public Vertx getVertx() {
@@ -98,15 +130,11 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
         this.timeout = timeout;
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         VertxEndpoint endpoint = new VertxEndpoint(uri, this, remaining);
         setProperties(endpoint, parameters);
         return endpoint;
-    }
-
-    public List<String> completeEndpointPath(ComponentConfiguration componentConfiguration, String text) {
-        // TODO is there any way to find out the list of endpoint names in vertx?
-        return null;
     }
 
     @Override
@@ -115,20 +143,37 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
 
         if (vertx == null) {
 
+            if (vertxFactory == null) {
+                vertxFactory = new VertxFactoryImpl();
+            }
+
+            if (vertxOptions == null) {
+                vertxOptions = new VertxOptions();
+                if (ObjectHelper.isNotEmpty(host)) {
+                    vertxOptions.setClusterHost(host);
+                    vertxOptions.setClustered(true);
+                }
+                if (port > 0) {
+                    vertxOptions.setClusterPort(port);
+                    vertxOptions.setClustered(true);
+                }
+            }
+
             // we are creating vertx so we should handle its lifecycle
             createdVertx = true;
 
             final CountDownLatch latch = new CountDownLatch(1);
 
             // lets using a host / port if a host name is specified
-            if (host != null && host.length() > 0) {
-                LOG.info("Creating Clustered Vertx {}:{}", host, port);
+            if (vertxOptions.isClustered()) {
+                LOG.info("Creating Clustered Vertx {}:{}", vertxOptions.getClusterHost(), vertxOptions.getClusterPort());
                 // use the async api as we want to wait for the eventbus to be ready before we are in started state
-                VertxFactory.newVertx(port, host, new AsyncResultHandler<Vertx>() {
+                vertxFactory.clusteredVertx(vertxOptions, new Handler<AsyncResult<Vertx>>() {
                     @Override
                     public void handle(AsyncResult<Vertx> event) {
                         if (event.cause() != null) {
-                            LOG.warn("Error creating Clustered Vertx " + host + ":" + port + " due " + event.cause().getMessage(), event.cause());
+                            LOG.warn("Error creating Clustered Vertx {}:{} due {}", host, port,
+                                    event.cause().getMessage(), event.cause());
                         } else if (event.succeeded()) {
                             vertx = event.result();
                             LOG.info("EventBus is ready: {}", vertx);
@@ -137,14 +182,9 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
                         latch.countDown();
                     }
                 });
-            } else if (host != null) {
-                LOG.info("Creating Clustered Vertx {}", host);
-                vertx = VertxFactory.newVertx(host);
-                LOG.info("EventBus is ready: {}", vertx);
-                latch.countDown();
             } else {
                 LOG.info("Creating Non-Clustered Vertx");
-                vertx = VertxFactory.newVertx();
+                vertx = vertxFactory.vertx();
                 LOG.info("EventBus is ready: {}", vertx);
                 latch.countDown();
             }
@@ -153,6 +193,8 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
                 LOG.info("Waiting for EventBus to be ready using {} sec as timeout", timeout);
                 latch.await(timeout, TimeUnit.SECONDS);
             }
+        } else {
+            LOG.debug("Using Vertx instance set on the component level.");
         }
     }
 
@@ -162,7 +204,7 @@ public class VertxComponent extends UriEndpointComponent implements EndpointComp
 
         if (createdVertx && vertx != null) {
             LOG.info("Stopping Vertx {}", vertx);
-            vertx.stop();
+            vertx.close();
         }
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,22 +22,21 @@ import org.apache.cxf.message.Message;
 
 /**
  * A Strategy to bind a Camel exchange to a CXF message used by {@link CxfBeanDestination}.
- *
- * @version 
  */
 public interface CxfMessageMapper {
 
     /**
      * Create a CXF {@link Message} from a Camel exchange.
      */
-    Message createCxfMessageFromCamelExchange(Exchange camelExchange,
-                                              HeaderFilterStrategy headerFilterStrategy);
+    Message createCxfMessageFromCamelExchange(
+            Exchange camelExchange,
+            HeaderFilterStrategy headerFilterStrategy);
 
     /**
-     * Given a CXF out/response Message, this method propagates response headers to a
-     * Camel exchange.
+     * Given a CXF out/response Message, this method propagates response headers to a Camel exchange.
      */
-    void propagateResponseHeadersToCamel(Message cxfMessage, Exchange camelExchange,
-                                         HeaderFilterStrategy headerFilterStrategy);
+    void propagateResponseHeadersToCamel(
+            Message cxfMessage, Exchange camelExchange,
+            HeaderFilterStrategy headerFilterStrategy);
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,13 +16,16 @@
  */
 package org.apache.camel.component.quartz;
 
-import org.quartz.StatefulJob;
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.PersistJobDataAfterExecution;
 
 /**
- * Stateful job
+ * A stateful job for CamelJob. For Quartz, this means it will re-save all job data map after each job execution, and it
+ * will not run concurrently within the Quartz thread pool even if you have multiple triggers or misfired instruct to do
+ * so.
  */
-public class StatefulCamelJob extends CamelJob implements StatefulJob {
-
-    private static final long serialVersionUID = 25L;
+@PersistJobDataAfterExecution
+@DisallowConcurrentExecution
+public class StatefulCamelJob extends CamelJob {
 
 }

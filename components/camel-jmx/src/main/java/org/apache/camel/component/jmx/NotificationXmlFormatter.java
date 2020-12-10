@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+
 import javax.management.AttributeChangeNotification;
 import javax.management.MBeanServerNotification;
 import javax.management.Notification;
@@ -38,7 +39,7 @@ import javax.xml.datatype.DatatypeFactory;
 import org.apache.camel.component.jmx.jaxb.NotificationEventType;
 import org.apache.camel.component.jmx.jaxb.ObjectFactory;
 import org.apache.camel.component.jmx.jaxb.ObjectNamesType;
-import org.apache.camel.support.ServiceSupport;
+import org.apache.camel.support.service.ServiceSupport;
 import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,7 +102,8 @@ public class NotificationXmlFormatter extends ServiceSupport {
                 ((org.apache.camel.component.jmx.jaxb.RelationNotification) jaxb).withMBeansToUnregister(ont);
             }
         } else if (aNotification instanceof TimerNotification) {
-            jaxb = mObjectFactory.createTimerNotification().withNotificationId(((TimerNotification) aNotification).getNotificationID());
+            jaxb = mObjectFactory.createTimerNotification()
+                    .withNotificationId(((TimerNotification) aNotification).getNotificationID());
         } else {
             jaxb = mObjectFactory.createNotificationEventType();
             wrap = true;
@@ -155,7 +157,7 @@ public class NotificationXmlFormatter extends ServiceSupport {
     }
 
     private List<String> toStringList(List<ObjectName> objectNames) {
-        List<String> roles = new ArrayList<String>(objectNames.size());
+        List<String> roles = new ArrayList<>(objectNames.size());
         for (ObjectName on : objectNames) {
             roles.add(on.toString());
         }
@@ -163,15 +165,15 @@ public class NotificationXmlFormatter extends ServiceSupport {
     }
 
     /**
-      * Strategy to create JAXB context
-      */
+     * Strategy to create JAXB context
+     */
     protected JAXBContext createContext(String contextPath) throws JAXBException {
         ClassLoader cl = NotificationXmlFormatter.class.getClassLoader();
         try {
-            LOG.info("Creating JAXBContext with contextPath: " + contextPath + " and classloader: " + cl);
+            LOG.info("Creating JAXBContext with contextPath: {} and classloader: {}", contextPath, cl);
             return JAXBContext.newInstance(contextPath, cl);
         } catch (Exception e) {
-            LOG.info("Creating JAXBContext with contextPath: " + contextPath);
+            LOG.info("Creating JAXBContext with contextPath: {}", contextPath);
             return JAXBContext.newInstance(contextPath);
         }
     }

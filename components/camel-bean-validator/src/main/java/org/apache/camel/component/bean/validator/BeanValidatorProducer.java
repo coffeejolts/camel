@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,15 +17,16 @@
 package org.apache.camel.component.bean.validator;
 
 import java.util.Set;
+
 import javax.validation.ConstraintViolation;
 import javax.validation.ValidatorFactory;
 
 import org.apache.camel.Exchange;
-import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.support.DefaultProducer;
 
 /**
- * Bean validator that uses the JSR 303 reference implementation (Hibernate Validator).
- * Throws {@link BeanValidationException} if constrain violations are detected.
+ * Bean validator that uses the JSR 303 reference implementation (Hibernate Validator). Throws
+ * {@link BeanValidationException} if constrain violations are detected.
  */
 public class BeanValidatorProducer extends DefaultProducer {
 
@@ -36,16 +37,17 @@ public class BeanValidatorProducer extends DefaultProducer {
         super(endpoint);
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         Object bean = exchange.getIn().getBody();
         Set<ConstraintViolation<Object>> constraintViolations;
-        
+
         if (this.group != null) {
             constraintViolations = validatorFactory.getValidator().validate(bean, group);
         } else {
             constraintViolations = validatorFactory.getValidator().validate(bean);
         }
-        
+
         if (!constraintViolations.isEmpty()) {
             throw new BeanValidationException(exchange, constraintViolations, exchange.getIn().getBody());
         }

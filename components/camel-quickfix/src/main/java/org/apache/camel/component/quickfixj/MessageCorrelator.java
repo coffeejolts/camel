@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,24 +24,23 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.ExchangeTimedOutException;
-
 import quickfix.Message;
 import quickfix.SessionID;
 
 public class MessageCorrelator implements QuickfixjEventListener {
     public static final long DEFAULT_CORRELATION_TIMEOUT = 1000L;
-    private final List<MessageCorrelationRule> rules = new CopyOnWriteArrayList<MessageCorrelationRule>();
+    private final List<MessageCorrelationRule> rules = new CopyOnWriteArrayList<>();
 
     public Callable<Message> getReply(SessionID sessionID, Exchange exchange)
-        throws InterruptedException, ExchangeTimedOutException {
+            throws InterruptedException, ExchangeTimedOutException {
 
         MessagePredicate messageCriteria = (MessagePredicate) exchange.getProperty(QuickfixjProducer.CORRELATION_CRITERIA_KEY);
         final MessageCorrelationRule correlationRule = new MessageCorrelationRule(exchange, sessionID, messageCriteria);
         rules.add(correlationRule);
 
         final long timeout = exchange.getProperty(
-            QuickfixjProducer.CORRELATION_TIMEOUT_KEY,
-            DEFAULT_CORRELATION_TIMEOUT, Long.class);
+                QuickfixjProducer.CORRELATION_TIMEOUT_KEY,
+                DEFAULT_CORRELATION_TIMEOUT, Long.class);
 
         return new Callable<Message>() {
             @Override
@@ -74,7 +73,7 @@ public class MessageCorrelator implements QuickfixjEventListener {
 
         private Message replyMessage;
 
-        public MessageCorrelationRule(Exchange exchange, SessionID sessionID, MessagePredicate messageCriteria) {
+        MessageCorrelationRule(Exchange exchange, SessionID sessionID, MessagePredicate messageCriteria) {
             this.exchange = exchange;
             this.messageCriteria = messageCriteria;
         }

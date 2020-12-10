@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,13 +20,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest;
-
+import org.apache.camel.ExtendedCamelContext;
 import org.apache.camel.Processor;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.TypeConverter;
 import org.apache.camel.component.google.drive.internal.GoogleDriveApiName;
-import org.apache.camel.util.IntrospectionSupport;
-import org.apache.camel.util.component.AbstractApiConsumer;
+import org.apache.camel.spi.BeanIntrospection;
+import org.apache.camel.support.component.AbstractApiConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,23 +35,24 @@ import org.slf4j.LoggerFactory;
 public class GoogleDriveConsumer extends AbstractApiConsumer<GoogleDriveApiName, GoogleDriveConfiguration> {
 
     private static final Logger LOG = LoggerFactory.getLogger(BatchGoogleDriveClientFactory.class);
-    
+
     public GoogleDriveConsumer(GoogleDriveEndpoint endpoint, Processor processor) {
         super(endpoint, processor);
-    } 
-    
+    }
+
     @Override
     protected Object doInvokeMethod(Map<String, Object> properties) throws RuntimeCamelException {
         AbstractGoogleClientRequest request = (AbstractGoogleClientRequest) super.doInvokeMethod(properties);
         try {
-            TypeConverter typeConverter = getEndpoint().getCamelContext().getTypeConverter();
+            BeanIntrospection beanIntrospection
+                    = getEndpoint().getCamelContext().adapt(ExtendedCamelContext.class).getBeanIntrospection();
             for (Entry<String, Object> p : properties.entrySet()) {
-                IntrospectionSupport.setProperty(typeConverter, request, p.getKey(), p.getValue());
+                beanIntrospection.setProperty(getEndpoint().getCamelContext(), request, p.getKey(), p.getValue());
             }
             return request.execute();
         } catch (Exception e) {
             throw new RuntimeCamelException(e);
         }
-    }      
+    }
 
 }

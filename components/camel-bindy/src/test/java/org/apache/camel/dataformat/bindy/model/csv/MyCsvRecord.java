@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,7 @@ import java.io.Serializable;
 import org.apache.camel.dataformat.bindy.annotation.CsvRecord;
 import org.apache.camel.dataformat.bindy.annotation.DataField;
 
-@CsvRecord(separator = "," , skipFirstLine = false)
+@CsvRecord(separator = ",", skipFirstLine = false)
 public class MyCsvRecord implements Serializable {
 
     private static final long serialVersionUID = 1L;

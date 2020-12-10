@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,51 +19,47 @@ package org.apache.camel.component.mina;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.ExchangeTimedOutException;
-import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * To test timeout.
- *
- * @version 
  */
 public class MinaExchangeTimeOutTest extends BaseMinaTest {
 
     @Test
     public void testUsingTimeoutParameter() throws Exception {
-
         // use a timeout value of 2 seconds (timeout is in millis) so we should actually get a response in this test
-        Endpoint endpoint = context.getEndpoint("mina:tcp://localhost:{{port}}?textline=true&sync=true&timeout=2000");
+        Endpoint endpoint = context
+                .getEndpoint(String.format("mina:tcp://localhost:%1$s?textline=true&sync=true&timeout=500", getPort()));
         Producer producer = endpoint.createProducer();
         producer.start();
-        Exchange exchange = producer.createExchange();
+        Exchange exchange = endpoint.createExchange();
         exchange.getIn().setBody("Hello World");
-        try {
-            producer.process(exchange);
-            fail("Should have thrown an ExchangeTimedOutException wrapped in a RuntimeCamelException");
-        } catch (Exception e) {
-            assertTrue("Should have thrown an ExchangeTimedOutException", e instanceof ExchangeTimedOutException);
-        }
+        assertThrows(ExchangeTimedOutException.class,
+                () -> producer.process(exchange));
         producer.stop();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
-            public void configure() {
-                from("mina:tcp://localhost:{{port}}?textline=true&sync=true").process(new Processor() {
-                    public void process(Exchange e) throws Exception {
-                        assertEquals("Hello World", e.getIn().getBody(String.class));
-                        // MinaProducer has a default timeout of 30 seconds so we just wait 5 seconds
-                        // (template.requestBody is a MinaProducer behind the doors)
-                        Thread.sleep(5000);
 
-                        e.getOut().setBody("Okay I will be faster in the future");
-                    }
-                });
+            public void configure() {
+                from(String.format("mina:tcp://localhost:%1$s?textline=true&sync=true&timeout=30000", getPort()))
+                        .process(e -> {
+                            assertEquals("Hello World", e.getIn().getBody(String.class));
+                            // MinaProducer has a default timeout of 3 seconds so we just wait 2 seconds
+                            // (template.requestBody is a MinaProducer behind the doors)
+                            Thread.sleep(2000);
+
+                            e.getMessage().setBody("Okay I will be faster in the future");
+                        });
             }
         };
     }
-
 }

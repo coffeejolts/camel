@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 
 public class TestPojoView {
 
-    //START SNIPPET: jsonview
+    // START SNIPPET: jsonview
     @JsonView(Views.Age.class)
     private int age = 30;
 
@@ -28,7 +28,7 @@ public class TestPojoView {
 
     @JsonView(Views.Weight.class)
     private int weight = 70;
-    //END SNIPPET: jsonview
+    // END SNIPPET: jsonview
 
     public int getAge() {
         return age;
@@ -52,5 +52,33 @@ public class TestPojoView {
 
     public void setWeight(int weight) {
         this.weight = weight;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TestPojoView that = (TestPojoView) o;
+
+        if (age != that.age) {
+            return false;
+        }
+        if (height != that.height) {
+            return false;
+        }
+        return weight == that.weight;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = age;
+        result = 31 * result + height;
+        result = 31 * result + weight;
+        return result;
     }
 }

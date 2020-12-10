@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,8 +19,10 @@ package org.apache.camel.component.mina;
 import java.util.List;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.mina.common.IoFilterChain.Entry;
-import org.junit.Test;
+import org.apache.mina.core.filterchain.IoFilterChain.Entry;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * For unit testing the <tt>noDefaultCodec</tt> option.
@@ -39,18 +41,17 @@ public class MinaNoDefaultCodecTest extends BaseMinaTest {
         final String uri2 = "mina:tcp://localhost:" + port2;
 
         context.addRoutes(new RouteBuilder() {
+
             public void configure() throws Exception {
                 from(uri1).to("mock:result");
                 from(uri2).to("mock:result");
             }
         });
 
-        MinaEndpoint endpoint1 = context.getEndpoint(uri1, MinaEndpoint.class);
-        MinaEndpoint endpoint2 = context.getEndpoint(uri2, MinaEndpoint.class);
-        List<Entry> filters1 = endpoint1.getAcceptorConfig().getFilterChain().getAll();
-        List<Entry> filters2 = endpoint2.getAcceptorConfig().getFilterChain().getAll();
+        MinaProducer producer1 = (MinaProducer) context.getEndpoint(uri1).createProducer();
+        MinaProducer producer2 = (MinaProducer) context.getEndpoint(uri2).createProducer();
+        List<Entry> filters1 = producer1.getFilterChain().getAll();
+        List<Entry> filters2 = producer2.getFilterChain().getAll();
         assertTrue(filters1.size() < filters2.size());
     }
-
 }
-

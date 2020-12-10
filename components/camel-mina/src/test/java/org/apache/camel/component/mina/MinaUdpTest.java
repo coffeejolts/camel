@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,13 +22,14 @@ import java.net.InetAddress;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
 public class MinaUdpTest extends BaseMinaTest {
+
     protected int messageCount = 3;
+
+    public MinaUdpTest() {
+    }
 
     @Test
     public void testMinaRoute() throws Exception {
@@ -45,26 +46,23 @@ public class MinaUdpTest extends BaseMinaTest {
         try {
             InetAddress address = InetAddress.getByName("127.0.0.1");
             for (int i = 0; i < messageCount; i++) {
-                String text = "Hello Message: " + i;
+                String text = "Hello Message: " + Integer.toString(i);
                 byte[] data = text.getBytes();
 
                 DatagramPacket packet = new DatagramPacket(data, data.length, address, getPort());
                 socket.send(packet);
-                Thread.sleep(100);
             }
+            Thread.sleep(2000);
         } finally {
             socket.close();
         }
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                int port2 = getNextPort();
-
-                from("mina:udp://127.0.0.1:{{port}}?sync=false").to("mina:udp://127.0.0.1:" + port2 + "?sync=false");
-
-                from("mina:udp://127.0.0.1:" + port2 + "?sync=false").to("mock:result");
+                from("mina:udp://127.0.0.1:" + getPort() + "?sync=false&minaLogger=true").to("mock:result");
             }
         };
     }

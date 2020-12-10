@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -24,19 +24,22 @@ import org.apache.camel.Exchange;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Tests posting a twitter update with the default In Message Exchange Pattern
  */
 public class UserProducerInOnlyTest extends CamelTwitterTestSupport {
+
     private static final Logger LOG = LoggerFactory.getLogger(UserProducerInOnlyTest.class);
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     protected MockEndpoint resultEndpoint;
 
     @Test
@@ -47,7 +50,6 @@ public class UserProducerInOnlyTest extends CamelTwitterTestSupport {
         ProducerTemplate producerTemplate = context.createProducerTemplate();
         // send tweet to the twitter endpoint
         producerTemplate.sendBodyAndHeader("direct:tweets", tweet, "customHeader", 12312);
-
 
         resultEndpoint.expectedMessageCount(1);
         resultEndpoint.expectedBodyReceived().body(String.class);
@@ -62,12 +64,13 @@ public class UserProducerInOnlyTest extends CamelTwitterTestSupport {
         assertThat(receivedTweet, is(tweet));
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
                 from("direct:tweets")
                         //.to("log:org.apache.camel.component.twitter?level=INFO&showAll=true&multiline=true")
-                        .to("twitter://timeline/user?" + getUriTokens())
+                        .to("twitter-timeline://user?" + getUriTokens())
                         //.to("log:org.apache.camel.component.twitter?level=INFO&showAll=true&multiline=true")
                         .to("mock:result");
             }

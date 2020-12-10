@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,14 @@ package org.apache.camel.component.docker.headers;
 import java.util.Map;
 
 import com.github.dockerjava.api.command.KillContainerCmd;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 /**
  * Validates Kill Container Request headers are applied properly
@@ -36,9 +36,8 @@ public class KillContainerCmdHeaderTest extends BaseDockerHeaderTest<KillContain
     @Mock
     private KillContainerCmd mockObject;
 
-    @Ignore
     @Test
-    public void stopContainerHeaderTest() {
+    void stopContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
         String signal = "signal";
@@ -50,13 +49,13 @@ public class KillContainerCmdHeaderTest extends BaseDockerHeaderTest<KillContain
         template.sendBodyAndHeaders("direct:in", "", headers);
 
         Mockito.verify(dockerClient, Mockito.times(1)).killContainerCmd(containerId);
-        Mockito.verify(mockObject, Mockito.times(1)).withSignal(Matchers.eq(signal));
+        Mockito.verify(mockObject, Mockito.times(1)).withSignal(eq(signal));
 
     }
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.killContainerCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.killContainerCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

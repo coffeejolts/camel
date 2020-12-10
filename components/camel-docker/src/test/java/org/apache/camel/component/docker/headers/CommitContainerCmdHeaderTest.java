@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,27 +23,24 @@ import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.ExposedPorts;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.api.model.Volumes;
-
 import org.apache.camel.component.docker.DockerConstants;
 import org.apache.camel.component.docker.DockerOperation;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.mockito.Matchers;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Validates Commit Container Request headers are parsed properly
  */
 public class CommitContainerCmdHeaderTest extends BaseDockerHeaderTest<CommitCmd> {
 
-
     @Mock
     private CommitCmd mockObject;
 
-    @Ignore
     @Test
-    public void commitContainerHeaderTest() {
+    void commitContainerHeaderTest() {
 
         String containerId = "9c09acd48a25";
         String env = "FOO=bar";
@@ -68,7 +65,6 @@ public class CommitContainerCmdHeaderTest extends BaseDockerHeaderTest<CommitCmd
         Volumes volumes = new Volumes(new Volume("/example"));
         boolean tty = true;
         String hostname = "dockerhostname";
-
 
         Map<String, Object> headers = getDefaultParameters();
         headers.put(DockerConstants.DOCKER_CONTAINER_ID, containerId);
@@ -125,7 +121,7 @@ public class CommitContainerCmdHeaderTest extends BaseDockerHeaderTest<CommitCmd
 
     @Override
     protected void setupMocks() {
-        Mockito.when(dockerClient.commitCmd(Matchers.anyString())).thenReturn(mockObject);
+        Mockito.when(dockerClient.commitCmd(anyString())).thenReturn(mockObject);
     }
 
     @Override

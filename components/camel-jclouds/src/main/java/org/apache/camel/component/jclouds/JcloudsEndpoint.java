@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,11 +16,16 @@
  */
 package org.apache.camel.component.jclouds;
 
-import org.apache.camel.impl.DefaultEndpoint;
+import org.apache.camel.Category;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 
-@UriEndpoint(scheme = "jclouds", title = "JClouds", syntax = "jclouds:command:providerId", consumerClass = JcloudsConsumer.class, label = "api,cloud")
+/**
+ * Interact with jclouds compute & blobstore service.
+ */
+@UriEndpoint(firstVersion = "2.9.0", scheme = "jclouds", title = "JClouds", syntax = "jclouds:command:providerId",
+             category = { Category.API, Category.CLOUD, Category.COMPUTE })
 public abstract class JcloudsEndpoint extends DefaultEndpoint {
 
     @UriParam
@@ -28,10 +33,6 @@ public abstract class JcloudsEndpoint extends DefaultEndpoint {
 
     public JcloudsEndpoint(String uri, JcloudsComponent component) {
         super(uri, component);
-    }
-
-    public boolean isSingleton() {
-        return true;
     }
 
     public JcloudsConfiguration getConfiguration() {

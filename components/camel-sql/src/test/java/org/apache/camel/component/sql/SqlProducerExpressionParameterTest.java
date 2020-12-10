@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,35 +18,42 @@ package org.apache.camel.component.sql;
 
 import java.util.List;
 import java.util.Map;
+
 import org.apache.camel.EndpointInject;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-/**
- * @version
- */
+import static org.apache.camel.test.junit5.TestSupport.assertIsInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class SqlProducerExpressionParameterTest extends CamelTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     MockEndpoint result;
+
+    @EndpointInject("mock:result-simple")
+    MockEndpoint resultSimple;
 
     private EmbeddedDatabase db;
 
-    @Before
+    @Override
+    @BeforeEach
     public void setUp() throws Exception {
-        db = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.DERBY).addScript("sql/createAndPopulateDatabase.sql").build();
+        db = new EmbeddedDatabaseBuilder().setType(EmbeddedDatabaseType.DERBY).addScript("sql/createAndPopulateDatabase.sql")
+                .build();
 
         super.setUp();
     }
 
-    @After
+    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
 
@@ -69,13 +76,32 @@ public class SqlProducerExpressionParameterTest extends CamelTestSupport {
         assertEquals("AMQ", row.get("PROJECT"));
     }
 
+    @Test
+    public void testNamedParameterFromSimpleExpression() throws Exception {
+        resultSimple.expectedMessageCount(1);
+
+        template.sendBodyAndProperty("direct:start-simple", "This is a dummy body", "license", "XXX");
+
+        resultSimple.assertIsSatisfied();
+
+        List<?> received = assertIsInstanceOf(List.class, resultSimple.getReceivedExchanges().get(0).getIn().getBody());
+        assertEquals(1, received.size());
+        Map<?, ?> row = assertIsInstanceOf(Map.class, received.get(0));
+        assertEquals("Linux", row.get("PROJECT"));
+    }
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
                 getContext().getComponent("sql", SqlComponent.class).setDataSource(db);
 
-                from("direct:start").to("sql:select * from projects where license = :#${property.license} order by id").to("mock:result");
+                from("direct:start").to("sql:select * from projects where license = :#${exchangeProperty.license} order by id")
+                        .to("mock:result");
+
+                from("direct:start-simple")
+                        .to("sql:select * from projects where license = :#$simple{exchangeProperty.license} order by id")
+                        .to("mock:result-simple");
             }
         };
     }

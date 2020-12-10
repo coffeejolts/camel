@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.camel.Exchange;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.TypeConverter;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
 
@@ -34,41 +34,45 @@ public class HdfsOutputStream implements Closeable {
     private String suffixedPath;
     private Closeable out;
     private volatile boolean opened;
-    private final AtomicLong numOfWrittenBytes = new AtomicLong(0L);
-    private final AtomicLong numOfWrittenMessages = new AtomicLong(0L);
+    private final AtomicLong numOfWrittenBytes = new AtomicLong();
+    private final AtomicLong numOfWrittenMessages = new AtomicLong();
     private final AtomicLong lastAccess = new AtomicLong(Long.MAX_VALUE);
-    private final AtomicBoolean busy = new AtomicBoolean(false);
+    private final AtomicBoolean busy = new AtomicBoolean();
 
     protected HdfsOutputStream() {
     }
 
-    public static HdfsOutputStream createOutputStream(String hdfsPath, HdfsConfiguration configuration) throws IOException {
-        HdfsOutputStream ret = new HdfsOutputStream();
-        ret.fileType = configuration.getFileType();
-        ret.actualPath = hdfsPath;
-        ret.info = new HdfsInfo(ret.actualPath);
+    public static HdfsOutputStream createOutputStream(String hdfsPath, HdfsInfoFactory hdfsInfoFactory) throws IOException {
+        HdfsConfiguration endpointConfig = hdfsInfoFactory.getEndpointConfig();
+        HdfsOutputStream oStream = new HdfsOutputStream();
+        oStream.fileType = endpointConfig.getFileType();
+        oStream.actualPath = hdfsPath;
+        oStream.info = hdfsInfoFactory.newHdfsInfoWithoutAuth(oStream.actualPath);
 
-        ret.suffixedPath = ret.actualPath + '.' + configuration.getOpenedSuffix();
-        if (configuration.isWantAppend() || configuration.isAppend()) {
-            if (!ret.info.getFileSystem().exists(new Path(ret.actualPath))) {
-                configuration.setAppend(false);
+        oStream.suffixedPath = oStream.actualPath + '.' + endpointConfig.getOpenedSuffix();
+
+        Path actualPath = new Path(oStream.actualPath);
+        boolean actualPathExists = oStream.info.getFileSystem().exists(actualPath);
+
+        if (endpointConfig.isWantAppend() || endpointConfig.isAppend()) {
+            if (actualPathExists) {
+                endpointConfig.setAppend(true);
+                oStream.info = hdfsInfoFactory.newHdfsInfoWithoutAuth(oStream.suffixedPath);
+                oStream.info.getFileSystem().rename(actualPath, new Path(oStream.suffixedPath));
             } else {
-                configuration.setAppend(true);
-                ret.info = new HdfsInfo(ret.suffixedPath);
-                ret.info.getFileSystem().rename(new Path(ret.actualPath), new Path(ret.suffixedPath));
+                endpointConfig.setAppend(false);
             }
-        } else {
-            if (ret.info.getFileSystem().exists(new Path(ret.actualPath))) {
-                if (configuration.isOverwrite()) {
-                    ret.info.getFileSystem().delete(new Path(ret.actualPath), true);
-                } else {
-                    throw new RuntimeCamelException("The file already exists");
-                }
+        } else if (actualPathExists && !oStream.info.getFileSystem().isDirectory(actualPath)) { // only check if not directory
+            if (endpointConfig.isOverwrite()) {
+                oStream.info.getFileSystem().delete(actualPath, true);
+            } else {
+                throw new RuntimeCamelException("File [" + actualPath + "] already exists");
             }
         }
-        ret.out = ret.fileType.createOutputStream(ret.suffixedPath, configuration);
-        ret.opened = true;
-        return ret;
+
+        oStream.out = oStream.fileType.createOutputStream(oStream.suffixedPath, hdfsInfoFactory);
+        oStream.opened = true;
+        return oStream;
     }
 
     @Override
@@ -80,10 +84,10 @@ public class HdfsOutputStream implements Closeable {
         }
     }
 
-    public void append(Object key, Object value, TypeConverter typeConverter) {
+    public void append(Object key, Object value, Exchange exchange) {
         try {
             busy.set(true);
-            long nb = fileType.append(this, key, value, typeConverter);
+            long nb = fileType.append(this, key, value, exchange);
             numOfWrittenBytes.addAndGet(nb);
             numOfWrittenMessages.incrementAndGet();
             lastAccess.set(System.currentTimeMillis());

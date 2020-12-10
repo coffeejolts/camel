@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,12 @@ import java.net.Socket;
 
 import com.splunk.Service;
 import org.apache.camel.CamelContext;
-import org.apache.camel.test.junit4.CamelTestSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.mockito.Mockito.reset;
-
+@MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class SplunkMockTestSupport extends CamelTestSupport {
 
     @Mock
@@ -39,9 +39,6 @@ public abstract class SplunkMockTestSupport extends CamelTestSupport {
         CamelContext context = super.createCamelContext();
 
         // set splunk to use mocked connection factory
-        MockitoAnnotations.initMocks(this);
-        reset(service);
-        reset(socket);
         SplunkComponent splunk = context.getComponent("splunk", SplunkComponent.class);
         DefaultSplunkConfigurationFactory cf = Helper.mockComponent(service, socket);
         splunk.setSplunkConfigurationFactory(cf);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,15 +18,11 @@ package org.apache.camel.component.cxf;
 
 import java.util.logging.Logger;
 
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
-import javax.xml.transform.Source;
-import javax.xml.transform.stax.StAXSource;
 
 import org.w3c.dom.Node;
 
-import org.apache.cxf.common.i18n.Message;
 import org.apache.cxf.common.logging.LogUtils;
 import org.apache.cxf.databinding.DataReader;
 import org.apache.cxf.databinding.DataWriter;
@@ -35,28 +31,23 @@ import org.apache.cxf.databinding.source.NodeDataWriter;
 import org.apache.cxf.databinding.source.SourceDataBinding;
 import org.apache.cxf.databinding.source.XMLStreamDataReader;
 import org.apache.cxf.databinding.source.XMLStreamDataWriter;
-import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.jaxb.JAXBDataBinding;
 import org.apache.cxf.service.model.MessagePartInfo;
-import org.apache.cxf.staxutils.StaxSource;
-import org.apache.cxf.staxutils.StaxUtils;
-
 
 /**
- * This is a hybrid DataBinding of {@link JAXBDataBinding} and {@link org.apache.cxf.databinding.source.SourceDataBinding}.
- * Like the SourceDataBinding, this DataBinding de/serializes parameters as DOMSource objects.  And like the JAXBDataBinding, the 
- * {@link #initialize(org.apache.cxf.service.Service)}
- * method can initialize the service model's message part schema based on the service class in the message part info.  
- * Hence, this DataBinding supports DOMSource object de/serialization without requiring users to provide a WSDL.
- * 
- * @version 
+ * This is a hybrid DataBinding of {@link JAXBDataBinding} and
+ * {@link org.apache.cxf.databinding.source.SourceDataBinding}. Like the SourceDataBinding, this DataBinding
+ * de/serializes parameters as DOMSource objects. And like the JAXBDataBinding, the
+ * {@link #initialize(org.apache.cxf.service.Service)} method can initialize the service model's message part schema
+ * based on the service class in the message part info. Hence, this DataBinding supports DOMSource object
+ * de/serialization without requiring users to provide a WSDL.
  */
 public class HybridSourceDataBinding extends JAXBDataBinding {
     private static final Logger LOG = LogUtils.getL7dLogger(SourceDataBinding.class);
-    
+
     public HybridSourceDataBinding() {
     }
-    
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> DataReader<T> createReader(Class<T> cls) {
@@ -71,9 +62,9 @@ public class HybridSourceDataBinding extends JAXBDataBinding {
 
     @Override
     public Class<?>[] getSupportedReaderFormats() {
-        return new Class[] {XMLStreamReader.class, Node.class};
+        return new Class[] { XMLStreamReader.class, Node.class };
     }
-    
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> DataWriter<T> createWriter(Class<T> cls) {
@@ -84,22 +75,9 @@ public class HybridSourceDataBinding extends JAXBDataBinding {
                     if (obj == null) {
                         return;
                     }
-                    // workaround issue in CXF that is causing these to go through 
-                    // sax instead of stax.  Fixed in 2.4.4/2.5.
-                    if (obj instanceof StaxSource
-                        || obj instanceof StAXSource) {
-                        XMLStreamReader reader = StaxUtils.createXMLStreamReader((Source)obj);
-                        try {
-                            StaxUtils.copy(reader, output);
-                            reader.close();
-                        } catch (XMLStreamException e) {
-                            throw new Fault(new Message("COULD_NOT_READ_XML_STREAM", LOG), e);
-                        }
-                        return;
-                    }
                     super.write(obj, part, output);
                 }
-                
+
             };
         } else if (cls == Node.class) {
             return (DataWriter<T>) new NodeDataWriter();
@@ -107,10 +85,10 @@ public class HybridSourceDataBinding extends JAXBDataBinding {
             throw new UnsupportedOperationException("The type " + cls.getName() + " is not supported.");
         }
     }
-    
+
     @Override
     public Class<?>[] getSupportedWriterFormats() {
-        return new Class[] {XMLStreamWriter.class, Node.class};
+        return new Class[] { XMLStreamWriter.class, Node.class };
     }
 
 }

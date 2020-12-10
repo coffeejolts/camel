@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,52 +16,63 @@
  */
 package org.apache.camel.component.nagios;
 
-import java.util.EventObject;
-
-import com.googlecode.jsendnsca.core.Level;
-import com.googlecode.jsendnsca.core.MessagePayload;
-import com.googlecode.jsendnsca.core.NagiosPassiveCheckSender;
-import com.googlecode.jsendnsca.core.NagiosSettings;
-import org.apache.camel.management.event.CamelContextStartupFailureEvent;
-import org.apache.camel.management.event.CamelContextStopFailureEvent;
-import org.apache.camel.management.event.ExchangeFailedEvent;
-import org.apache.camel.management.event.ExchangeFailureHandledEvent;
-import org.apache.camel.management.event.ExchangeRedeliveryEvent;
-import org.apache.camel.management.event.ServiceStartupFailureEvent;
-import org.apache.camel.management.event.ServiceStopFailureEvent;
+import com.googlecode.jsendnsca.Level;
+import com.googlecode.jsendnsca.MessagePayload;
+import com.googlecode.jsendnsca.NagiosPassiveCheckSender;
+import com.googlecode.jsendnsca.NagiosSettings;
+import com.googlecode.jsendnsca.PassiveCheckSender;
+import org.apache.camel.spi.CamelEvent;
+import org.apache.camel.spi.CamelEvent.CamelContextStartupFailureEvent;
+import org.apache.camel.spi.CamelEvent.CamelContextStopFailureEvent;
+import org.apache.camel.spi.CamelEvent.ExchangeFailedEvent;
+import org.apache.camel.spi.CamelEvent.ExchangeFailureHandledEvent;
+import org.apache.camel.spi.CamelEvent.ExchangeRedeliveryEvent;
+import org.apache.camel.spi.CamelEvent.ServiceStartupFailureEvent;
+import org.apache.camel.spi.CamelEvent.ServiceStopFailureEvent;
 import org.apache.camel.support.EventNotifierSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An {@link org.apache.camel.spi.EventNotifier} which sends alters to Nagios.
- *
- * @version 
  */
 public class NagiosEventNotifier extends EventNotifierSupport {
 
+    private static final Logger LOG = LoggerFactory.getLogger(NagiosEventNotifier.class);
+
     private NagiosSettings nagiosSettings;
     private NagiosConfiguration configuration;
-    private NagiosPassiveCheckSender sender;
+    private PassiveCheckSender sender;
     private String serviceName = "Camel";
     private String hostName = "localhost";
 
-    public void notify(EventObject eventObject) throws Exception {
+    public NagiosEventNotifier() {
+    }
+
+    public NagiosEventNotifier(PassiveCheckSender sender) {
+        this.sender = sender;
+    }
+
+    @Override
+    public void notify(CamelEvent eventObject) throws Exception {
         // create message payload to send
         String message = eventObject.toString();
         Level level = determineLevel(eventObject);
-        MessagePayload payload = new MessagePayload(getHostName(), level.ordinal(), getServiceName(), message);
+        MessagePayload payload = new MessagePayload(getHostName(), level, getServiceName(), message);
 
-        if (log.isInfoEnabled()) {
-            log.info("Sending notification to Nagios: {}", payload.getMessage());
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Sending notification to Nagios: {}", payload.getMessage());
         }
         sender.send(payload);
-        log.trace("Sending notification done");
+        LOG.trace("Sending notification done");
     }
 
-    public boolean isEnabled(EventObject eventObject) {
+    @Override
+    public boolean isEnabled(CamelEvent eventObject) {
         return true;
     }
 
-    protected Level determineLevel(EventObject eventObject) {
+    protected Level determineLevel(CamelEvent eventObject) {
         // failures is considered critical
         if (eventObject instanceof ExchangeFailedEvent
                 || eventObject instanceof CamelContextStartupFailureEvent
@@ -120,11 +131,13 @@ public class NagiosEventNotifier extends EventNotifierSupport {
     @Override
     protected void doStart() throws Exception {
         if (nagiosSettings == null) {
-            nagiosSettings = configuration.getNagiosSettings();
+            nagiosSettings = configuration.getOrCreateNagiosSettings();
         }
-        sender = new NagiosPassiveCheckSender(nagiosSettings);
+        if (sender == null) {
+            sender = new NagiosPassiveCheckSender(nagiosSettings);
+        }
 
-        log.info("Using " + configuration);
+        LOG.info("Using {}", configuration);
     }
 
     @Override

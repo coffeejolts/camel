@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,8 +18,8 @@ package org.apache.camel.component.jgroups;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test for shared channel in JGroups endpoint
@@ -35,16 +35,16 @@ public class JGroupsSharedChannelTest extends CamelTestSupport {
 
     @Test
     public void testStopStartProducer() throws Exception {
-        context().stopRoute(PRODUCER_ROUTE);
-        context().startRoute(PRODUCER_ROUTE);
+        context().getRouteController().stopRoute(PRODUCER_ROUTE);
+        context().getRouteController().startRoute(PRODUCER_ROUTE);
         testSendReceive();
     }
 
     @Test
     public void testStopStartConsumer() throws Exception {
-        context().stopRoute(CONSUMER_ROUTE);
+        context().getRouteController().stopRoute(CONSUMER_ROUTE);
         template().sendBody(DIRECT_PRODUCER, TEST_MESSAGE);
-        context().startRoute(CONSUMER_ROUTE);
+        context().getRouteController().startRoute(CONSUMER_ROUTE);
         testSendReceive();
     }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,76 +17,65 @@
 package org.apache.camel.component.beanstalk;
 
 import org.apache.camel.CamelContext;
-import org.apache.camel.FailedToCreateRouteException;
-import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class EndpointTest {
     CamelContext context;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        context = new DefaultCamelContext();
+        context = new DefaultCamelContext(false);
         context.disableJMX();
         context.start();
     }
 
     @Test
-    public void testPriority() {
+    void testPriority() {
         BeanstalkEndpoint endpoint = context.getEndpoint("beanstalk:default?jobPriority=1000", BeanstalkEndpoint.class);
-        assertNotNull("Beanstalk endpoint", endpoint);
-        assertEquals("Priority", 1000, endpoint.getJobPriority());
+        assertNotNull(endpoint, "Beanstalk endpoint");
+        assertEquals(1000, endpoint.getJobPriority(), "Priority");
     }
 
     @Test
-    public void testTimeToRun() {
+    void testTimeToRun() {
         BeanstalkEndpoint endpoint = context.getEndpoint("beanstalk:default?jobTimeToRun=10", BeanstalkEndpoint.class);
-        assertNotNull("Beanstalk endpoint", endpoint);
-        assertEquals("Time to run", 10, endpoint.getJobTimeToRun());
+        assertNotNull(endpoint, "Beanstalk endpoint");
+        assertEquals(10, endpoint.getJobTimeToRun(), "Time to run");
     }
 
     @Test
-    public void testDelay() {
+    void testDelay() {
         BeanstalkEndpoint endpoint = context.getEndpoint("beanstalk:default?jobDelay=10", BeanstalkEndpoint.class);
-        assertNotNull("Beanstalk endpoint", endpoint);
-        assertEquals("Delay", 10, endpoint.getJobDelay());
+        assertNotNull(endpoint, "Beanstalk endpoint");
+        assertEquals(10, endpoint.getJobDelay(), "Delay");
     }
 
     @Test
-    public void testCommand() {
+    void testCommand() {
         BeanstalkEndpoint endpoint = context.getEndpoint("beanstalk:default?command=release", BeanstalkEndpoint.class);
-        assertNotNull("Beanstalk endpoint", endpoint);
-        assertEquals("Command", BeanstalkComponent.COMMAND_RELEASE, endpoint.getCommand().name());
+        assertNotNull(endpoint, "Beanstalk endpoint");
+        assertEquals(BeanstalkComponent.COMMAND_RELEASE, endpoint.getCommand().name(), "Command");
     }
 
     @Test
-    public void testTubes() {
-        BeanstalkEndpoint endpoint = context.getEndpoint("beanstalk:host:11303/tube1+tube%2B+tube%3F?command=kick", BeanstalkEndpoint.class);
-        assertNotNull("Beanstalk endpoint", endpoint);
-        assertEquals("Command", BeanstalkComponent.COMMAND_KICK, endpoint.getCommand().name());
-        assertEquals("Host", "host", endpoint.conn.host);
-        assertArrayEquals("Tubes", new String[]{"tube1", "tube+", "tube?"}, endpoint.conn.tubes);
+    void testTubes() {
+        BeanstalkEndpoint endpoint
+                = context.getEndpoint("beanstalk:host:11303/tube1+tube%2B+tube%3F?command=kick", BeanstalkEndpoint.class);
+        assertNotNull(endpoint, "Beanstalk endpoint");
+        assertEquals(BeanstalkComponent.COMMAND_KICK, endpoint.getCommand().name(), "Command");
+        assertEquals("host", endpoint.conn.host, "Host");
+        assertArrayEquals(new String[] { "tube1", "tube+", "tube?" }, endpoint.conn.tubes, "Tubes");
     }
 
-    @Test(expected = FailedToCreateRouteException.class)
-    public void testWrongCommand() throws Exception {
-        context.addRoutes(new RouteBuilder() {
-            @Override
-            public void configure() {
-                from("direct:start").to("beanstalk:default?command=noCommand");
-            }
-        });
-    }
-
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    public void tearDown() {
         context.stop();
     }
 }

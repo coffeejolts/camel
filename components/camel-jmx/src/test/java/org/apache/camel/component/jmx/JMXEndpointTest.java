@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,31 +21,27 @@ import java.util.Hashtable;
 import javax.management.ObjectName;
 
 import org.apache.camel.impl.DefaultCamelContext;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Tests for the endpoint. Most of the params in the endpoint are
- * set via the endpoint helper so there's no much beyond some sanity
- * checks here.
+ * Tests for the endpoint. Most of the params in the endpoint are set via the endpoint helper so there's no much beyond
+ * some sanity checks here.
  */
 public class JMXEndpointTest {
 
     DefaultCamelContext context;
-    
-    @Before
-    @SuppressWarnings("deprecation")
+
+    @BeforeEach
     public void setUp() throws Exception {
         context = new DefaultCamelContext();
-        // saves 5 seconds on this unit test
-        context.setLazyLoadTypeConverters(true);
     }
 
     @Test
@@ -69,7 +65,8 @@ public class JMXEndpointTest {
 
     @Test
     public void formatRaw() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&format=raw", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&format=raw",
+                JMXEndpoint.class);
         assertFalse(ep.isXML());
         assertEquals("raw", ep.getFormat());
     }
@@ -107,11 +104,15 @@ public class JMXEndpointTest {
 
     @Test
     public void remoteServer() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName",
+                JMXEndpoint.class);
         assertFalse(ep.isPlatformServer());
         assertEquals("service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi", ep.getServerURL());
 
-        ep = context.getEndpoint("jmx://service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName", JMXEndpoint.class);
+        ep = context.getEndpoint(
+                "jmx://service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName",
+                JMXEndpoint.class);
         assertFalse(ep.isPlatformServer());
         assertEquals("service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi", ep.getServerURL());
     }
@@ -128,14 +129,16 @@ public class JMXEndpointTest {
 
     @Test
     public void credentials() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&key.name=theObjectName&user=user1&password=1234", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&key.name=theObjectName&user=user1&password=1234", JMXEndpoint.class);
         assertEquals("user1", ep.getUser());
         assertEquals("1234", ep.getPassword());
     }
-    
+
     @Test
     public void noObservedAttribute() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -146,7 +149,9 @@ public class JMXEndpointTest {
 
     @Test
     public void noStringToCompare() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string&observedAttribute=foo", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string&observedAttribute=foo",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -157,7 +162,9 @@ public class JMXEndpointTest {
 
     @Test
     public void noNotifyDifferOrNotifyMatch() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string&observedAttribute=foo&stringToCompare=foo", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=string&observedAttribute=foo&stringToCompare=foo",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -168,7 +175,9 @@ public class JMXEndpointTest {
 
     @Test
     public void noNotifyHighOrNotifyLow() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -179,8 +188,9 @@ public class JMXEndpointTest {
 
     @Test
     public void noThresholdHigh() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo&thresholdLow=100&notifyHigh=true",
-                                             JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo&thresholdLow=100&notifyHigh=true",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -191,8 +201,9 @@ public class JMXEndpointTest {
 
     @Test
     public void noThresholdLow() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo&thresholdHigh=100&notifyHigh=true",
-                                             JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:platform?objectDomain=FooDomain&objectName=theObjectName&monitorType=gauge&observedAttribute=foo&thresholdHigh=100&notifyHigh=true",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");
@@ -200,10 +211,12 @@ public class JMXEndpointTest {
             assertEquals(JMXEndpoint.ERR_THRESHOLD_LOW, e.getMessage());
         }
     }
-    
+
     @Test
     public void remoteServerWithMonitor() throws Exception {
-        JMXEndpoint ep = context.getEndpoint("jmx:service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName&monitorType=gauge", JMXEndpoint.class);
+        JMXEndpoint ep = context.getEndpoint(
+                "jmx:service:jmx:rmi:///jndi/rmi://localhost:1099/jmxrmi?objectDomain=FooDomain&key.name=theObjectName&monitorType=gauge",
+                JMXEndpoint.class);
         try {
             ep.createConsumer(null);
             fail("expected exception");

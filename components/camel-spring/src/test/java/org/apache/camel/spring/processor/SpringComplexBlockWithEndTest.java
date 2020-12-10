@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,17 +16,17 @@
  */
 package org.apache.camel.spring.processor;
 
+import org.apache.camel.AggregationStrategy;
 import org.apache.camel.CamelContext;
 import org.apache.camel.ContextTestSupport;
 import org.apache.camel.Exchange;
-import org.apache.camel.processor.aggregate.AggregationStrategy;
+import org.junit.jupiter.api.Test;
+
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
 
-/**
- * @version 
- */
 public class SpringComplexBlockWithEndTest extends ContextTestSupport {
 
+    @Test
     public void testHello() throws Exception {
         getMockEndpoint("mock:hello").expectedMessageCount(1);
         getMockEndpoint("mock:bye").expectedMessageCount(0);
@@ -38,6 +38,7 @@ public class SpringComplexBlockWithEndTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testBye() throws Exception {
         getMockEndpoint("mock:hello").expectedMessageCount(0);
         getMockEndpoint("mock:bye").expectedMessageCount(1);
@@ -49,6 +50,7 @@ public class SpringComplexBlockWithEndTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testOther() throws Exception {
         getMockEndpoint("mock:hello").expectedMessageCount(0);
         getMockEndpoint("mock:bye").expectedMessageCount(0);
@@ -62,14 +64,16 @@ public class SpringComplexBlockWithEndTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/processor/SpringComplexBlockWithEndTest.xml");
     }
 
     public static class SplitAggregate implements AggregationStrategy {
 
+        @Override
         public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
-            newExchange.getOut().setBody("Cowboys");
+            newExchange.getMessage().setBody("Cowboys");
             return newExchange;
         }
 

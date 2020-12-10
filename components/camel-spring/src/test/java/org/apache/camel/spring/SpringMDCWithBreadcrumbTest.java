@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,9 +22,8 @@ import org.slf4j.MDC;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class SpringMDCWithBreadcrumbTest extends SpringMDCTest {
 
     @Override
@@ -34,18 +33,20 @@ public class SpringMDCWithBreadcrumbTest extends SpringMDCTest {
 
     public static class ProcessorA implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-a", MDC.get("camel.routeId"));
             assertEquals(exchange.getExchangeId(), MDC.get("camel.exchangeId"));
-            assertEquals(exchange.getIn().getMessageId(), MDC.get("camel.breadcrumbId"));
+            assertEquals(exchange.getExchangeId(), MDC.get("camel.breadcrumbId"));
         }
     }
 
     public static class ProcessorB implements Processor {
 
+        @Override
         public void process(Exchange exchange) throws Exception {
             assertEquals("route-b", MDC.get("camel.routeId"));
-            assertEquals(exchange.getIn().getMessageId(), MDC.get("camel.breadcrumbId"));
+            assertEquals(exchange.getExchangeId(), MDC.get("camel.breadcrumbId"));
         }
     }
 

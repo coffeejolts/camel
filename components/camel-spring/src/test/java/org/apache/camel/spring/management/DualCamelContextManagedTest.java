@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +17,19 @@
 package org.apache.camel.spring.management;
 
 import java.util.Set;
+
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class DualCamelContextManagedTest extends SpringTestSupport {
 
     @Override
@@ -34,12 +37,14 @@ public class DualCamelContextManagedTest extends SpringTestSupport {
         return true;
     }
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/management/dualCamelContextManagedTest.xml");
     }
 
+    @Test
     public void testDualCamelContextManaged() throws Exception {
-        
+
         MBeanServer mbeanServer = context.getManagementStrategy().getManagementAgent().getMBeanServer();
 
         ObjectName on1 = null;
@@ -53,18 +58,18 @@ public class DualCamelContextManagedTest extends SpringTestSupport {
                 on2 = on;
             }
         }
-        assertNotNull("Should have found camel-A route", on1);
-        assertNotNull("Should have found camel-B route", on2);
+        assertNotNull(on1, "Should have found camel-A route");
+        assertNotNull(on2, "Should have found camel-B route");
 
-        assertTrue("Route 1 is missing", on1.getCanonicalName().contains("route1"));
-        assertTrue("Route 2 is missing", on2.getCanonicalName().contains("route2"));
+        assertTrue(on1.getCanonicalName().contains("route1"), "Route 1 is missing");
+        assertTrue(on2.getCanonicalName().contains("route2"), "Route 2 is missing");
 
         set = mbeanServer.queryNames(new ObjectName("*:type=endpoints,*"), null);
-        assertTrue("Should be at least 4 endpoints, was: " + set.size(), set.size() >= 4);
+        assertTrue(set.size() >= 4, "Should be at least 4 endpoints, was: " + set.size());
 
         for (ObjectName on : set) {
             String name = on.getCanonicalName();
-            
+
             if (name.contains("mock://mock1")) {
                 String id = (String) mbeanServer.getAttribute(on, "CamelId");
                 assertEquals("camel-A", id);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,12 +20,8 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.sjms.support.JmsTestSupport;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
-
-/**
- * @version 
- */
 public class InOutConsumerQueueAsyncTest extends JmsTestSupport {
 
     @Test
@@ -38,22 +34,23 @@ public class InOutConsumerQueueAsyncTest extends JmsTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
                 from("sjms:queue:start?synchronous=false")
-                    .to("sjms:queue:in.out.queue?exchangePattern=InOut&synchronous=false&namedReplyTo=in.out.queue.response")
-                    .to("mock:result");
+                        .to("sjms:queue:in.out.queue?exchangePattern=InOut&synchronous=false&namedReplyTo=in.out.queue.response")
+                        .to("mock:result");
 
                 from("sjms:queue:in.out.queue?exchangePattern=InOut&synchronous=false").to("log:before")
-                    .process(new Processor() {
-                        public void process(Exchange exchange) throws Exception {
-                            String body = (String)exchange.getIn().getBody();
-                            if (body.contains("Camel")) {
-                                Thread.sleep(2000);
+                        .process(new Processor() {
+                            public void process(Exchange exchange) throws Exception {
+                                String body = (String) exchange.getIn().getBody();
+                                if (body.contains("Camel")) {
+                                    Thread.sleep(2000);
+                                }
                             }
-                        }
-                    });
+                        });
             }
         };
     }

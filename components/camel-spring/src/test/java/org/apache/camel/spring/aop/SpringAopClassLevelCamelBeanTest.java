@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,21 +19,25 @@ package org.apache.camel.spring.aop;
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 /**
- * Spring AOP will proxy a bean at class level which is also a bean that Camel should invoke
- * using its bean component. The test should test that Camel bean binding annotations works.
- *
- * @version 
+ * Spring AOP will proxy a bean at class level which is also a bean that Camel should invoke using its bean component.
+ * The test should test that Camel bean binding annotations works.
  */
 public class SpringAopClassLevelCamelBeanTest extends SpringTestSupport {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/aop/SpringAopClassLevelCamelBeanTest.xml");
     }
 
+    @Test
     public void testSpringAopOk() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedBodiesReceived("Bye World");
@@ -44,6 +48,7 @@ public class SpringAopClassLevelCamelBeanTest extends SpringTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testSpringAopException() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(0);

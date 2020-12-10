@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,14 +19,17 @@ package org.apache.camel.spring.processor.onexception;
 import org.apache.camel.CamelContext;
 import org.apache.camel.ContextTestSupport;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test for onException with the spring DSL.
  */
 public class DeadLetterChannelHandledExampleTest extends ContextTestSupport {
 
+    @Test
     public void testOrderOK() throws Exception {
         MockEndpoint result = getMockEndpoint("mock:result");
         result.expectedBodiesReceived("Order OK");
@@ -41,6 +44,7 @@ public class DeadLetterChannelHandledExampleTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Test
     public void testOrderERROR() throws Exception {
         MockEndpoint error = getMockEndpoint("mock:error");
         error.expectedBodiesReceived("Order ERROR");
@@ -55,7 +59,9 @@ public class DeadLetterChannelHandledExampleTest extends ContextTestSupport {
         assertMockEndpointsSatisfied();
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
-        return createSpringCamelContext(this, "/org/apache/camel/spring/processor/onexception/deadLetterChannelHandledExampleTest.xml");
+        return createSpringCamelContext(this,
+                "/org/apache/camel/spring/processor/onexception/deadLetterChannelHandledExampleTest.xml");
     }
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,7 +18,7 @@ package org.apache.camel.component.ssh;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SshComponentConsumerTest extends SshComponentTestSupport {
 
@@ -26,9 +26,9 @@ public class SshComponentConsumerTest extends SshComponentTestSupport {
     public void testPollingConsumer() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMinimumMessageCount(1);
-        mock.expectedBodiesReceived("test\r");
+        mock.expectedBodiesReceived("test");
         mock.expectedHeaderReceived(SshResult.EXIT_VALUE, 0);
-        mock.expectedHeaderReceived(SshResult.STDERR, "Error:test\r");
+        mock.expectedHeaderReceived(SshResult.STDERR, "Error:test");
         assertMockEndpointsSatisfied();
     }
 
@@ -37,7 +37,7 @@ public class SshComponentConsumerTest extends SshComponentTestSupport {
         return new RouteBuilder() {
             @Override
             public void configure() {
-                from("ssh://smx:smx@localhost:" + port + "?useFixedDelay=true&delay=40000&pollCommand=test%0D")
+                from("ssh://smx:smx@localhost:" + port + "?useFixedDelay=true&delay=40000&pollCommand=test%0A")
                         .to("mock:result");
             }
         };

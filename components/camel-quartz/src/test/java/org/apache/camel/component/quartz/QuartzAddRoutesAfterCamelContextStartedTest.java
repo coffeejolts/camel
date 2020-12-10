@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,11 +18,10 @@ package org.apache.camel.component.quartz;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class QuartzAddRoutesAfterCamelContextStartedTest extends BaseQuartzTest {
 
     @Test
@@ -37,7 +36,7 @@ public class QuartzAddRoutesAfterCamelContextStartedTest extends BaseQuartzTest 
         context.addRoutes(new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("quartz://myGroup/myTimerName?trigger.repeatInterval=2&trigger.repeatCount=1").to("mock:result");
+                from("quartz://myGroup/myTimerName?trigger.repeatInterval=1000&trigger.repeatCount=1").to("mock:result");
             }
         });
 

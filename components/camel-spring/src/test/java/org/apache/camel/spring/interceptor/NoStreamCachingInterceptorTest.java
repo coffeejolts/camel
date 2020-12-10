@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,19 +17,24 @@
 package org.apache.camel.spring.interceptor;
 
 import java.io.StringReader;
+
 import javax.xml.transform.stream.StreamSource;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.ContextTestSupport;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.junit.jupiter.api.Test;
+
 import static org.apache.camel.spring.processor.SpringTestHelper.createSpringCamelContext;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test case for enabling stream caching through XML
  */
 public class NoStreamCachingInterceptorTest extends ContextTestSupport {
 
+    @Test
     public void testNoStreamCachingInterceptorEnabled() throws Exception {
         MockEndpoint a = getMockEndpoint("mock:a");
         a.expectedMessageCount(1);
@@ -43,6 +48,7 @@ public class NoStreamCachingInterceptorTest extends ContextTestSupport {
         assertNotNull(stream);
     }
 
+    @Override
     protected CamelContext createCamelContext() throws Exception {
         return createSpringCamelContext(this, "org/apache/camel/spring/interceptor/noStreamCachingInterceptorTest.xml");
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -23,7 +23,7 @@ import org.apache.camel.component.mock.MockEndpoint;
 import org.fusesource.stomp.client.BlockingConnection;
 import org.fusesource.stomp.client.Stomp;
 import org.fusesource.stomp.codec.StompFrame;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.fusesource.hawtbuf.UTF8Buffer.utf8;
 import static org.fusesource.stomp.client.Constants.DESTINATION;
@@ -41,7 +41,7 @@ public class StompConsumerTest extends StompBaseTest {
         context.addRoutes(createRouteBuilder());
         context.start();
 
-        Stomp stomp = new Stomp("tcp://localhost:" + getPort());
+        Stomp stomp = createStompClient();
         final BlockingConnection producerConnection = stomp.connectBlocking();
 
         MockEndpoint mock = getMockEndpoint("mock:result");
@@ -49,7 +49,7 @@ public class StompConsumerTest extends StompBaseTest {
 
         for (int i = 0; i < numberOfMessages; i++) {
             StompFrame frame = new StompFrame(SEND);
-            frame.addHeader(DESTINATION, StompFrame.encodeHeader("/queue/test"));
+            frame.addHeader(DESTINATION, StompFrame.encodeHeader("test"));
             frame.addHeader(MESSAGE_ID, StompFrame.encodeHeader("msg:" + i));
             frame.content(utf8("Important Message " + i));
             producerConnection.send(frame);
@@ -59,10 +59,11 @@ public class StompConsumerTest extends StompBaseTest {
         mock.assertIsSatisfied();
     }
 
+    @Override
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                from("stomp:queue:test")
+                fromF("stomp:test?brokerURL=tcp://localhost:%s", getPort())
                         .transform(body().convertToString())
                         .to("mock:result");
             }

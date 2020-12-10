@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,15 +26,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import io.netty.channel.ChannelHandler;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import org.apache.camel.BindToRegistry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.NotifyBuilder;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.netty.codec.ObjectDecoder;
+import org.apache.camel.component.netty.codec.ObjectEncoder;
 import org.apache.camel.util.StopWatch;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class NettyConcurrentTest extends BaseNettyTest {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NettyConcurrentTest.class);
 
     @Test
     public void testNoConcurrentProducers() throws Exception {
@@ -47,7 +58,12 @@ public class NettyConcurrentTest extends BaseNettyTest {
     }
 
     @Test
-    @Ignore
+    public void testMediumConcurrentProducers() throws Exception {
+        doSendMessages(10000, 20);
+    }
+
+    @Test
+    @Disabled
     public void testLargeConcurrentProducers() throws Exception {
         doSendMessages(250000, 100);
     }
@@ -59,13 +75,14 @@ public class NettyConcurrentTest extends BaseNettyTest {
         ExecutorService executor = Executors.newFixedThreadPool(poolSize);
         // we access the responses Map below only inside the main thread,
         // so no need for a thread-safe Map implementation
-        Map<Integer, Future<String>> responses = new HashMap<Integer, Future<String>>();
+        Map<Integer, Future<String>> responses = new HashMap<>();
         for (int i = 0; i < files; i++) {
             final int index = i;
             Future<String> out = executor.submit(new Callable<String>() {
                 public String call() throws Exception {
-                    String reply = template.requestBody("netty:tcp://localhost:{{port}}", index, String.class);
-                    log.debug("Sent {} received {}", index, reply);
+                    String reply = template.requestBody("netty:tcp://localhost:{{port}}?encoders=#encoder&decoders=#decoder",
+                            index, String.class);
+                    LOG.debug("Sent {} received {}", index, reply);
                     assertEquals("Bye " + index, reply);
                     return reply;
                 }
@@ -73,26 +90,41 @@ public class NettyConcurrentTest extends BaseNettyTest {
             responses.put(index, out);
         }
 
-        notify.matches(2, TimeUnit.MINUTES);
-        log.info("Took " + watch.taken() + " millis to process " + files + " messages using " + poolSize + " client threads.");
+        notify.matches(60, TimeUnit.SECONDS);
+        LOG.info("Took " + watch.taken() + " millis to process " + files + " messages using " + poolSize + " client threads.");
         assertEquals(files, responses.size());
 
         // get all responses
-        Set<String> unique = new HashSet<String>();
+        Set<String> unique = new HashSet<>();
         for (Future<String> future : responses.values()) {
             unique.add(future.get());
         }
 
         // should be 'files' unique responses
-        assertEquals("Should be " + files + " unique responses", files, unique.size());
+        assertEquals(files, unique.size(), "Should be " + files + " unique responses");
         executor.shutdownNow();
+    }
+
+    @BindToRegistry("encoder")
+    public ChannelHandler getEncoder() throws Exception {
+        return new ShareableChannelHandlerFactory(new ObjectEncoder());
+    }
+
+    @BindToRegistry("decoder")
+    public ChannelHandler getDecoder() throws Exception {
+        return new DefaultChannelHandlerFactory() {
+            @Override
+            public ChannelHandler newChannelHandler() {
+                return new ObjectDecoder(ClassResolvers.weakCachingResolver(null));
+            }
+        };
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() throws Exception {
-                from("netty:tcp://localhost:{{port}}?sync=true").process(new Processor() {
+                from("netty:tcp://localhost:{{port}}?sync=true&encoders=#encoder&decoders=#decoder").process(new Processor() {
                     public void process(Exchange exchange) throws Exception {
                         String body = exchange.getIn().getBody(String.class);
                         exchange.getOut().setBody("Bye " + body);

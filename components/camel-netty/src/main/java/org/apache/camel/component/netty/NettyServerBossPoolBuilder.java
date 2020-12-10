@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,21 +16,21 @@
  */
 package org.apache.camel.component.netty;
 
-import java.util.concurrent.Executors;
-
-import org.jboss.netty.channel.socket.nio.BossPool;
-import org.jboss.netty.channel.socket.nio.NioServerBossPool;
-
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.camel.util.concurrent.CamelThreadFactory;
 
 /**
- * A builder to create Netty {@link org.jboss.netty.channel.socket.nio.BossPool} which can be used for sharing boss pools
- * with multiple Netty {@link org.apache.camel.component.netty.NettyServerBootstrapFactory} server bootstrap configurations.
+ * A builder to create Netty {@link io.netty.channel.EventLoopGroup} which can be used for executor boss events with
+ * multiple Netty {@link org.apache.camel.component.netty.NettyServerBootstrapFactory} server bootstrap configurations.
  */
 public final class NettyServerBossPoolBuilder {
 
     private String name = "NettyServerBoss";
     private String pattern;
     private int bossCount = 1;
+    private boolean nativeTransport;
 
     public void setName(String name) {
         this.name = name;
@@ -42,6 +42,10 @@ public final class NettyServerBossPoolBuilder {
 
     public void setBossCount(int bossCount) {
         this.bossCount = bossCount;
+    }
+
+    public void setNativeTransport(boolean nativeTransport) {
+        this.nativeTransport = nativeTransport;
     }
 
     public NettyServerBossPoolBuilder withName(String name) {
@@ -59,10 +63,19 @@ public final class NettyServerBossPoolBuilder {
         return this;
     }
 
+    public NettyServerBossPoolBuilder withNativeTransport(boolean nativeTransport) {
+        setNativeTransport(nativeTransport);
+        return this;
+    }
+
     /**
      * Creates a new boss pool.
      */
-    public BossPool build() {
-        return new NioServerBossPool(Executors.newCachedThreadPool(), bossCount, new CamelNettyThreadNameDeterminer(pattern, name));
+    public EventLoopGroup build() {
+        if (nativeTransport) {
+            return new EpollEventLoopGroup(bossCount, new CamelThreadFactory(pattern, name, false));
+        } else {
+            return new NioEventLoopGroup(bossCount, new CamelThreadFactory(pattern, name, false));
+        }
     }
 }

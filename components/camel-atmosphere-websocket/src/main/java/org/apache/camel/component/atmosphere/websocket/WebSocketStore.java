@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,10 +25,17 @@ import org.atmosphere.websocket.WebSocket;
  *
  */
 public interface WebSocketStore extends Service {
+
     void addWebSocket(String connectionKey, WebSocket websocket);
+
     void removeWebSocket(String connectionKey);
+
     void removeWebSocket(WebSocket websocket);
+
     String getConnectionKey(WebSocket websocket);
+
     WebSocket getWebSocket(String connectionKey);
+
     Collection<WebSocket> getAllWebSockets();
+
 }

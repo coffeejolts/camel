@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,10 +17,7 @@
 package org.apache.camel.component.bean;
 
 /**
- * An example POJO with no annotations or interfaces to test out the POJO
- * Camel binding
- *
- * @version 
+ * An example POJO with no annotations or interfaces to test out the POJO Camel binding
  */
 public class ExampleBean {
 
@@ -29,7 +26,7 @@ public class ExampleBean {
     }
 
     public String sayGoodbye(String name) {
-        return "Bye " + name + "!";       
+        return "Bye " + name + "!";
     }
 
     public long timesTwo(int value) {

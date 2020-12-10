@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -36,15 +36,16 @@ import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 
 import org.apache.camel.Exchange;
+import org.apache.camel.attachment.AttachmentMessage;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Test;
 import org.jvnet.mock_javamail.Mailbox;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public class MimeMessageConsumeTest extends CamelTestSupport {
     private String body = "hello world!";
 
@@ -71,14 +72,14 @@ public class MimeMessageConsumeTest extends CamelTestSupport {
         Exchange exchange = resultEndpoint.getReceivedExchanges().get(0);
 
         String text = exchange.getIn().getBody(String.class);
-        assertEquals("mail body", body, text);
+        assertEquals(body, text, "mail body");
 
-        assertNotNull("attachments got lost", exchange.getIn().getAttachments());
-        for (String s : exchange.getIn().getAttachmentNames()) {
-            DataHandler dh = exchange.getIn().getAttachment(s);
+        assertNotNull(exchange.getIn(AttachmentMessage.class).getAttachments(), "attachments got lost");
+        for (String s : exchange.getIn(AttachmentMessage.class).getAttachmentNames()) {
+            DataHandler dh = exchange.getIn(AttachmentMessage.class).getAttachment(s);
             Object content = dh.getContent();
-            assertNotNull("Content should not be empty", content);
-            assertEquals("log4j.properties", dh.getName());
+            assertNotNull(content, "Content should not be empty");
+            assertEquals("log4j2.properties", dh.getName());
         }
     }
 
@@ -106,10 +107,10 @@ public class MimeMessageConsumeTest extends CamelTestSupport {
 
         DataSource ds;
         try {
-            File f = new File(getClass().getResource("/log4j.properties").toURI());
+            File f = new File(getClass().getResource("/log4j2.properties").toURI());
             ds = new FileDataSource(f);
         } catch (URISyntaxException ex) {
-            ds = new URLDataSource(getClass().getResource("/log4j.properties"));
+            ds = new URLDataSource(getClass().getResource("/log4j2.properties"));
         }
         DataHandler dh = new DataHandler(ds);
 
@@ -135,7 +136,8 @@ public class MimeMessageConsumeTest extends CamelTestSupport {
     protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                from("pop3://james3@localhost?consumer.delay=1000").convertBodyTo(String.class).to("mock:result");
+                from("pop3://james3@localhost?initialDelay=100&delay=100").removeHeader("to").to("smtp://james4@localhost");
+                from("pop3://james4@localhost?initialDelay=200&delay=100").convertBodyTo(String.class).to("mock:result");
             }
         };
     }

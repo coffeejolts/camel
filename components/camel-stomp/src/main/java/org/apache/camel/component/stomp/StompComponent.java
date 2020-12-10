@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,28 +19,51 @@ package org.apache.camel.component.stomp;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.DefaultComponent;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.SSLContextParametersAware;
+import org.apache.camel.spi.Metadata;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultHeaderFilterStrategy;
+import org.apache.camel.support.HeaderFilterStrategyComponent;
 
-public class StompComponent extends UriEndpointComponent {
+@Component("stomp")
+public class StompComponent extends HeaderFilterStrategyComponent implements SSLContextParametersAware {
 
+    @Metadata(label = "advanced")
     private StompConfiguration configuration = new StompConfiguration();
+    @Metadata(label = "security", defaultValue = "false")
+    private boolean useGlobalSslContextParameters;
 
     public StompComponent() {
-        super(StompEndpoint.class);
+    }
+
+    // Implementation methods
+    // -------------------------------------------------------------------------
+
+    @Override
+    protected void doInit() throws Exception {
+        super.doInit();
+        if (getHeaderFilterStrategy() == null) {
+            setHeaderFilterStrategy(new DefaultHeaderFilterStrategy());
+        }
     }
 
     @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
-        String destination = "/" + remaining.replaceAll(":", "/");
-
         // must copy config so we do not have side effects
         StompConfiguration config = getConfiguration().copy();
-        // allow to configure configuration from uri parameters
-        setProperties(config, parameters);
 
-        StompEndpoint endpoint = new StompEndpoint(uri, this, config, destination);
+        StompEndpoint endpoint = new StompEndpoint(uri, this, config, remaining);
+
+        // set header filter strategy and then call set properties 
+        // if user wants to add CustomHeaderFilterStrategy
+        endpoint.setHeaderFilterStrategy(getHeaderFilterStrategy());
+
         setProperties(endpoint, parameters);
+
+        if (config.getSslContextParameters() == null) {
+            config.setSslContextParameters(retrieveGlobalSslContextParameters());
+        }
+
         return endpoint;
     }
 
@@ -49,30 +72,23 @@ public class StompComponent extends UriEndpointComponent {
     }
 
     /**
-     * To use the shared stomp configuration
+     * Component configuration.
      */
     public void setConfiguration(StompConfiguration configuration) {
         this.configuration = configuration;
     }
 
-    /**
-     * The URI of the Stomp broker to connect to
-     */
-    public void setBrokerURL(String brokerURL) {
-        getConfiguration().setBrokerURL(brokerURL);
+    @Override
+    public boolean isUseGlobalSslContextParameters() {
+        return this.useGlobalSslContextParameters;
     }
 
     /**
-     * The username
+     * Enable usage of global SSL context parameters.
      */
-    public void setLogin(String login) {
-        getConfiguration().setLogin(login);
+    @Override
+    public void setUseGlobalSslContextParameters(boolean useGlobalSslContextParameters) {
+        this.useGlobalSslContextParameters = useGlobalSslContextParameters;
     }
 
-    /**
-     * The password
-     */
-    public void setPasscode(String passcode) {
-        getConfiguration().setPasscode(passcode);
-    }
 }

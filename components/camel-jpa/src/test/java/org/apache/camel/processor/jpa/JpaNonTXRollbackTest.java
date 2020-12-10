@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,11 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.examples.SendEmail;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class JpaNonTXRollbackTest extends AbstractJpaTest {
 
     protected static final String SELECT_ALL_STRING = "select x from " + SendEmail.class.getName() + " x";
@@ -47,7 +47,7 @@ public class JpaNonTXRollbackTest extends AbstractJpaTest {
         getMockEndpoint("mock:result").expectedMessageCount(2);
 
         // start route
-        context.startRoute("foo");
+        context.getRouteController().startRoute("foo");
 
         assertMockEndpointsSatisfied();
 
@@ -55,7 +55,7 @@ public class JpaNonTXRollbackTest extends AbstractJpaTest {
         assertEquals(1, bar.intValue());
 
         // kaboom fails and we retry it again
-        assertTrue("Should be >= 2, was: " + kaboom.intValue(), kaboom.intValue() >= 2);
+        assertTrue(kaboom.intValue() >= 2, "Should be >= 2, was: " + kaboom.intValue());
     }
 
     @Override
@@ -63,7 +63,7 @@ public class JpaNonTXRollbackTest extends AbstractJpaTest {
         return new RouteBuilder() {
             @Override
             public void configure() throws Exception {
-                from("jpa://" + SendEmail.class.getName() + "?consumer.transacted=false&delay=100").routeId("foo").noAutoStartup()
+                from("jpa://" + SendEmail.class.getName() + "?transacted=false&delay=100").routeId("foo").noAutoStartup()
                         .to("mock:start")
                         .process(new Processor() {
                             @Override

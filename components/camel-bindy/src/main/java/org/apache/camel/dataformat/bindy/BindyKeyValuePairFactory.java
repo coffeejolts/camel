@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,55 +26,47 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.camel.CamelContext;
+import org.apache.camel.dataformat.bindy.annotation.BindyConverter;
 import org.apache.camel.dataformat.bindy.annotation.KeyValuePairField;
 import org.apache.camel.dataformat.bindy.annotation.Link;
 import org.apache.camel.dataformat.bindy.annotation.Message;
 import org.apache.camel.dataformat.bindy.annotation.OneToMany;
 import org.apache.camel.dataformat.bindy.annotation.Section;
 import org.apache.camel.dataformat.bindy.util.ConverterUtils;
-import org.apache.camel.spi.PackageScanClassResolver;
 import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The BindyKeyValuePairFactory is the class who allows to bind data of type key
- * value pair. Such format exist in financial messages FIX. This class allows to
- * generate a model associated to message, bind data from a message to the
- * POJOs, export data of POJOs to a message and format data into String, Date,
- * Double, ... according to the format/pattern defined
+ * The BindyKeyValuePairFactory is the class who allows to bind data of type key value pair. Such format exist in
+ * financial messages FIX. This class allows to generate a model associated to message, bind data from a message to the
+ * POJOs, export data of POJOs to a message and format data into String, Date, Double, ... according to the
+ * format/pattern defined
  */
 public class BindyKeyValuePairFactory extends BindyAbstractFactory implements BindyFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(BindyKeyValuePairFactory.class);
 
-    private Map<Integer, KeyValuePairField> keyValuePairFields = new LinkedHashMap<Integer, KeyValuePairField>();
-    private Map<Integer, Field> annotatedFields = new LinkedHashMap<Integer, Field>();
-    private Map<String, Integer> sections = new HashMap<String, Integer>();
+    private Map<Integer, KeyValuePairField> keyValuePairFields = new LinkedHashMap<>();
+    private Map<Integer, Field> annotatedFields = new LinkedHashMap<>();
+    private Map<String, Integer> sections = new HashMap<>();
     private String keyValuePairSeparator;
     private String pairSeparator;
     private boolean messageOrdered;
 
-    public BindyKeyValuePairFactory(PackageScanClassResolver resolver, String... packageNames) throws Exception {
-        super(resolver, packageNames);
-
-        // Initialize what is specific to Key Value Pair model
-        initKeyValuePairModel();
-    }
-
-    public BindyKeyValuePairFactory(PackageScanClassResolver resolver, Class<?> type) throws Exception {
-        super(resolver, type);
+    public BindyKeyValuePairFactory(Class<?> type) throws Exception {
+        super(type);
 
         // Initialize what is specific to Key Value Pair model
         initKeyValuePairModel();
     }
 
     /**
-     * method uses to initialize the model representing the classes who will
-     * bind the data This process will scan for classes according to the package
-     * name provided, check the annotated classes and fields. Next, we retrieve
-     * the parameters required like : Pair Separator & key value pair separator
-     * 
+     * method uses to initialize the model representing the classes who will bind the data This process will scan for
+     * classes according to the package name provided, check the annotated classes and fields. Next, we retrieve the
+     * parameters required like : Pair Separator & key value pair separator
+     *
      * @throws Exception
      */
     public void initKeyValuePairModel() throws Exception {
@@ -87,17 +79,19 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
     }
 
+    @Override
     public void initAnnotatedFields() {
 
         for (Class<?> cl : models) {
 
-            List<Field> linkFields = new ArrayList<Field>();
+            List<Field> linkFields = new ArrayList<>();
 
             for (Field field : cl.getDeclaredFields()) {
                 KeyValuePairField keyValuePairField = field.getAnnotation(KeyValuePairField.class);
                 if (keyValuePairField != null) {
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Key declared in the class : {}, key : {}, Field : {}", new Object[]{cl.getName(), keyValuePairField.tag(), keyValuePairField});
+                        LOG.debug("Key declared in the class : {}, key : {}, Field : {}", cl.getName(), keyValuePairField.tag(),
+                                keyValuePairField);
                     }
                     keyValuePairFields.put(keyValuePairField.tag(), keyValuePairField);
                     annotatedFields.put(keyValuePairField.tag(), field);
@@ -121,17 +115,19 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
     }
 
     @Override
-    public void bind(List<String> data, Map<String, Object> model, int line) throws Exception {
+    public void bind(CamelContext camelContext, List<String> data, Map<String, Object> model, int line) throws Exception {
 
         // Map to hold the model @OneToMany classes while binding
-        Map<String, List<Object>> lists = new HashMap<String, List<Object>>();
+        Map<String, List<Object>> lists = new HashMap<>();
 
-        bind(data, model, line, lists);
+        bind(camelContext, data, model, line, lists);
     }
 
-    public void bind(List<String> data, Map<String, Object> model, int line, Map<String, List<Object>> lists) throws Exception {
+    public void bind(
+            CamelContext camelContext, List<String> data, Map<String, Object> model, int line, Map<String, List<Object>> lists)
+            throws Exception {
 
-        Map<Integer, List<String>> results = new HashMap<Integer, List<String>>();
+        Map<Integer, List<String>> results = new HashMap<>();
 
         LOG.debug("Key value pairs data : {}", data);
 
@@ -159,7 +155,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
                 // Add value to the Map using key value as key
                 if (!results.containsKey(key)) {
-                    List<String> list = new LinkedList<String>();
+                    List<String> list = new LinkedList<>();
                     list.add(value);
                     results.put(key, list);
                 } else {
@@ -185,7 +181,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
     }
 
-    private void generateModelFromKeyValueMap(Class<?> clazz, Object obj, Map<Integer, List<String>> results, int line, Map<String, List<Object>> lists) throws Exception {
+    private void generateModelFromKeyValueMap(
+            Class<?> clazz, Object obj, Map<Integer, List<String>> results, int line, Map<String, List<Object>> lists)
+            throws Exception {
 
         for (Field field : clazz.getDeclaredFields()) {
 
@@ -221,7 +219,8 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                         try {
                             field.set(obj, result);
                         } catch (Exception e) {
-                            throw new IllegalArgumentException("Setting of field " + field + " failed for object : " + obj + " and result : " + result);
+                            throw new IllegalArgumentException(
+                                    "Setting of field " + field + " failed for object : " + obj + " and result : " + result);
                         }
 
                     } else {
@@ -237,7 +236,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
                         if (l != null) {
 
-                            // Test if object exist
+                            // BigIntegerFormatFactory if object exist
                             if (!l.isEmpty()) {
                                 obj = l.get(0);
                             } else {
@@ -248,7 +247,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                             try {
                                 field.set(obj, result);
                             } catch (Exception e) {
-                                throw new IllegalArgumentException("Setting of field " + field + " failed for object : " + obj + " and result : " + result);
+                                throw new IllegalArgumentException(
+                                        "Setting of field " + field + " failed for object : " + obj + " and result : "
+                                                                   + result);
                             }
 
                             // Add object created to the list
@@ -265,7 +266,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                             obj = null;
 
                         } else {
-                            throw new IllegalArgumentException("The list of values is empty for the following key : " + key + " defined in the class : " + clazz.getName());
+                            throw new IllegalArgumentException(
+                                    "The list of values is empty for the following key : " + key + " defined in the class : "
+                                                               + clazz.getName());
                         }
 
                     } // end of test if obj != null
@@ -273,7 +276,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                 } else {
 
                     // Data have been retrieved from message
-                    if (values.size() >= 1) {
+                    if (!values.isEmpty()) {
 
                         if (obj != null) {
 
@@ -284,7 +287,11 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                             if (value != null) {
 
                                 // Create format object to format the field
-                                Format<?> format = FormatFactory.getFormat(field.getType(), getLocale(), keyValuePairField);
+                                FormattingOptions formattingOptions = ConverterUtils.convert(keyValuePairField,
+                                        field.getType(),
+                                        field.getAnnotation(BindyConverter.class),
+                                        getLocale());
+                                Format<?> format = formatFactory.getFormat(formattingOptions);
 
                                 // format the value of the key received
                                 result = formatField(format, value, key, line);
@@ -297,7 +304,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                             try {
                                 field.set(obj, result);
                             } catch (Exception e) {
-                                throw new IllegalArgumentException("Setting of field " + field + " failed for object : " + obj + " and result : " + result);
+                                throw new IllegalArgumentException(
+                                        "Setting of field " + field + " failed for object : " + obj + " and result : "
+                                                                   + result);
                             }
 
                         } else {
@@ -310,7 +319,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                                 // Relation OneToMany
                                 for (int i = 0; i < values.size(); i++) {
 
-                                    // Test if object exist
+                                    // BigIntegerFormatFactory if object exist
                                     if ((!l.isEmpty()) && (l.size() > i)) {
                                         obj = l.get(i);
                                     } else {
@@ -320,7 +329,11 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                                     value = values.get(i);
 
                                     // Create format object to format the field
-                                    Format<?> format = FormatFactory.getFormat(field.getType(), getLocale(), keyValuePairField);
+                                    FormattingOptions formattingOptions = ConverterUtils.convert(keyValuePairField,
+                                            field.getType(),
+                                            field.getAnnotation(BindyConverter.class),
+                                            getLocale());
+                                    Format<?> format = formatFactory.getFormat(formattingOptions);
 
                                     // format the value of the key received
                                     Object result = formatField(format, value, key, line);
@@ -334,7 +347,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                                             field.set(obj, getDefaultValueForPrimitive(field.getType()));
                                         }
                                     } catch (Exception e) {
-                                        throw new IllegalArgumentException("Setting of field " + field + " failed for object: " + obj + " and result: " + result);
+                                        throw new IllegalArgumentException(
+                                                "Setting of field " + field + " failed for object: " + obj + " and result: "
+                                                                           + result);
                                     }
 
                                     // Add object created to the list
@@ -352,7 +367,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                                 }
 
                             } else {
-                                throw new IllegalArgumentException("The list of values is empty for the following key: " + key + " defined in the class: " + clazz.getName());
+                                throw new IllegalArgumentException(
+                                        "The list of values is empty for the following key: " + key + " defined in the class: "
+                                                                   + clazz.getName());
                             }
                         }
 
@@ -364,7 +381,8 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                         try {
                             field.set(obj, result);
                         } catch (Exception e) {
-                            throw new IllegalArgumentException("Setting of field " + field + " failed for object: " + obj + " and result: " + result);
+                            throw new IllegalArgumentException(
+                                    "Setting of field " + field + " failed for object: " + obj + " and result: " + result);
                         }
                     }
                 }
@@ -387,7 +405,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                     }
 
                     if (!lists.containsKey(cl.getName())) {
-                        lists.put(cl.getName(), new ArrayList<Object>());
+                        lists.put(cl.getName(), new ArrayList<>());
                     }
 
                     generateModelFromKeyValueMap(cl, null, results, line, lists);
@@ -406,22 +424,24 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
     }
 
     /**
-     * 
+     *
      */
-    public String unbind(Map<String, Object> model) throws Exception {
+    @Override
+    public String unbind(CamelContext camelContext, Map<String, Object> model) throws Exception {
 
         StringBuilder builder = new StringBuilder();
 
-        Map<Integer, KeyValuePairField> keyValuePairFieldsSorted = new TreeMap<Integer, KeyValuePairField>(keyValuePairFields);
+        Map<Integer, KeyValuePairField> keyValuePairFieldsSorted = new TreeMap<>(keyValuePairFields);
         Iterator<Integer> it = keyValuePairFieldsSorted.keySet().iterator();
 
         // Map containing the OUT position of the field
         // The key is double and is created using the position of the field and
         // location of the class in the message (using section)
-        Map<Integer, String> positions = new TreeMap<Integer, String>();
+        Map<Integer, String> positions = new TreeMap<>();
 
         // Check if separator exists
-        ObjectHelper.notNull(this.pairSeparator, "The pair separator has not been instantiated or property not defined in the @Message annotation");
+        ObjectHelper.notNull(this.pairSeparator,
+                "The pair separator has not been instantiated or property not defined in the @Message annotation");
 
         char separator = ConverterUtils.getCharDelimiter(this.getPairSeparator());
 
@@ -440,15 +460,16 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
             field.setAccessible(true);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Tag: {}, Field type: {}, class: {}", new Object[]{keyValuePairField.tag(), field.getType(), field.getDeclaringClass().getName()});
+                LOG.debug("Tag: {}, Field type: {}, class: {}", keyValuePairField.tag(), field.getType(),
+                        field.getDeclaringClass().getName());
             }
 
-            // Retrieve the format, pattern and precision associated to the type
-            Class<?> type = field.getType();
-
             // Create format
-            @SuppressWarnings("unchecked")
-            Format<Object> format = (Format<Object>)FormatFactory.getFormat(type, getLocale(), keyValuePairField);
+            FormattingOptions formattingOptions = ConverterUtils.convert(keyValuePairField,
+                    field.getType(),
+                    field.getAnnotation(BindyConverter.class),
+                    getLocale());
+            Format<Object> format = (Format<Object>) formatFactory.getFormat(formattingOptions);
 
             // Get object to be formatted
             Object obj = model.get(field.getDeclaringClass().getName());
@@ -463,9 +484,9 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                     // and the position of the field
                     Integer key1 = sections.get(obj.getClass().getName());
                     Integer key2 = keyValuePairField.position();
-                    
+
                     LOG.debug("Key of the section: {}, and the field: {}", key1, key2);
-                 
+
                     Integer keyGenerated = generateKey(key1, key2);
 
                     if (LOG.isDebugEnabled()) {
@@ -481,14 +502,16 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                         try {
                             valueFormatted = format.format(keyValue);
                         } catch (Exception e) {
-                            throw new IllegalArgumentException("Formatting error detected for the tag: " + keyValuePairField.tag(), e);
+                            throw new IllegalArgumentException(
+                                    "Formatting error detected for the tag: " + keyValuePairField.tag(), e);
                         }
 
                         // Create the key value string
                         String value = keyValuePairField.tag() + this.getKeyValuePairSeparator() + valueFormatted;
 
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("Value to be formatted: {}, for the tag: {}, and its formatted value: {}", new Object[]{keyValue, keyValuePairField.tag(), valueFormatted});
+                            LOG.debug("Value to be formatted: {}, for the tag: {}, and its formatted value: {}", keyValue,
+                                    keyValuePairField.tag(), valueFormatted);
                         }
 
                         // Add the content to the TreeMap according to the
@@ -510,7 +533,8 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                         try {
                             valueFormatted = format.format(keyValue);
                         } catch (Exception e) {
-                            throw new IllegalArgumentException("Formatting error detected for the tag: " + keyValuePairField.tag(), e);
+                            throw new IllegalArgumentException(
+                                    "Formatting error detected for the tag: " + keyValuePairField.tag(), e);
                         }
 
                         // Create the key value string
@@ -520,7 +544,8 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                         builder.append(value);
 
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("Value added: {}{}{}{}", new Object[]{keyValuePairField.tag(), this.getKeyValuePairSeparator(), valueFormatted, separator});
+                            LOG.debug("Value added: {}{}{}{}", keyValuePairField.tag(), this.getKeyValuePairSeparator(),
+                                    valueFormatted, separator);
                         }
                     }
                 }
@@ -537,7 +562,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                 String value = positions.get(posit.next());
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Value added at the position ({}) : {}{}", new Object[]{posit, value, separator});
+                    LOG.debug("Value added at the position ({}) : {}{}", posit, value, separator);
                 }
 
                 builder.append(value + separator);
@@ -557,7 +582,8 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
             try {
                 obj = format.parse(value);
             } catch (Exception e) {
-                throw new IllegalArgumentException("Parsing error detected for field defined at the tag: " + tag + ", line: " + line, e);
+                throw new IllegalArgumentException(
+                        "Parsing error detected for field defined at the tag: " + tag + ", line: " + line, e);
             }
 
         }
@@ -582,7 +608,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
     /**
      * Flag indicating if the message must be ordered
-     * 
+     *
      * @return boolean
      */
     public boolean isMessageOrdered() {
@@ -603,12 +629,14 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
 
                 if (message != null) {
                     // Get Pair Separator parameter
-                    ObjectHelper.notNull(message.pairSeparator(), "No Pair Separator has been defined in the @Message annotation");
+                    ObjectHelper.notNull(message.pairSeparator(),
+                            "No Pair Separator has been defined in the @Message annotation");
                     pairSeparator = message.pairSeparator();
                     LOG.debug("Pair Separator defined for the message: {}", pairSeparator);
 
                     // Get KeyValuePair Separator parameter
-                    ObjectHelper.notNull(message.keyValuePairSeparator(), "No Key Value Pair Separator has been defined in the @Message annotation");
+                    ObjectHelper.notNull(message.keyValuePairSeparator(),
+                            "No Key Value Pair Separator has been defined in the @Message annotation");
                     keyValuePairSeparator = message.keyValuePairSeparator();
                     LOG.debug("Key Value Pair Separator defined for the message: {}", keyValuePairSeparator);
 
@@ -622,7 +650,7 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
                 }
 
                 if (section != null) {
-                    // Test if section number is not null
+                    // BigIntegerFormatFactory if section number is not null
                     ObjectHelper.notNull(section.number(), "No number has been defined for the section");
 
                     // Get section number and add it to the sections
@@ -631,6 +659,5 @@ public class BindyKeyValuePairFactory extends BindyAbstractFactory implements Bi
             }
         }
     }
-
 
 }

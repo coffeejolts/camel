@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,7 +17,9 @@
 package org.apache.camel.component.cxf.interceptors;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Writer;
 import java.util.List;
 
 import org.apache.camel.StreamCache;
@@ -34,12 +36,13 @@ public class RawMessageContentRedirectInterceptor extends AbstractPhaseIntercept
         super(Phase.WRITE);
     }
 
+    @Override
     public void handleMessage(Message message) throws Fault {
         // check the fault from the message
         Throwable ex = message.getContent(Throwable.class);
         if (ex != null) {
             if (ex instanceof Fault) {
-                throw (Fault)ex;
+                throw (Fault) ex;
             } else {
                 throw new Fault(ex);
             }
@@ -47,13 +50,22 @@ public class RawMessageContentRedirectInterceptor extends AbstractPhaseIntercept
 
         List<?> params = message.getContent(List.class);
         if (null != params) {
-            InputStream is = (InputStream)params.get(0);
+            InputStream is = (InputStream) params.get(0);
             OutputStream os = message.getContent(OutputStream.class);
+            Writer writer = message.getContent(Writer.class);
+            if (os == null && writer == null) {
+                //InOny
+                return;
+            }
             try {
-                if (is instanceof StreamCache) {
-                    ((StreamCache)is).writeTo(os);
+                if (os == null && writer != null) {
+                    IOUtils.copyAndCloseInput(new InputStreamReader(is), writer);
                 } else {
-                    IOUtils.copy(is, os);
+                    if (is instanceof StreamCache) {
+                        ((StreamCache) is).writeTo(os);
+                    } else {
+                        IOUtils.copy(is, os);
+                    }
                 }
             } catch (Exception e) {
                 throw new Fault(e);

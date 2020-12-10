@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,11 +22,11 @@ import java.util.Collection;
 import org.apache.camel.component.pdf.PdfConfiguration;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
 
 /**
- * Writes given lines to PDF document. If document already contains some text then new text will be appended
- * to new page.
+ * Writes given lines to PDF document. If document already contains some text then new text will be appended to new
+ * page.
  */
 public class DefaultWriteStrategy implements WriteStrategy {
 
@@ -68,8 +68,8 @@ public class DefaultWriteStrategy implements WriteStrategy {
 
     private void writeLine(float x, float y, String currentLine, PDPageContentStream contentStream) throws IOException {
         contentStream.beginText();
-        contentStream.moveTextPositionByAmount(x, y);
-        contentStream.drawString(currentLine);
+        contentStream.newLineAtOffset(x, y);
+        contentStream.showText(currentLine);
         contentStream.endText();
     }
 

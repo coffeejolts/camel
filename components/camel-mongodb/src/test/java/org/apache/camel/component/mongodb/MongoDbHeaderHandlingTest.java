@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,26 @@
  */
 package org.apache.camel.component.mongodb;
 
-import com.mongodb.DBObject;
-import com.mongodb.WriteResult;
-
+import com.mongodb.client.result.UpdateResult;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.bson.Document;
+import org.junit.jupiter.api.Test;
+
+import static com.mongodb.client.model.Filters.eq;
+import static org.apache.camel.component.mongodb.MongoDbConstants.MONGO_ID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MongoDbHeaderHandlingTest extends AbstractMongoDbTest {
 
     @Test
     public void testInHeadersTransferredToOutOnCount() {
         // a read operation
-        assertEquals(0, testCollection.count());
+        assertEquals(0, testCollection.countDocuments());
         Exchange result = template.request("direct:count", new Processor() {
             @Override
             public void process(Exchange exchange) throws Exception {
@@ -37,9 +43,9 @@ public class MongoDbHeaderHandlingTest extends AbstractMongoDbTest {
                 exchange.getIn().setHeader("abc", "def");
             }
         });
-        assertTrue("Result is not of type Long", result.getOut().getBody() instanceof Long);
-        assertEquals("Test collection should not contain any records", 0L, result.getOut().getBody());
-        assertEquals("An input header was not returned", "def", result.getOut().getHeader("abc"));
+        assertTrue(result.getMessage().getBody() instanceof Long, "Result is not of type Long");
+        assertEquals(0L, result.getMessage().getBody(), "Test collection should not contain any records");
+        assertEquals("def", result.getMessage().getHeader("abc"), "An input header was not returned");
     }
 
     @Test
@@ -52,42 +58,48 @@ public class MongoDbHeaderHandlingTest extends AbstractMongoDbTest {
             }
         });
 
-        assertTrue(result.getOut().getBody() instanceof WriteResult);
-        assertEquals("An input header was not returned", "def", result.getOut().getHeader("abc"));
-        DBObject b = testCollection.findOne("testInsertString");
-        assertNotNull("No record with 'testInsertString' _id", b);
+        // TODO: WriteResult isn't return when inserting
+        // assertTrue(result.getOut().getBody() instanceof WriteResult);
+        assertEquals("def", result.getMessage().getHeader("abc"), "An input header was not returned");
+        Document b = testCollection.find(eq(MONGO_ID, "testInsertString")).first();
+        assertNotNull(b, "No record with 'testInsertString' _id");
     }
-    
+
     @Test
     public void testWriteResultAsHeaderWithWriteOp() {
         // Prepare test
-        assertEquals(0, testCollection.count());
-        Object[] req = new Object[] {"{\"_id\":\"testSave1\", \"scientist\":\"Einstein\"}", "{\"_id\":\"testSave2\", \"scientist\":\"Copernicus\"}"};
-        Object result = template.requestBody("direct:insert", req);
-        assertTrue(result instanceof WriteResult);
-        assertEquals("Number of records persisted must be 2", 2, testCollection.count());
-        
+        assertEquals(0, testCollection.countDocuments());
+        Object[] req = new Object[] {
+                new Document(MONGO_ID, "testSave1").append("scientist", "Einstein").toJson(),
+                new Document(MONGO_ID, "testSave2").append("scientist", "Copernicus").toJson() };
+        // Object result =
+        template.requestBody("direct:insert", req);
+        // assertTrue(result instanceof WriteResult);
+        assertEquals(2, testCollection.countDocuments(), "Number of records persisted must be 2");
+
         // Testing the save logic
-        final DBObject record1 = testCollection.findOne("testSave1");
-        assertEquals("Scientist field of 'testSave1' must equal 'Einstein'", "Einstein", record1.get("scientist"));
+        final Document record1 = testCollection.find(eq(MONGO_ID, "testSave1")).first();
+        assertEquals("Einstein", record1.get("scientist"), "Scientist field of 'testSave1' must equal 'Einstein'");
         record1.put("scientist", "Darwin");
-        
-        // test that as a payload, we get back exactly our input, but enriched with the CamelMongoDbWriteResult header
+
+        // test that as a payload, we get back exactly our input, but enriched
+        // with the CamelMongoDbWriteResult header
         Exchange resultExch = template.request("direct:save", new Processor() {
             @Override
             public void process(Exchange exchange) throws Exception {
                 exchange.getIn().setBody(record1);
             }
         });
-        assertTrue(resultExch.getOut().getBody() instanceof DBObject);
-        assertTrue(resultExch.getOut().getBody().equals(record1));
-        assertTrue(resultExch.getOut().getHeader(MongoDbConstants.WRITERESULT) instanceof WriteResult);
+        assertTrue(resultExch.getMessage().getBody() instanceof Document);
+        assertEquals(record1, resultExch.getMessage().getBody());
+        assertTrue(resultExch.getMessage().getHeader(MongoDbConstants.WRITERESULT) instanceof UpdateResult);
 
-        DBObject record2 = testCollection.findOne("testSave1");
-        assertEquals("Scientist field of 'testSave1' must equal 'Darwin' after save operation", "Darwin", record2.get("scientist"));
+        Document record2 = testCollection.find(eq(MONGO_ID, "testSave1")).first();
+        assertEquals("Darwin", record2.get("scientist"),
+                "Scientist field of 'testSave1' must equal 'Darwin' after save operation");
 
     }
-    
+
     @Test
     public void testWriteResultAsHeaderWithReadOp() {
         Exchange resultExch = template.request("direct:getDbStats", new Processor() {
@@ -97,26 +109,29 @@ public class MongoDbHeaderHandlingTest extends AbstractMongoDbTest {
                 exchange.getIn().setHeader("abc", "def");
             }
         });
-        assertTrue(resultExch.getOut().getBody() instanceof DBObject);
-        assertNull(resultExch.getOut().getHeader(MongoDbConstants.WRITERESULT));
-        assertEquals("def", resultExch.getOut().getHeader("abc"));
+        assertTrue(resultExch.getMessage().getBody() instanceof Document);
+        assertNull(resultExch.getMessage().getHeader(MongoDbConstants.WRITERESULT));
+        assertEquals("def", resultExch.getMessage().getHeader("abc"));
     }
-    
+
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                
+
                 // tested routes
-                from("direct:count").to("mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=count&dynamicity=true");
-                from("direct:save").to("mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=save&writeConcern=SAFE&writeResultAsHeader=true");
-                from("direct:getDbStats").to("mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=getDbStats&writeResultAsHeader=true");
+                from("direct:count").to(
+                        "mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=count&dynamicity=true");
+                from("direct:save").to(
+                        "mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=save&writeResultAsHeader=true");
+                from("direct:getDbStats").to(
+                        "mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=getDbStats&writeResultAsHeader=true");
 
                 // supporting routes
-                from("direct:insert").to("mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=insert&writeConcern=SAFE");
-                
+                from("direct:insert")
+                        .to("mongodb:myDb?database={{mongodb.testDb}}&collection={{mongodb.testCollection}}&operation=insert");
+
             }
         };
     }
 }
-

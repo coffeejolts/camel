@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,12 +17,11 @@
 package org.apache.camel.component.spring.integration.adapter.config;
 
 import org.w3c.dom.Element;
+
 import org.apache.camel.component.spring.integration.adapter.CamelTargetAdapter;
 
 /**
  * Parser for the &lt;camelTarget/&gt; element
- *
- * @version 
  */
 public class CamelTargetAdapterParser extends AbstractCamelContextBeanDefinitionParaser {
 

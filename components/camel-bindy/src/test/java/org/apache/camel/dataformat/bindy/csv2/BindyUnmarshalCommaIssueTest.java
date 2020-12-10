@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,9 +22,11 @@ import java.util.Map;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.model.dataformat.BindyType;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  *
@@ -41,8 +43,7 @@ public class BindyUnmarshalCommaIssueTest extends CamelTestSupport {
 
         assertMockEndpointsSatisfied();
 
-        Map<?, ?> map = (Map<?, ?>) mock.getReceivedExchanges().get(0).getIn().getBody(List.class).get(0);
-        WeatherModel model = (WeatherModel) map.values().iterator().next();
+        WeatherModel model = mock.getReceivedExchanges().get(0).getIn().getBody(WeatherModel.class);
 
         assertEquals(123, model.getId());
         assertEquals("Wednesday November 9 2011", model.getDate());
@@ -59,8 +60,7 @@ public class BindyUnmarshalCommaIssueTest extends CamelTestSupport {
 
         assertMockEndpointsSatisfied();
 
-        Map<?, ?> map = (Map<?, ?>) mock.getReceivedExchanges().get(0).getIn().getBody(List.class).get(0);
-        WeatherModel model = (WeatherModel) map.values().iterator().next();
+        WeatherModel model = mock.getReceivedExchanges().get(0).getIn().getBody(WeatherModel.class);
 
         assertEquals(123, model.getId());
         assertEquals("Wednesday, November 9, 2011", model.getDate());
@@ -77,8 +77,7 @@ public class BindyUnmarshalCommaIssueTest extends CamelTestSupport {
 
         assertMockEndpointsSatisfied();
 
-        Map<?, ?> map = (Map<?, ?>) mock.getReceivedExchanges().get(0).getIn().getBody(List.class).get(0);
-        WeatherModel model = (WeatherModel) map.values().iterator().next();
+        WeatherModel model = mock.getReceivedExchanges().get(0).getIn().getBody(WeatherModel.class);
 
         assertEquals(123, model.getId());
         assertEquals("Wednesday, November 9, 2011", model.getDate());
@@ -86,7 +85,7 @@ public class BindyUnmarshalCommaIssueTest extends CamelTestSupport {
     }
 
     @Test
-    @Ignore("To fix CAMEL-5871. doesn't support the signle quote test case any more")
+    @Disabled("To fix CAMEL-5871. doesn't support the signle quote test case any more")
     public void testBindyUnmarshalSingleQuoteCommaIssueTwo() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
         mock.expectedMessageCount(1);
@@ -110,8 +109,8 @@ public class BindyUnmarshalCommaIssueTest extends CamelTestSupport {
             @Override
             public void configure() throws Exception {
                 from("direct:start")
-                    .unmarshal().bindy(BindyType.Csv, "org.apache.camel.dataformat.bindy.csv2")
-                    .to("mock:result");
+                        .unmarshal().bindy(BindyType.Csv, org.apache.camel.dataformat.bindy.csv2.WeatherModel.class)
+                        .to("mock:result");
             }
         };
     }

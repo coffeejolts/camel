@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -21,7 +21,7 @@ import org.apache.camel.builder.RouteBuilder;
 public abstract class AbstractRouteBuilder extends RouteBuilder {
 
     protected abstract String getResult();
-    
+
     @Override
     public void configure() throws Exception {
         from("direct:start").to(getResult());

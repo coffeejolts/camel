@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,23 +18,27 @@ package org.apache.camel.spring.remoting;
 
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class EchoSpringRemotingThrowingRuntimeExceptionTest extends SpringTestSupport {
 
+    @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
         return new ClassPathXmlApplicationContext("org/apache/camel/spring/remoting/echo.xml");
     }
 
+    @Test
     public void testEchoOk() throws Exception {
         String out = template.requestBody("direct:echo", "Claus", String.class);
         assertEquals("Claus Claus", out);
     }
-    
+
+    @Test
     public void testEchoKabom() throws Exception {
         try {
             template.requestBody("direct:echo", "Kabom", String.class);
@@ -45,11 +49,13 @@ public class EchoSpringRemotingThrowingRuntimeExceptionTest extends SpringTestSu
         }
     }
 
+    @Test
     public void testRouteOk() throws Exception {
         String out = template.requestBody("direct:start", "Claus", String.class);
         assertEquals("Claus Claus", out);
     }
 
+    @Test
     public void testRouteKabom() throws Exception {
         try {
             template.requestBody("direct:start", "Kabom", String.class);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,9 +17,10 @@
 package org.apache.camel.component.github.consumer;
 
 import org.apache.camel.Processor;
+import org.apache.camel.component.github.GitHubConstants;
 import org.apache.camel.component.github.GitHubEndpoint;
-import org.apache.camel.impl.ScheduledPollConsumer;
 import org.apache.camel.spi.Registry;
+import org.apache.camel.support.ScheduledPollConsumer;
 import org.eclipse.egit.github.core.Repository;
 import org.eclipse.egit.github.core.service.GitHubService;
 import org.eclipse.egit.github.core.service.RepositoryService;
@@ -30,9 +31,9 @@ public abstract class AbstractGitHubConsumer extends ScheduledPollConsumer {
     private static final transient Logger LOG = LoggerFactory.getLogger(AbstractGitHubConsumer.class);
 
     private final GitHubEndpoint endpoint;
-    
+
     private RepositoryService repositoryService;
-    
+
     private Repository repository;
 
     public AbstractGitHubConsumer(GitHubEndpoint endpoint, Processor processor) throws Exception {
@@ -40,9 +41,9 @@ public abstract class AbstractGitHubConsumer extends ScheduledPollConsumer {
         this.endpoint = endpoint;
 
         Registry registry = endpoint.getCamelContext().getRegistry();
-        Object service = registry.lookupByName("githubRepositoryService");
+        Object service = registry.lookupByName(GitHubConstants.GITHUB_REPOSITORY_SERVICE);
         if (service != null) {
-            LOG.debug("Using RepositoryService found in registry " + service.getClass().getCanonicalName());
+            LOG.debug("Using RepositoryService found in registry {}", service.getClass().getCanonicalName());
             repositoryService = (RepositoryService) service;
         } else {
             repositoryService = new RepositoryService();
@@ -51,22 +52,19 @@ public abstract class AbstractGitHubConsumer extends ScheduledPollConsumer {
         initService(repositoryService);
         repository = repositoryService.getRepository(endpoint.getRepoOwner(), endpoint.getRepoName());
     }
-    
+
     protected void initService(GitHubService service) {
-        if (endpoint.hasOauth()) {
-            service.getClient().setOAuth2Token(endpoint.getOauthToken());
-        } else {
-            service.getClient().setCredentials(endpoint.getUsername(), endpoint.getPassword());
-        }
+        service.getClient().setOAuth2Token(endpoint.getOauthToken());
     }
-    
+
     protected RepositoryService getRepositoryService() {
         return repositoryService;
     }
-    
+
     protected Repository getRepository() {
         return repository;
     }
 
+    @Override
     protected abstract int poll() throws Exception;
 }

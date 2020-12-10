@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,6 +17,7 @@
 package org.apache.camel.component.spring.ws;
 
 import java.io.InputStream;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -34,13 +35,18 @@ public class StockQuoteResponseProcessor implements Processor {
 
     private static final Logger LOG = LoggerFactory.getLogger(StockQuoteResponseProcessor.class);
 
+    @Override
     public void process(Exchange exchange) throws Exception {
         LOG.info("Crafting standard response in StockQuoteResponseProcessor");
-        InputStream is = getClass().getResourceAsStream("/stockquote-response.xml");
+        InputStream is = getClass().getResourceAsStream("/stockquote-response.txt");
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         DocumentBuilder db = dbf.newDocumentBuilder();
         Document doc = db.parse(is);
-        exchange.getOut().setBody(doc);
+        if (exchange.getIn().getHeader("setin") != null && exchange.getIn().getHeader("setin").equals("true")) {
+            exchange.getIn().setBody(doc);
+        } else {
+            exchange.getOut().setBody(doc);
+        }
     }
 
 }

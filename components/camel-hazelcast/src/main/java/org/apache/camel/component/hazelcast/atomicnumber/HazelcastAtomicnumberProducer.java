@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,51 +16,75 @@
  */
 package org.apache.camel.component.hazelcast.atomicnumber;
 
+import java.util.Map;
+
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.IAtomicLong;
+import com.hazelcast.cp.IAtomicLong;
 import org.apache.camel.Exchange;
 import org.apache.camel.component.hazelcast.HazelcastComponentHelper;
 import org.apache.camel.component.hazelcast.HazelcastConstants;
 import org.apache.camel.component.hazelcast.HazelcastDefaultEndpoint;
 import org.apache.camel.component.hazelcast.HazelcastDefaultProducer;
+import org.apache.camel.component.hazelcast.HazelcastOperation;
+import org.apache.camel.util.ObjectHelper;
 
 public class HazelcastAtomicnumberProducer extends HazelcastDefaultProducer {
 
     private final IAtomicLong atomicnumber;
 
-    public HazelcastAtomicnumberProducer(HazelcastInstance hazelcastInstance, HazelcastDefaultEndpoint endpoint, String cacheName) {
+    public HazelcastAtomicnumberProducer(HazelcastInstance hazelcastInstance, HazelcastDefaultEndpoint endpoint,
+                                         String cacheName) {
         super(endpoint);
-        this.atomicnumber = hazelcastInstance.getAtomicLong(cacheName);
+        this.atomicnumber = hazelcastInstance.getCPSubsystem().getAtomicLong(cacheName);
     }
 
+    @Override
     public void process(Exchange exchange) throws Exception {
 
-        int operation = lookupOperationNumber(exchange);
+        Map<String, Object> headers = exchange.getIn().getHeaders();
+
+        long expectedValue = 0L;
+
+        if (headers.containsKey(HazelcastConstants.EXPECTED_VALUE)) {
+            expectedValue = (long) headers.get(HazelcastConstants.EXPECTED_VALUE);
+        }
+
+        HazelcastOperation operation = lookupOperation(exchange);
 
         switch (operation) {
 
-        case HazelcastConstants.INCREMENT_OPERATION:
-            this.increment(exchange);
-            break;
+            case INCREMENT:
+                this.increment(exchange);
+                break;
 
-        case HazelcastConstants.DECREMENT_OPERATION:
-            this.decrement(exchange);
-            break;
+            case DECREMENT:
+                this.decrement(exchange);
+                break;
 
-        case HazelcastConstants.SETVALUE_OPERATION:
-            this.set(exchange);
-            break;
+            case COMPARE_AND_SET:
+                this.compare(expectedValue, exchange);
+                break;
 
-        case HazelcastConstants.GET_OPERATION:
-            this.get(exchange);
-            break;
+            case GET_AND_ADD:
+                this.getAndAdd(exchange);
+                break;
 
-        case HazelcastConstants.DESTROY_OPERATION:
-            this.destroy();
-            break;
+            case SET_VALUE:
+                this.set(exchange);
+                break;
 
-        default:
-            throw new IllegalArgumentException(String.format("The value '%s' is not allowed for parameter '%s' on the ATOMICNUMBER.", operation, HazelcastConstants.OPERATION));
+            case GET:
+                this.get(exchange);
+                break;
+
+            case DESTROY:
+                this.destroy();
+                break;
+
+            default:
+                throw new IllegalArgumentException(
+                        String.format("The value '%s' is not allowed for parameter '%s' on the ATOMICNUMBER.", operation,
+                                HazelcastConstants.OPERATION));
         }
 
         // finally copy headers
@@ -77,6 +101,19 @@ public class HazelcastAtomicnumberProducer extends HazelcastDefaultProducer {
 
     private void decrement(Exchange exchange) {
         exchange.getOut().setBody(this.atomicnumber.decrementAndGet());
+    }
+
+    private void compare(long expected, Exchange exchange) {
+        long update = exchange.getIn().getBody(Long.class);
+        if (ObjectHelper.isEmpty(expected)) {
+            throw new IllegalArgumentException("Expected value must be specified");
+        }
+        exchange.getOut().setBody(this.atomicnumber.compareAndSet(expected, update));
+    }
+
+    private void getAndAdd(Exchange exchange) {
+        long delta = exchange.getIn().getBody(Long.class);
+        exchange.getOut().setBody(this.atomicnumber.getAndAdd(delta));
     }
 
     private void set(Exchange exchange) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,29 +16,24 @@
  */
 package org.apache.camel.component.hdfs;
 
-import java.io.IOException;
-import java.net.URI;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-public final class HdfsInfo {
+class HdfsInfo {
 
-    private Configuration conf;
-    private FileSystem fileSystem;
-    private Path path;
+    private final Configuration configuration;
+    private final FileSystem fileSystem;
+    private final Path path;
 
-    HdfsInfo(String hdfsPath) throws IOException {
-        this.conf = new Configuration();
-        // this will connect to the hadoop hdfs file system, and in case of no connection
-        // then the hardcoded timeout in hadoop is 45 x 20 sec = 15 minutes
-        this.fileSystem = FileSystem.get(URI.create(hdfsPath), conf);
-        this.path = new Path(hdfsPath);
+    HdfsInfo(Configuration configuration, FileSystem fileSystem, Path hdfsPath) {
+        this.configuration = configuration;
+        this.fileSystem = fileSystem;
+        this.path = hdfsPath;
     }
 
-    public Configuration getConf() {
-        return conf;
+    public Configuration getConfiguration() {
+        return configuration;
     }
 
     public FileSystem getFileSystem() {
@@ -48,4 +43,5 @@ public final class HdfsInfo {
     public Path getPath() {
         return path;
     }
+
 }

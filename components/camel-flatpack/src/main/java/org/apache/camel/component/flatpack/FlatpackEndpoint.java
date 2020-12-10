@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -25,6 +25,7 @@ import net.sf.flatpack.DataSet;
 import net.sf.flatpack.DefaultParserFactory;
 import net.sf.flatpack.Parser;
 import net.sf.flatpack.ParserFactory;
+import org.apache.camel.Category;
 import org.apache.camel.Component;
 import org.apache.camel.Consumer;
 import org.apache.camel.Exchange;
@@ -32,31 +33,33 @@ import org.apache.camel.InvalidPayloadException;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
-import org.apache.camel.impl.DefaultPollingEndpoint;
 import org.apache.camel.processor.loadbalancer.LoadBalancer;
 import org.apache.camel.processor.loadbalancer.RoundRobinLoadBalancer;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
+import org.apache.camel.support.DefaultPollingEndpoint;
+import org.apache.camel.support.ExchangeHelper;
+import org.apache.camel.support.ResourceHelper;
 import org.apache.camel.util.IOHelper;
 import org.apache.camel.util.ObjectHelper;
-import org.apache.camel.util.ResourceHelper;
 
 /**
- * Processing fixed width or delimited files or messages using the FlatPack library.
- *
- * @version 
+ * Parse fixed width and delimited files using the FlatPack library.
  */
-@UriEndpoint(scheme = "flatpack", title = "Flatpack", syntax = "flatpack:type:resourceUri", consumerClass = FlatpackConsumer.class, label = "transformation")
+@UriEndpoint(firstVersion = "1.4.0", scheme = "flatpack", title = "Flatpack", syntax = "flatpack:type:resourceUri",
+             category = { Category.TRANSFORMATION })
 public class FlatpackEndpoint extends DefaultPollingEndpoint {
 
     private LoadBalancer loadBalancer = new RoundRobinLoadBalancer();
     private ParserFactory parserFactory = DefaultParserFactory.getInstance();
-   
-    @UriPath @Metadata(required = "true")
+
+    @UriPath
+    @Metadata(required = false, defaultValue = "delim")
     private FlatpackType type;
-    @UriPath @Metadata(required = "true")
+    @UriPath
+    @Metadata(required = true)
     private String resourceUri;
 
     @UriParam(defaultValue = "true")
@@ -82,44 +85,49 @@ public class FlatpackEndpoint extends DefaultPollingEndpoint {
         this.resourceUri = resourceUri;
     }
 
-    public boolean isSingleton() {
-        return true;
-    }
-
+    @Override
     public Producer createProducer() throws Exception {
         return new FlatpackProducer(this);
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
         return new FlatpackConsumer(this, processor, loadBalancer);
     }
 
     public void processDataSet(Exchange originalExchange, DataSet dataSet, int counter) throws Exception {
-        Exchange exchange = originalExchange.copy();
+        Exchange exchange = ExchangeHelper.createCorrelatedCopy(originalExchange, false);
         Message in = exchange.getIn();
         in.setBody(dataSet);
         in.setHeader("CamelFlatpackCounter", counter);
         loadBalancer.process(exchange);
     }
 
-    public Parser createParser(Exchange exchange) throws InvalidPayloadException, IOException {
-        Reader bodyReader = exchange.getIn().getMandatoryBody(Reader.class);
-        if (FlatpackType.fixed == type) {
-            return createFixedParser(resourceUri, bodyReader);
-        } else {
-            return createDelimitedParser(exchange);
+    public Parser createParser(Exchange exchange) throws Exception {
+        Reader bodyReader = null;
+        try {
+            if (FlatpackType.fixed == type) {
+                bodyReader = exchange.getIn().getMandatoryBody(Reader.class);
+                return createFixedParser(resourceUri, bodyReader);
+            } else {
+                return createDelimitedParser(exchange);
+            }
+        } catch (Exception e) {
+            // must close reader in case of some exception
+            IOHelper.close(bodyReader);
+            throw e;
         }
     }
 
     protected Parser createFixedParser(String resourceUri, Reader bodyReader) throws IOException {
-        InputStream is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext().getClassResolver(), resourceUri);
+        InputStream is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext(), resourceUri);
         InputStreamReader reader = new InputStreamReader(is);
         Parser parser = getParserFactory().newFixedLengthParser(reader, bodyReader);
-        if (allowShortLines) {
+        if (isAllowShortLines()) {
             parser.setHandlingShortLines(true);
             parser.setIgnoreParseWarnings(true);
         }
-        if (ignoreExtraColumns) {
+        if (isIgnoreExtraColumns()) {
             parser.setIgnoreExtraColumns(true);
             parser.setIgnoreParseWarnings(true);
         }
@@ -128,24 +136,27 @@ public class FlatpackEndpoint extends DefaultPollingEndpoint {
 
     public Parser createDelimitedParser(Exchange exchange) throws InvalidPayloadException, IOException {
         Reader bodyReader = exchange.getIn().getMandatoryBody(Reader.class);
-        if (ObjectHelper.isEmpty(getResourceUri())) {
-            return getParserFactory().newDelimitedParser(bodyReader, delimiter, textQualifier);
-        } else {
-            InputStream is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext().getClassResolver(), resourceUri);
-            InputStreamReader reader = new InputStreamReader(is, IOHelper.getCharsetName(exchange));
-            Parser parser = getParserFactory().newDelimitedParser(reader, bodyReader, delimiter, textQualifier, ignoreFirstRecord);
-            if (isAllowShortLines()) {
-                parser.setHandlingShortLines(true);
-                parser.setIgnoreParseWarnings(true);
-            }
-            if (isIgnoreExtraColumns()) {
-                parser.setIgnoreExtraColumns(true);
-                parser.setIgnoreParseWarnings(true);
-            }
-            return parser;
-        }
-    }
 
+        Parser parser;
+        if (ObjectHelper.isEmpty(getResourceUri())) {
+            parser = getParserFactory().newDelimitedParser(bodyReader, delimiter, textQualifier);
+        } else {
+            InputStream is = ResourceHelper.resolveMandatoryResourceAsInputStream(getCamelContext(), resourceUri);
+            InputStreamReader reader = new InputStreamReader(is, ExchangeHelper.getCharsetName(exchange));
+            parser = getParserFactory().newDelimitedParser(reader, bodyReader, delimiter, textQualifier, ignoreFirstRecord);
+        }
+
+        if (isAllowShortLines()) {
+            parser.setHandlingShortLines(true);
+            parser.setIgnoreParseWarnings(true);
+        }
+        if (isIgnoreExtraColumns()) {
+            parser.setIgnoreExtraColumns(true);
+            parser.setIgnoreParseWarnings(true);
+        }
+
+        return parser;
+    }
 
     // Properties
     //-------------------------------------------------------------------------

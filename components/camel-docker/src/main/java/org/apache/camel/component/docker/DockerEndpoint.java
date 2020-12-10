@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,20 +16,24 @@
  */
 package org.apache.camel.component.docker;
 
+import org.apache.camel.Category;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
 import org.apache.camel.component.docker.consumer.DockerEventsConsumer;
+import org.apache.camel.component.docker.consumer.DockerStatsConsumer;
 import org.apache.camel.component.docker.exception.DockerException;
+import org.apache.camel.component.docker.producer.AsyncDockerProducer;
 import org.apache.camel.component.docker.producer.DockerProducer;
-import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.support.DefaultEndpoint;
 
 /**
- * Represents a Docker endpoint.
+ * Manage Docker containers.
  */
-@UriEndpoint(scheme = "docker", title = "Docker", syntax = "docker:operation", consumerClass = DockerEventsConsumer.class, label = "container,cloud,platform")
+@UriEndpoint(firstVersion = "2.15.0", scheme = "docker", title = "Docker", syntax = "docker:operation",
+             category = { Category.CLOUD, Category.CONTAINER, Category.PAAS }, lenientProperties = true)
 public class DockerEndpoint extends DefaultEndpoint {
 
     @UriParam
@@ -43,34 +47,35 @@ public class DockerEndpoint extends DefaultEndpoint {
         this.configuration = configuration;
     }
 
-    public DockerEndpoint(String endpointUri) {
-        super(endpointUri);
-    }
-
+    @Override
     public Producer createProducer() throws Exception {
         DockerOperation operation = configuration.getOperation();
 
         if (operation != null && operation.canProduce()) {
-            return new DockerProducer(this);
+            if (operation.isAsync()) {
+                return new AsyncDockerProducer(this);
+            } else {
+                return new DockerProducer(this);
+            }
         } else {
             throw new DockerException(operation + " is not a valid producer operation");
         }
     }
 
+    @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-
         DockerOperation operation = configuration.getOperation();
 
-        switch (operation) {
-        case EVENTS:
-            return new DockerEventsConsumer(this, processor);
-        default:
+        Consumer consumer;
+        if (operation == DockerOperation.EVENTS) {
+            consumer = new DockerEventsConsumer(this, processor);
+        } else if (operation == DockerOperation.STATS) {
+            consumer = new DockerStatsConsumer(this, processor);
+        } else {
             throw new DockerException(operation + " is not a valid consumer operation");
         }
-    }
-
-    public boolean isSingleton() {
-        return true;
+        configureConsumer(consumer);
+        return consumer;
     }
 
     public DockerConfiguration getConfiguration() {
@@ -81,6 +86,5 @@ public class DockerEndpoint extends DefaultEndpoint {
     public boolean isLenientProperties() {
         return true;
     }
-
 
 }

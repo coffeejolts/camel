@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,47 +16,44 @@
  */
 package org.apache.camel.component.facebook;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import org.apache.camel.CamelContext;
 import org.apache.camel.component.facebook.config.FacebookConfiguration;
-import org.apache.camel.test.junit4.CamelTestSupport;
-import org.apache.camel.util.IntrospectionSupport;
+import org.apache.camel.support.PropertyBindingSupport;
+import org.apache.camel.test.junit5.CamelTestSupport;
 
 public abstract class CamelFacebookTestSupport extends CamelTestSupport {
 
-    protected final Properties properties;
-    protected final FacebookConfiguration configuration;
+    protected Properties properties;
+    protected FacebookConfiguration configuration;
 
-    protected CamelFacebookTestSupport() throws Exception {
+    protected void loadProperties(CamelContext context) throws Exception {
         URL url = getClass().getResource("/test-options.properties");
 
-        InputStream inStream;
-        try {
-            inStream = url.openStream();
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new IllegalAccessError("test-options.properties could not be found");
-        }
+        InputStream inStream = url.openStream();
 
         properties = new Properties();
-        try {
-            properties.load(inStream);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new IllegalAccessError("test-options.properties could not be found");
-        }
+        properties.load(inStream);
 
-        Map<String, Object> options = new HashMap<String, Object>();
+        Map<String, Object> options = new HashMap<>();
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
             options.put(entry.getKey().toString(), entry.getValue());
         }
 
         configuration = new FacebookConfiguration();
-        IntrospectionSupport.setProperties(configuration, options);
+        PropertyBindingSupport.bindProperties(context, configuration, options);
+    }
+
+    @Override
+    protected CamelContext createCamelContext() throws Exception {
+        CamelContext context = super.createCamelContext();
+        loadProperties(context);
+        return context;
     }
 
     protected FacebookConfiguration getConfiguration() {
@@ -65,13 +62,13 @@ public abstract class CamelFacebookTestSupport extends CamelTestSupport {
 
     protected String getOauthParams() {
         return "oAuthAppId=" + properties.get("oAuthAppId") + "&oAuthAppSecret=" + properties.get("oAuthAppSecret")
-            + (properties.get("oAuthAccessToken") != null
-            ? ("&oAuthAccessToken=" + properties.get("oAuthAccessToken")) : "");
+               + (properties.get("oAuthAccessToken") != null
+                       ? ("&oAuthAccessToken=" + properties.get("oAuthAccessToken")) : "");
     }
-    
+
     protected String getAppOauthParams() {
         return "oAuthAppId=" + properties.get("oAuthAppId")
-             + "&oAuthAppSecret=" + properties.get("oAuthAppSecret");
+               + "&oAuthAppSecret=" + properties.get("oAuthAppSecret");
     }
 
     protected String getShortName(String name) {

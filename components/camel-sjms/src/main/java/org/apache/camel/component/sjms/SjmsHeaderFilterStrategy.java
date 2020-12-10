@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,22 +16,23 @@
  */
 package org.apache.camel.component.sjms;
 
-import org.apache.camel.impl.DefaultHeaderFilterStrategy;
+import org.apache.camel.support.DefaultHeaderFilterStrategy;
 
-/**
- * @version
- */
 public class SjmsHeaderFilterStrategy extends DefaultHeaderFilterStrategy {
 
     public SjmsHeaderFilterStrategy() {
-        initialize();
+        this(false);
+    }
+
+    public SjmsHeaderFilterStrategy(boolean includeAllJMSXProperties) {
+        if (!includeAllJMSXProperties) {
+            initialize();
+        }
     }
 
     protected void initialize() {
-        // ignore provider specified JMS extension headers see page 39 of JMS
-        // 1.1 specification
-        // added "JMSXRecvTimestamp" as a workaround for an Oracle bug/typo in
-        // AqjmsMessage
+        // ignore provider specified JMS extension headers see page 39 of JMS 1.1 specification
+        // added "JMSXRecvTimestamp" as a workaround for an Oracle bug/typo in AqjmsMessage
         getOutFilter().add("JMSXUserID");
         getOutFilter().add("JMSXAppID");
         getOutFilter().add("JMSXDeliveryCount");

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,45 +19,48 @@ package org.apache.camel.component.netty.http.handlers;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.Iterator;
+import java.util.Locale;
 
 import javax.security.auth.Subject;
 import javax.security.auth.login.LoginException;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.DecoderResult;
+import io.netty.handler.codec.base64.Base64;
+import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpUtil;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
+import org.apache.camel.Message;
+import org.apache.camel.component.netty.NettyConverter;
 import org.apache.camel.component.netty.NettyHelper;
 import org.apache.camel.component.netty.handlers.ServerChannelHandler;
 import org.apache.camel.component.netty.http.HttpPrincipal;
+import org.apache.camel.component.netty.http.InboundStreamHttpRequest;
+import org.apache.camel.component.netty.http.NettyHttpConfiguration;
 import org.apache.camel.component.netty.http.NettyHttpConsumer;
 import org.apache.camel.component.netty.http.NettyHttpSecurityConfiguration;
 import org.apache.camel.component.netty.http.SecurityAuthenticator;
-import org.apache.camel.util.CamelLogger;
-import org.apache.camel.util.ObjectHelper;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.handler.codec.base64.Base64;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-
+import org.apache.camel.spi.CamelLogger;
+import org.apache.camel.support.ObjectHelper;
+import org.apache.camel.util.StringHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.METHOD_NOT_ALLOWED;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.SERVICE_UNAVAILABLE;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.UNAUTHORIZED;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
+import static io.netty.handler.codec.http.HttpResponseStatus.METHOD_NOT_ALLOWED;
+import static io.netty.handler.codec.http.HttpResponseStatus.SERVICE_UNAVAILABLE;
+import static io.netty.handler.codec.http.HttpResponseStatus.UNAUTHORIZED;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 /**
- * Netty HTTP {@link ServerChannelHandler} that handles the incoming HTTP requests and routes
- * the received message in Camel.
+ * Netty HTTP {@link ServerChannelHandler} that handles the incoming HTTP requests and routes the received message in
+ * Camel.
  */
 public class HttpServerChannelHandler extends ServerChannelHandler {
 
@@ -75,94 +78,95 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageEvent messageEvent) throws Exception {
-        HttpRequest request = (HttpRequest) messageEvent.getMessage();
+    protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
+        HttpRequest request;
+        if (msg instanceof HttpRequest) {
+            request = (HttpRequest) msg;
+        } else {
+            request = ((InboundStreamHttpRequest) msg).getHttpRequest();
+        }
 
         LOG.debug("Message received: {}", request);
+
+        DecoderResult decoderResult = request.decoderResult();
+        if (decoderResult != null && decoderResult.cause() != null) {
+            if (getConsumer().getConfiguration().isLogWarnOnBadRequest()) {
+                LOG.warn("Netty request decoder failure due: {} returning HTTP Status 400 to client",
+                        decoderResult.cause().getMessage());
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Netty request decoder failure (stacktrace)", decoderResult.cause());
+                }
+            }
+            HttpResponse response = new DefaultHttpResponse(HTTP_1_1, BAD_REQUEST);
+            response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
+            response.headers().set(Exchange.CONTENT_LENGTH, 0);
+            ctx.writeAndFlush(response);
+            ctx.channel().close();
+            return;
+        }
 
         if (consumer.isSuspended()) {
             // are we suspended?
             LOG.debug("Consumer suspended, cannot service request {}", request);
             HttpResponse response = new DefaultHttpResponse(HTTP_1_1, SERVICE_UNAVAILABLE);
-            response.setChunked(false);
             response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
             response.headers().set(Exchange.CONTENT_LENGTH, 0);
-            response.setContent(ChannelBuffers.copiedBuffer(new byte[]{}));
-            messageEvent.getChannel().write(response).syncUninterruptibly();
-            messageEvent.getChannel().close();
+            ctx.writeAndFlush(response);
+            ctx.channel().close();
             return;
         }
 
-        // if its an OPTIONS request then return which methods is allowed
-        boolean isRestrictedToOptions = consumer.getEndpoint().getHttpMethodRestrict() != null
-                && consumer.getEndpoint().getHttpMethodRestrict().contains("OPTIONS");
-        if ("OPTIONS".equals(request.getMethod().getName()) && !isRestrictedToOptions) {
-            String s;
-            if (consumer.getEndpoint().getHttpMethodRestrict() != null) {
-                s = "OPTIONS," + consumer.getEndpoint().getHttpMethodRestrict();
-            } else {
-                // allow them all
-                s = "GET,HEAD,POST,PUT,DELETE,TRACE,OPTIONS,CONNECT,PATCH";
-            }
-            HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-            response.setChunked(false);
-            response.headers().set("Allow", s);
-            response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
-            response.headers().set(Exchange.CONTENT_LENGTH, 0);
-            messageEvent.getChannel().write(response);
-            return;
-        }
         if (consumer.getEndpoint().getHttpMethodRestrict() != null
-                && !consumer.getEndpoint().getHttpMethodRestrict().contains(request.getMethod().getName())) {
+                && !consumer.getEndpoint().getHttpMethodRestrict().contains(request.method().name())) {
             HttpResponse response = new DefaultHttpResponse(HTTP_1_1, METHOD_NOT_ALLOWED);
-            response.setChunked(false);
             response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
             response.headers().set(Exchange.CONTENT_LENGTH, 0);
-            response.setContent(ChannelBuffers.copiedBuffer(new byte[]{}));
-            messageEvent.getChannel().write(response).syncUninterruptibly();
-            messageEvent.getChannel().close();
+            ctx.writeAndFlush(response);
+            ctx.channel().close();
             return;
         }
-        if ("TRACE".equals(request.getMethod().getName()) && !consumer.getEndpoint().isTraceEnabled()) {
+        if ("TRACE".equals(request.method().name()) && !consumer.getEndpoint().isTraceEnabled()) {
             HttpResponse response = new DefaultHttpResponse(HTTP_1_1, METHOD_NOT_ALLOWED);
-            response.setChunked(false);
             response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
             response.headers().set(Exchange.CONTENT_LENGTH, 0);
-            response.setContent(ChannelBuffers.copiedBuffer(new byte[]{}));
-            messageEvent.getChannel().write(response).syncUninterruptibly();
-            messageEvent.getChannel().close();
+            ctx.writeAndFlush(response);
+            ctx.channel().close();
             return;
         }
         // must include HOST header as required by HTTP 1.1
-        if (!request.headers().contains(HttpHeaders.Names.HOST)) {
+        if (!request.headers().contains(HttpHeaderNames.HOST.toString())) {
             HttpResponse response = new DefaultHttpResponse(HTTP_1_1, BAD_REQUEST);
-            response.setChunked(false);
+            //response.setChunked(false);
             response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
             response.headers().set(Exchange.CONTENT_LENGTH, 0);
-            response.setContent(ChannelBuffers.copiedBuffer(new byte[]{}));
-            messageEvent.getChannel().write(response).syncUninterruptibly();
-            messageEvent.getChannel().close();
+            ctx.writeAndFlush(response);
+            ctx.channel().close();
             return;
         }
 
         // is basic auth configured
         NettyHttpSecurityConfiguration security = consumer.getEndpoint().getSecurityConfiguration();
         if (security != null && security.isAuthenticate() && "Basic".equalsIgnoreCase(security.getConstraint())) {
-            String url = request.getUri();
+            String url = request.uri();
 
             // drop parameters from url
             if (url.contains("?")) {
-                url = ObjectHelper.before(url, "?");
+                url = StringHelper.before(url, "?");
             }
 
             // we need the relative path without the hostname and port
-            URI uri = new URI(request.getUri());
+            URI uri = new URI(request.uri());
             String target = uri.getPath();
 
             // strip the starting endpoint path so the target is relative to the endpoint uri
             String path = consumer.getConfiguration().getPath();
             if (path != null && target.startsWith(path)) {
-                target = target.substring(path.length());
+                // need to match by lower case as we want to ignore case on context-path
+                path = path.toLowerCase(Locale.US);
+                String match = target.toLowerCase(Locale.US);
+                if (match.startsWith(path)) {
+                    target = target.substring(path.length());
+                }
             }
 
             // is it a restricted resource?
@@ -182,7 +186,8 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
                 Subject subject = null;
                 boolean inRole = true;
                 if (principal != null) {
-                    subject = authenticate(security.getSecurityAuthenticator(), security.getLoginDeniedLoggingLevel(), principal);
+                    subject = authenticate(security.getSecurityAuthenticator(), security.getLoginDeniedLoggingLevel(),
+                            principal);
                     if (subject != null) {
                         String userRoles = security.getSecurityAuthenticator().getUserRoles(subject);
                         inRole = matchesRoles(roles, userRoles);
@@ -202,20 +207,18 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
                     response.headers().set("WWW-Authenticate", "Basic realm=\"" + security.getRealm() + "\"");
                     response.headers().set(Exchange.CONTENT_TYPE, "text/plain");
                     response.headers().set(Exchange.CONTENT_LENGTH, 0);
-                    response.setContent(ChannelBuffers.copiedBuffer(new byte[]{}));
-                    messageEvent.getChannel().write(response).syncUninterruptibly();
-                    messageEvent.getChannel().close();
+                    ctx.writeAndFlush(response);
+                    // close the channel
+                    ctx.channel().close();
                     return;
                 } else {
                     LOG.debug("Http Basic Auth authorized for username: {}", principal.getUsername());
                 }
             }
         }
-         
+
         // let Camel process this message
-        // It did the way as camel-netty component does
-        super.messageReceived(ctx, messageEvent);
-        
+        super.channelRead0(ctx, msg);
     }
 
     protected boolean matchesRoles(String roles, String userRoles) {
@@ -225,9 +228,7 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
         }
 
         // see if any of the user roles is contained in the roles list
-        Iterator<Object> it = ObjectHelper.createIterator(userRoles);
-        while (it.hasNext()) {
-            String userRole = it.next().toString();
+        for (String userRole : ObjectHelper.createIterable(userRoles)) {
             if (roles.contains(userRole)) {
                 return true;
             }
@@ -239,28 +240,32 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
     /**
      * Extracts the username and password details from the HTTP basic header Authorization.
      * <p/>
-     * This requires that the <tt>Authorization</tt> HTTP header is provided, and its using Basic.
-     * Currently Digest is <b>not</b> supported.
+     * This requires that the <tt>Authorization</tt> HTTP header is provided, and its using Basic. Currently Digest is
+     * <b>not</b> supported.
      *
      * @return {@link HttpPrincipal} with username and password details, or <tt>null</tt> if not possible to extract
      */
     protected static HttpPrincipal extractBasicAuthSubject(HttpRequest request) {
         String auth = request.headers().get("Authorization");
         if (auth != null) {
-            String constraint = ObjectHelper.before(auth, " ");
+            String constraint = StringHelper.before(auth, " ");
             if (constraint != null) {
                 if ("Basic".equalsIgnoreCase(constraint.trim())) {
-                    String decoded = ObjectHelper.after(auth, " ");
+                    String decoded = StringHelper.after(auth, " ");
                     // the decoded part is base64 encoded, so we need to decode that
-                    ChannelBuffer buf = ChannelBuffers.copiedBuffer(decoded.getBytes());
-                    ChannelBuffer out = Base64.decode(buf);
-                    String userAndPw = out.toString(Charset.defaultCharset());
-                    String username = ObjectHelper.before(userAndPw, ":");
-                    String password = ObjectHelper.after(userAndPw, ":");
-                    HttpPrincipal principal = new HttpPrincipal(username, password);
-
-                    LOG.debug("Extracted Basic Auth principal from HTTP header: {}", principal);
-                    return principal;
+                    ByteBuf buf = NettyConverter.toByteBuffer(decoded.getBytes());
+                    ByteBuf out = Base64.decode(buf);
+                    try {
+                        String userAndPw = out.toString(Charset.defaultCharset());
+                        String username = StringHelper.before(userAndPw, ":");
+                        String password = StringHelper.after(userAndPw, ":");
+                        HttpPrincipal principal = new HttpPrincipal(username, password);
+                        LOG.debug("Extracted Basic Auth principal from HTTP header: {}", principal);
+                        return principal;
+                    } finally {
+                        buf.release();
+                        out.release();
+                    }
                 }
             }
         }
@@ -270,11 +275,12 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
     /**
      * Authenticates the http basic auth subject.
      *
-     * @param authenticator      the authenticator
-     * @param principal          the principal
-     * @return <tt>true</tt> if username and password is valid, <tt>false</tt> if not
+     * @param  authenticator the authenticator
+     * @param  principal     the principal
+     * @return               <tt>true</tt> if username and password is valid, <tt>false</tt> if not
      */
-    protected Subject authenticate(SecurityAuthenticator authenticator, LoggingLevel deniedLoggingLevel, HttpPrincipal principal) {
+    protected Subject authenticate(
+            SecurityAuthenticator authenticator, LoggingLevel deniedLoggingLevel, HttpPrincipal principal) {
         try {
             return authenticator.login(principal);
         } catch (LoginException e) {
@@ -285,44 +291,52 @@ public class HttpServerChannelHandler extends ServerChannelHandler {
     }
 
     @Override
-    protected void beforeProcess(Exchange exchange, MessageEvent messageEvent) {
-        if (consumer.getConfiguration().isBridgeEndpoint()) {
+    protected void beforeProcess(Exchange exchange, final ChannelHandlerContext ctx, final Object message) {
+        final NettyHttpConfiguration configuration = consumer.getConfiguration();
+
+        if (configuration.isBridgeEndpoint()) {
             exchange.setProperty(Exchange.SKIP_GZIP_ENCODING, Boolean.TRUE);
             exchange.setProperty(Exchange.SKIP_WWW_FORM_URLENCODED, Boolean.TRUE);
         }
-        HttpRequest request = (HttpRequest) messageEvent.getMessage();
+
+        HttpRequest request;
+        if (message instanceof HttpRequest) {
+            request = (HttpRequest) message;
+        } else {
+            request = ((InboundStreamHttpRequest) message).getHttpRequest();
+        }
         // setup the connection property in case of the message header is removed
-        boolean keepAlive = HttpHeaders.isKeepAlive(request);
+        boolean keepAlive = HttpUtil.isKeepAlive(request);
         if (!keepAlive) {
             // Just make sure we close the connection this time.
-            exchange.setProperty(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
+            exchange.setProperty(HttpHeaderNames.CONNECTION.toString(), HttpHeaderValues.CLOSE.toString());
+        }
+
+        final Message in = exchange.getIn();
+        if (configuration.isHttpProxy()) {
+            in.removeHeader("Proxy-Connection");
         }
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent exceptionEvent) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 
         // only close if we are still allowed to run
         if (consumer.isRunAllowed()) {
 
-            if (exceptionEvent.getCause() instanceof ClosedChannelException) {
+            if (cause instanceof ClosedChannelException) {
                 LOG.debug("Channel already closed. Ignoring this exception.");
             } else {
-                LOG.warn("Closing channel as an exception was thrown from Netty", exceptionEvent.getCause());
+                LOG.debug("Closing channel as an exception was thrown from Netty", cause);
                 // close channel in case an exception was thrown
-                NettyHelper.close(exceptionEvent.getChannel());
+                NettyHelper.close(ctx.channel());
             }
         }
     }
 
-
     @Override
     protected Object getResponseBody(Exchange exchange) throws Exception {
-        // use the binding
-        if (exchange.hasOut()) {
-            return consumer.getEndpoint().getNettyHttpBinding().toNettyResponse(exchange.getOut(), consumer.getConfiguration());
-        } else {
-            return consumer.getEndpoint().getNettyHttpBinding().toNettyResponse(exchange.getIn(), consumer.getConfiguration());
-        }
+        return consumer.getEndpoint().getNettyHttpBinding().toNettyResponse(exchange.getMessage(), consumer.getConfiguration());
     }
+
 }

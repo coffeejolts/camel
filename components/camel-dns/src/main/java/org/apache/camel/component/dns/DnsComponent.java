@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,7 +19,8 @@ package org.apache.camel.component.dns;
 import java.util.Map;
 
 import org.apache.camel.Endpoint;
-import org.apache.camel.impl.UriEndpointComponent;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
 /**
  * This is a component for Camel to run DNS queries, using DNSJava.
@@ -30,31 +31,25 @@ import org.apache.camel.impl.UriEndpointComponent;
  * <p>
  * dns:///ip <br/>
  * <p/>
- * This will return the IP address associated with the domain passed in
- * the header dns.domain.
+ * This will return the IP address associated with the domain passed in the header dns.domain.
  * </p>
  * <p>
  * dns:///lookup This endpoint accepts three parameters.
  * <ul>
  * <li>dns.name: the lookup name. Usually the domain. Mandatory.</li>
- * <li>dns.type: the type of the lookup. Should match the values of
- * {@see org.xbill.dns.Type}. Optional.</li>
- * <li>dns.class: the DNS class of the lookup. Should match the values
- * of {@see org.xbill.dns.DClass}. Optional.</li>
+ * <li>dns.type: the type of the lookup. Should match the values of {@see org.xbill.dns.Type}. Optional.</li>
+ * <li>dns.class: the DNS class of the lookup. Should match the values of {@see org.xbill.dns.DClass}. Optional.</li>
  * </ul>
  * </p>
  * <p/>
  * <p>
- * dns:///dig This endpoint takes a few parameters, most of them
- * optional :
+ * dns:///dig This endpoint takes a few parameters, most of them optional :
  * <ul>
- * <li>dns.server: the server in particular for the query. If none is
- * given, the default one specified by the OS will be used.</li>
+ * <li>dns.server: the server in particular for the query. If none is given, the default one specified by the OS will be
+ * used.</li>
  * <li>dns.query: the query itself. Mandatory.</li>
- * <li>dns.type: the type of the lookup. Should match the values of
- * {@see org.xbill.dns.Type}. Optional.</li>
- * <li>dns.class: the DNS class of the lookup. Should match the values
- * of {@see org.xbill.dns.DClass}. Optional.</li>
+ * <li>dns.type: the type of the lookup. Should match the values of {@see org.xbill.dns.Type}. Optional.</li>
+ * <li>dns.class: the DNS class of the lookup. Should match the values of {@see org.xbill.dns.DClass}. Optional.</li>
  * </ul>
  * <p/>
  * </p>
@@ -67,12 +62,13 @@ import org.apache.camel.impl.UriEndpointComponent;
  * <p/>
  * </p>
  */
-public class DnsComponent extends UriEndpointComponent {
+@Component("dns")
+public class DnsComponent extends DefaultComponent {
 
     public DnsComponent() {
-        super(DnsEndpoint.class);
     }
 
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         DnsType type = DnsType.valueOf(remaining);
         DnsEndpoint endpoint = new DnsEndpoint(uri, this);

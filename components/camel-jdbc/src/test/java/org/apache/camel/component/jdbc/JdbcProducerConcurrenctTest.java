@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -27,13 +27,15 @@ import java.util.concurrent.Future;
 import org.apache.camel.EndpointInject;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JdbcProducerConcurrenctTest extends AbstractJdbcTestSupport {
 
-    @EndpointInject(uri = "mock:result")
+    @EndpointInject("mock:result")
     private MockEndpoint mock;
-    
+
     @Test
     public void testNoConcurrentProducers() throws Exception {
         doSendMessages(1, 1);
@@ -51,13 +53,14 @@ public class JdbcProducerConcurrenctTest extends AbstractJdbcTestSupport {
         ExecutorService executor = Executors.newFixedThreadPool(poolSize);
         // we access the responses Map below only inside the main thread,
         // so no need for a thread-safe Map implementation
-        Map<Integer, Future<List<?>>> responses = new HashMap<Integer, Future<List<?>>>();
+        Map<Integer, Future<List<?>>> responses = new HashMap<>();
         for (int i = 0; i < files; i++) {
             final int index = i;
             Future<List<?>> out = executor.submit(new Callable<List<?>>() {
                 public List<?> call() throws Exception {
                     int id = (index % 2) + 1;
-                    return template.requestBody("direct:start", "select * from customer where id = 'cust" + id + "'", List.class);
+                    return template.requestBody("direct:start", "select * from customer where id = 'cust" + id + "'",
+                            List.class);
                 }
             });
             responses.put(index, out);

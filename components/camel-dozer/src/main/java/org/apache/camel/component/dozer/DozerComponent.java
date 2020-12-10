@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,54 +16,34 @@
  */
 package org.apache.camel.component.dozer;
 
-import java.lang.reflect.Field;
 import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.converter.dozer.DozerBeanMapperConfiguration;
-import org.apache.camel.impl.UriEndpointComponent;
-import org.apache.camel.util.ReflectionHelper;
-import org.dozer.config.GlobalSettings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.camel.spi.annotations.Component;
+import org.apache.camel.support.DefaultComponent;
 
-public class DozerComponent extends UriEndpointComponent {
-    
-    private static final Logger LOG = LoggerFactory.getLogger(DozerComponent.class);
+@Component("dozer")
+public class DozerComponent extends DefaultComponent {
 
     public DozerComponent() {
-        super(DozerEndpoint.class);
-        initDozerSettings();
     }
-    
+
     public DozerComponent(CamelContext context) {
-        super(context, DozerEndpoint.class);
-        initDozerSettings();
+        super(context);
     }
-    
+
+    @Override
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         DozerConfiguration config = new DozerConfiguration();
         config.setName(remaining);
         config.setMappingConfiguration(getAndRemoveOrResolveReferenceParameter(
                 parameters, "mappingConfiguration", DozerBeanMapperConfiguration.class));
-        setProperties(config, parameters);
-        
-        // Validate endpoint parameters
-        if (config.getTargetModel() == null) {
-            throw new IllegalArgumentException("The targetModel parameter is required for dozer endpoints");
-        }
-        return new DozerEndpoint(uri, this, config);
-    }
-    
-    private void initDozerSettings() {
-        try {
-            GlobalSettings settings = GlobalSettings.getInstance();
-            LOG.info("Configuring GlobalSettings to enable EL");
-            Field field = settings.getClass().getDeclaredField("elEnabled");
-            ReflectionHelper.setField(field, settings, true);
-        } catch (NoSuchFieldException nsfEx) {
-            throw new IllegalStateException("Failed to enable EL in global Dozer settings", nsfEx);
-        }
+
+        DozerEndpoint answer = new DozerEndpoint(uri, this, config);
+        answer.setConfiguration(config);
+        setProperties(answer, parameters);
+        return answer;
     }
 }

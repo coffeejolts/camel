@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,25 +16,49 @@
  */
 package org.apache.camel.component.hdfs;
 
-import org.apache.camel.test.junit4.CamelTestSupport;
+import java.io.File;
+
+import org.apache.camel.test.junit5.CamelTestSupport;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.util.Shell;
+
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public abstract class HdfsTestSupport extends CamelTestSupport {
 
-    public boolean canTest() {
-        // Hadoop doesn't run on IBM JDK
-        if (System.getProperty("java.vendor").contains("IBM")) {
-            return false;
-        }
+    public static final File CWD = new File(".");
 
-        // must be able to get security configuration
+    private static Boolean skipTests;
+
+    public void checkTest() {
+        isJavaFromIbm();
+        missingLocalHadoopConfiguration();
+        missingAuthenticationConfiguration();
+    }
+
+    protected static void isJavaFromIbm() {
+        // Hadoop doesn't run on IBM JDK
+        assumeFalse(System.getProperty("java.vendor").contains("IBM"), "IBM JDK not supported");
+    }
+
+    private static void missingLocalHadoopConfiguration() {
+        boolean hasLocalHadoop;
+        try {
+            String hadoopHome = Shell.getHadoopHome();
+            hasLocalHadoop = StringUtils.isNotEmpty(hadoopHome);
+        } catch (Throwable e) {
+            hasLocalHadoop = false;
+        }
+        assumeTrue(hasLocalHadoop, "Missing local hadoop configuration");
+    }
+
+    private void missingAuthenticationConfiguration() {
         try {
             javax.security.auth.login.Configuration.getConfiguration();
         } catch (Exception e) {
-            log.debug("Cannot run test due security exception", e);
-            return false;
+            assumeTrue(false, "Missing authentication configuration: " + e);
         }
-
-        return true;
     }
 
 }

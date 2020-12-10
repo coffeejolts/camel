@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -20,13 +20,19 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.apache.camel.spring.SpringTestSupport;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-/**
- * @version 
- */
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class SpringJmxDumpCBRRoutesAsXmlTest extends SpringTestSupport {
+
+    @Override
+    protected boolean useJmx() {
+        return true;
+    }
 
     @Override
     protected AbstractXmlApplicationContext createApplicationContext() {
@@ -37,6 +43,7 @@ public class SpringJmxDumpCBRRoutesAsXmlTest extends SpringTestSupport {
         return context.getManagementStrategy().getManagementAgent().getMBeanServer();
     }
 
+    @Test
     public void testJmxDumpCBRRoutesAsXml() throws Exception {
         MBeanServer mbeanServer = getMBeanServer();
 
@@ -45,11 +52,13 @@ public class SpringJmxDumpCBRRoutesAsXmlTest extends SpringTestSupport {
         assertNotNull(xml);
         log.info(xml);
 
-        assertTrue(xml.contains("myRoute"));
+        assertTrue(xml.contains("myRoute"), xml);
         assertTrue(xml.contains("<when id=\"when1\">"));
         assertTrue(xml.contains("<otherwise id=\"otherwise1\">"));
-        assertTrue(xml.contains("<route customId=\"true\" id=\"myRoute\">") || xml.contains("<route id=\"myRoute\" customId=\"true\">"));
-        assertTrue(xml.contains("<choice customId=\"true\" id=\"myChoice\">") || xml.contains("<choice id=\"myChoice\" customId=\"true\">"));
+        assertTrue(xml.contains("<route customId=\"true\" id=\"myRoute\">")
+                || xml.contains("<route id=\"myRoute\" customId=\"true\">"));
+        assertTrue(xml.contains("<choice customId=\"true\" id=\"myChoice\">")
+                || xml.contains("<choice id=\"myChoice\" customId=\"true\">"));
     }
 
 }

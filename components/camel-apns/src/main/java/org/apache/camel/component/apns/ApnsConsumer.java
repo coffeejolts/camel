@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -26,7 +26,7 @@ import java.util.Map.Entry;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.component.apns.model.InactiveDevice;
-import org.apache.camel.impl.ScheduledPollConsumer;
+import org.apache.camel.support.ScheduledPollConsumer;
 
 public class ApnsConsumer extends ScheduledPollConsumer {
 
@@ -42,6 +42,7 @@ public class ApnsConsumer extends ScheduledPollConsumer {
         setUseFixedDelay(DEFAULT_APNS_FIXED_DELAY);
     }
 
+    @Override
     protected int poll() throws Exception {
         List<InactiveDevice> inactiveDeviceList = getInactiveDevices();
 
@@ -63,7 +64,7 @@ public class ApnsConsumer extends ScheduledPollConsumer {
 
         Map<String, Date> inactiveDeviceMap = ae.getApnsService().getInactiveDevices();
 
-        List<InactiveDevice> inactiveDeviceList = new ArrayList<InactiveDevice>();
+        List<InactiveDevice> inactiveDeviceList = new ArrayList<>();
         for (Entry<String, Date> inactiveDeviceEntry : inactiveDeviceMap.entrySet()) {
             String deviceToken = inactiveDeviceEntry.getKey();
             Date date = inactiveDeviceEntry.getValue();
@@ -85,7 +86,9 @@ public class ApnsConsumer extends ScheduledPollConsumer {
         // only add as consumer if not already registered
         if (!getEndpoint().getConsumers().contains(this)) {
             if (!getEndpoint().getConsumers().isEmpty()) {
-                throw new IllegalStateException("Endpoint " + getEndpoint().getEndpointUri() + " only allows 1 active consumer but you attempted to start a 2nd consumer.");
+                throw new IllegalStateException(
+                        "Endpoint " + getEndpoint().getEndpointUri()
+                                                + " only allows 1 active consumer but you attempted to start a 2nd consumer.");
             }
             getEndpoint().getConsumers().add(this);
         }

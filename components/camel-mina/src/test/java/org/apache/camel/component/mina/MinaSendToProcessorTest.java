@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,25 +16,28 @@
  */
 package org.apache.camel.component.mina;
 
-import org.apache.camel.FailedToCreateProducerException;
 import org.apache.camel.builder.RouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class MinaSendToProcessorTest extends BaseMinaTest {
 
     @Test
     public void testConnectionOnStartupTest() throws Exception {
         context.addRoutes(new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
-                from("direct:start").to("mina:tcp://localhost:{{port}}?sync=false&lazySessionCreation=false");
+                from("direct:start")
+                        .to(String.format("mina:tcp://localhost:%1$s?sync=false&lazySessionCreation=false", getPort()));
             }
         });
 
         try {
             context.start();
             fail("Should have thrown an exception");
-        } catch (FailedToCreateProducerException e) {
+        } catch (Exception e) {
             // expected
         }
     }
@@ -42,18 +45,19 @@ public class MinaSendToProcessorTest extends BaseMinaTest {
     @Test
     public void testConnectionOnSendMessage() throws Exception {
         context.addRoutes(new RouteBuilder() {
+
             @Override
             public void configure() throws Exception {
-                from("direct:start").to("mina:tcp://localhost:{{port}}?sync=false");
+                from("direct:start").to(String.format("mina:tcp://localhost:%1$s?sync=false", getPort()));
             }
         });
 
         try {
-            context.start();            
+            context.start();
         } catch (Exception e) {
             fail("Should not have thrown an exception");
         }
-                
+
     }
 
     @Override
